@@ -1,0 +1,105 @@
+<view class="container">
+  <!-- 大标题区域 -->
+  <view class="header-section">
+    <view class="header-content">
+      <text class="large-title">存档记录</text>
+      
+    </view>
+  </view>
+
+  
+
+  <!-- 空状态 -->
+  <view wx:if="{{records.length === 0}}" class="empty-section">
+    <view class="empty-icon-wrap">
+      <text class="empty-icon">📋</text>
+    </view>
+    <text class="empty-title">暂无存档记录</text>
+    <text class="empty-desc">拍摄检定证书开始存档</text>
+    <button class="primary-btn" bindtap="goToCamera">
+      <text class="btn-icon">📷</text>
+      <text class="btn-text">开始拍摄</text>
+    </button>
+  </view>
+
+  <!-- 记录列表 -->
+  <view wx:elif="{{records.length > 0}}" class="records-section">
+    <block wx:for="{{records}}" wx:key="_id">
+      <view class="swipe-container">
+        <!-- 滑动内容区 -->
+        <view 
+          class="swipe-content {{swipeIndex === index ? 'swiped' : ''}}" 
+          bindtouchstart="onTouchStart" 
+          bindtouchmove="onTouchMove" 
+          bindtouchend="onTouchEnd"
+          data-index="{{index}}"
+        >
+          <view class="card" bindtap="viewDetail" data-id="{{item._id}}">
+            <view class="card-content">
+              <view class="record-header">
+                <view class="record-left">
+                  <text class="record-no">{{item.factoryNo || item.certNo || '未编号'}}</text>
+                </view>
+                <view class="record-right">
+                  <text class="status-tag {{item.conclusion === '合格' ? 'pass' : item.conclusion === '不合格' ? 'fail' : 'conditional'}}">{{item.conclusion}}</text>
+                  <text class="arrow">›</text>
+                </view>
+              </view>
+              <view class="record-info">
+                <view class="info-item">
+                  <text class="info-label">检定日期</text>
+                  <text class="info-value">{{item.verificationDate || '-'}}</text>
+                </view>
+                <view class="info-item">
+                  <text class="info-label">到期日期</text>
+                  <text class="info-value">{{item.expiryDate || '-'}}</text>
+                </view>
+                <view class="info-item" wx:if="{{item.district}}">
+                  <text class="info-label">辖区</text>
+                  <text class="info-value">{{item.district}}</text>
+                </view>
+                <view class="info-item" wx:if="{{item.sendUnit}}">
+                  <text class="info-label">送检单位</text>
+                  <text class="info-value">{{item.sendUnit}}</text>
+                </view>
+              </view>
+              <view class="record-footer">
+                <text class="footer-text">{{item.ocrSource === 'baidu' ? 'OCR识别' : '手动录入'}}</text>
+                <text class="footer-time">{{item.createTime}}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+        <!-- 删除按钮 -->
+        <view class="swipe-delete" bindtap="confirmDelete" data-id="{{item._id}}" data-index="{{index}}">
+          <text class="delete-icon">🗑️</text>
+          <text class="delete-text">删除</text>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <!-- 底部搜索和统计 -->
+  <view class="bottom-search-section" wx:if="{{records.length > 0}}">
+    <view class="search-bar">
+      <text class="search-icon">🔍</text>
+      <input class="search-input" placeholder="搜索编号" bindinput="onSearch" />
+    </view>
+    <text class="record-count">共 {{records.length}} 条</text>
+  </view>
+
+  <!-- 底部操作 -->
+  <view class="bottom-bar" wx:if="{{records.length > 0}}">
+    <button class="secondary-btn" bindtap="loadRecords">
+      <text class="btn-icon">🔄</text>
+      <text class="btn-text">刷新</text>
+    </button>
+    <button class="primary-btn" bindtap="exportData">
+      <text class="btn-icon">📤</text>
+      <text class="btn-text">导出</text>
+    </button>
+  </view>
+</view>
+
+<!-- AI悬浮按钮 -->
+<ai-float-btn />

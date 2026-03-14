@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "管理端登录",
+  "navigationBarBackgroundColor": "#722ed1",
+  "navigationBarTextStyle": "white",
+  "usingComponents": {
+    "privacy": "/components/privacy/privacy"
+  }
+}

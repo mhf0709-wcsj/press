@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "数据概览",
+  "navigationBarBackgroundColor": "#667eea",
+  "navigationBarTextStyle": "white",
+  "backgroundColor": "#f5f5f5",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "ai-float-btn": "/components/ai-float-btn/index"
+  }
+}

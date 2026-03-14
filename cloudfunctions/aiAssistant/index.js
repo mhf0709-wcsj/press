@@ -1,0 +1,502 @@
+const cloud = require('wx-server-sdk')
+const { getKnowledgeBase, getRelevantKnowledge } = require('./knowledge')
+
+cloud.init({
+  env: cloud.DYNAMIC_CURRENT_ENV
+})
+
+const db = cloud.database()
+const _ = db.command
+
+/**
+ * AI智能管家云函数
+ * 功能：
+ * 1. 专业知识问答
+ * 2. 企业数据智能查询
+ * 
+ * 权限分离：
+ * - 企业端：只能查询本企业数据
+ * - 辖区管理员：只能查询本辖区数据
+ * - 总管理员：可查询所有数据
+ */
+exports.main = async (event, context) => {
+  const { question, userType, userInfo } = event
+  const wxContext = cloud.getWXContext()
+  const openid = wxContext.OPENID
+
+  try {
+    // 解析用户权限
+    const permission = parsePermission(userType, userInfo, openid)
+    
+    // 1. 检测问题意图
+    const intent = detectIntent(question)
+    
+    // 2. 根据意图处理
+    let answer = ''
+    
+    if (intent.type === 'data_query') {
+      // 数据查询类问题
+      answer = await handleDataQuery(intent, permission)
+    } else if (intent.type === 'knowledge') {
+      // 专业知识类问题
+      answer = handleKnowledgeQuery(question, intent)
+    } else {
+      // 通用问答
+      answer = handleGeneralQuery(question, permission)
+    }
+
+    return {
+      success: true,
+      answer
+    }
+  } catch (error) {
+    console.error('AI处理错误:', error)
+    return {
+      success: false,
+      answer: '抱歉，处理您的问题时出现了错误，请稍后再试。'
+    }
+  }
+}
+
+/**
+ * 解析用户权限
+ */
+function parsePermission(userType, userInfo, openid) {
+  const permission = {
+    type: 'guest',
+    scope: '未登录',
+    query: {},
+    canQueryAll: false
+  }
+
+  if (userType === 'enterprise' && userInfo) {
+    // 企业端用户 - 只能查看本企业数据
+    permission.type = 'enterprise'
+    permission.scope = userInfo.companyName || '本企业'
+    permission.query = { 
+      _openid: openid  // 企业用户按openid限制
+    }
+    // 如果有企业名称，也可以按企业名查询
+    if (userInfo.companyName) {
+      permission.query = {
+        _: _.or([
+          { _openid: openid },
+          { enterpriseName: userInfo.companyName },
+          { companyName: userInfo.companyName }
+        ])
+      }
+    }
+  } else if (userType === 'admin' && userInfo) {
+    if (userInfo.role === 'super' || userInfo.role === 'admin' || !userInfo.district) {
+      // 总管理员 - 可查看所有数据
+      permission.type = 'super_admin'
+      permission.scope = '全部辖区'
+      permission.query = {}  // 无限制
+      permission.canQueryAll = true
+    } else if (userInfo.district) {
+      // 辖区管理员 - 只能查看本辖区数据
+      permission.type = 'district_admin'
+      permission.scope = userInfo.district
+      permission.query = { district: userInfo.district }
+    }
+  }
+
+  return permission
+}
+
+/**
+ * 检测问题意图
+ */
+function detectIntent(question) {
+  const q = question.toLowerCase()
+  
+  // 数据查询意图关键词
+  const dataQueryKeywords = {
+    expiring: ['到期', '即将到期', '快到期', '过期', '有效期'],
+    count: ['多少', '几个', '几台', '数量', '统计'],
+    unverified: ['没有检定', '未检定', '没检定', '待检定'],
+    monthly: ['本月', '这个月', '当月'],
+    yearly: ['今年', '本年', '年度'],
+    qualified: ['合格', '不合格', '通过', '未通过'],
+    list: ['列表', '清单', '明细', '哪些']
+  }
+
+  // 知识问答意图关键词
+  const knowledgeKeywords = ['周期', '规程', '标准', '要求', '规定', '怎么', '如何', '什么是', '为什么']
+
+  // 判断意图
+  let intent = { type: 'general', subType: null }
+
+  // 检查是否为数据查询
+  for (const [subType, keywords] of Object.entries(dataQueryKeywords)) {
+    if (keywords.some(k => q.includes(k))) {
+      intent = { type: 'data_query', subType }
+      break
+    }
+  }
+
+  // 如果不是数据查询，检查是否为知识问答
+  if (intent.type === 'general') {
+    if (knowledgeKeywords.some(k => q.includes(k))) {
+      intent = { type: 'knowledge', subType: null }
+    }
+  }
+
+  return intent
+}
+
+/**
+ * 处理数据查询
+ */
+async function handleDataQuery(intent, permission) {
+  const collection = db.collection('pressure_records')
+  
+  // 根据权限构建查询条件
+  const query = permission.query
+  const scopeDesc = getScopeDescription(permission)
+
+  const today = new Date()
+  const thirtyDaysLater = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)
+
+  try {
+    switch (intent.subType) {
+      case 'expiring': {
+        // 查询即将到期的设备
+        const result = await collection.where({
+          ...query,
+          nextVerificationDate: _.lte(thirtyDaysLater)
+        }).count()
+        
+        return `📊 ${scopeDesc}
+
+目前有 **${result.total} 台**压力表将在30天内到期，需要安排检定。
+
+建议尽快联系检定机构进行检定，避免超期使用。`
+      }
+      
+      case 'count':
+      case 'unverified': {
+        // 查询总数
+        const result = await collection.where(query).count()
+        return `📊 ${scopeDesc}
+
+共有 **${result.total} 条**压力表检定记录。
+
+如需了解更详细的信息，可以在"我的存档"中查看完整列表。`
+      }
+      
+      case 'monthly': {
+        // 本月检定统计
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+        const result = await collection.where({
+          ...query,
+          verificationDate: _.gte(startOfMonth)
+        }).count()
+        
+        return `📊 ${scopeDesc}
+
+本月（${today.getMonth() + 1}月）已完成 **${result.total} 台**压力表的检定记录。`
+      }
+      
+      case 'yearly': {
+        // 本年检定统计
+        const startOfYear = new Date(today.getFullYear(), 0, 1)
+        const result = await collection.where({
+          ...query,
+          verificationDate: _.gte(startOfYear)
+        }).count()
+        
+        return `📊 ${scopeDesc}
+
+今年已完成 **${result.total} 台**压力表的检定记录。`
+      }
+      
+      case 'qualified': {
+        // 合格率统计
+        const total = await collection.where(query).count()
+        const qualified = await collection.where({
+          ...query,
+          conclusion: '合格'
+        }).count()
+        const unqualified = total.total - qualified.total
+        
+        if (total.total === 0) {
+          return `📊 ${scopeDesc}
+
+暂无检定记录数据。`
+        }
+        
+        const rate = ((qualified.total / total.total) * 100).toFixed(1)
+        return `📊 ${scopeDesc}
+
+检定合格率：**${rate}%**
+
+• 总计：${total.total} 台
+• 合格：${qualified.total} 台 ✅
+• 不合格：${unqualified} 台 ❌`
+      }
+      
+      case 'list': {
+        // 查询列表概览
+        const total = await collection.where(query).count()
+        const expiring = await collection.where({
+          ...query,
+          nextVerificationDate: _.lte(thirtyDaysLater)
+        }).count()
+        
+        return `📊 ${scopeDesc}
+
+数据概览：
+• 总记录数：${total.total} 条
+• 即将到期：${expiring.total} 台
+
+详细列表请在"我的存档"或"管理端"中查看。`
+      }
+      
+      default: {
+        const result = await collection.where(query).count()
+        return `📊 ${scopeDesc}
+
+共有 **${result.total} 条**检定记录。
+
+您可以问我更具体的问题，比如：
+• "有多少设备即将到期？"
+• "本月检定了多少台？"
+• "检定合格率是多少？"`
+      }
+    }
+  } catch (error) {
+    console.error('数据查询错误:', error)
+    return '查询数据时出现问题，请稍后再试。'
+  }
+}
+
+/**
+ * 获取权限范围描述
+ */
+function getScopeDescription(permission) {
+  switch (permission.type) {
+    case 'enterprise':
+      return `【${permission.scope}】数据查询结果`
+    case 'district_admin':
+      return `【${permission.scope}辖区】数据查询结果`
+    case 'super_admin':
+      return `【全平台】数据查询结果`
+    default:
+      return `数据查询结果`
+  }
+}
+
+/**
+ * 处理知识问答
+ */
+function handleKnowledgeQuery(question, intent) {
+  const q = question.toLowerCase()
+  
+  // 检定周期
+  if (q.includes('周期') || q.includes('多久') || q.includes('频率')) {
+    return `根据JJG52-2013《弹性元件式一般压力表检定规程》规定：
+
+📅 **检定周期：6个月（半年）**
+
+以下情况需要检定：
+1. 新购置的压力表首次使用前
+2. 修理后的压力表
+3. 长期停用后重新使用前
+4. 定期周期检定（每6个月）
+
+💡 提示：用于安全防护、贸易结算的压力表属于强制检定，必须按期送检。`
+  }
+  
+  // 不合格标准
+  if (q.includes('不合格') || q.includes('判定')) {
+    return `压力表检定不合格的判定标准：
+
+❌ **不合格情形：**
+1. 示值误差超过允许误差
+2. 回程误差超过允许误差
+3. 轻敲位移超过允许误差的1/2
+4. 指针不能回零或零点误差超标
+5. 外观缺陷影响正常读数
+
+📊 **准确度等级与允许误差：**
+• 1.0级：±1.0%
+• 1.6级：±1.6%
+• 2.5级：±2.5%
+• 4.0级：±4.0%`
+  }
+  
+  // 更换标准
+  if (q.includes('更换') || q.includes('报废')) {
+    return `压力表需要更换的情形：
+
+🔄 **必须更换：**
+1. 指针弯曲、折断或松动
+2. 表盘玻璃破碎
+3. 表盘刻度模糊不清
+4. 接头螺纹损坏
+5. 连续两次检定不合格
+6. 超过使用年限（一般5-8年）
+
+⚠️ 使用损坏的压力表可能导致安全事故，请及时更换！`
+  }
+  
+  // 准确度等级
+  if (q.includes('准确度') || q.includes('等级') || q.includes('精度')) {
+    return `压力表准确度等级说明：
+
+📏 **常见等级与允许误差：**
+| 等级 | 允许误差 | 适用场合 |
+|------|---------|---------|
+| 1.0  | ±1.0%   | 精密测量 |
+| 1.6  | ±1.6%   | 一般工业 |
+| 2.5  | ±2.5%   | 普通场合 |
+| 4.0  | ±4.0%   | 参考指示 |
+
+💡 压力容器用压力表准确度等级应不低于2.5级。`
+  }
+  
+  // 选型
+  if (q.includes('选型') || q.includes('量程') || q.includes('怎么选')) {
+    return `压力表选型指南：
+
+📐 **量程选择：**
+测量上限 = 被测压力 × (1.5~3倍)
+推荐选择2倍，使指针在刻度盘2/3位置工作
+
+🎯 **选型要点：**
+1. 确定被测介质（气体/液体/腐蚀性）
+2. 确定工作压力范围
+3. 选择合适的准确度等级
+4. 考虑环境温度和振动情况
+5. 压力容器用表盘直径≥100mm`
+  }
+  
+  // 安装
+  if (q.includes('安装') || q.includes('怎么装')) {
+    return `压力表安装要求：
+
+📍 **安装位置：**
+• 垂直安装，倾斜角度不超过30°
+• 液体测压：取压点在管道下部
+• 气体测压：取压点在管道上部
+
+🔧 **安装注意事项：**
+1. 使用密封垫片防止泄漏
+2. 安装前检查接口螺纹匹配
+3. 避免安装在振动大的位置
+4. 远离热源
+5. 便于观察读数和维护`
+  }
+  
+  // 通用知识回答
+  return getGeneralKnowledgeAnswer(question)
+}
+
+/**
+ * 获取通用知识回答
+ */
+function getGeneralKnowledgeAnswer(question, permission) {
+  const relevantKnowledge = getRelevantKnowledge(question)
+  
+  if (relevantKnowledge) {
+    return `根据压力表检定相关规程：\n\n${relevantKnowledge}\n\n如需了解更详细的信息，请告诉我您具体想了解哪方面的内容。`
+  }
+  
+  // 根据权限类型显示不同的数据查询提示
+  let dataQueryExamples = ''
+  switch (permission?.type) {
+    case 'enterprise':
+      dataQueryExamples = `📊 **数据查询（本企业）：**
+• 我们还有多少设备即将到期？
+• 本月检定了多少台？
+• 检定合格率是多少？`
+      break
+    case 'district_admin':
+      dataQueryExamples = `📊 **数据查询（本辖区）：**
+• 辖区内有多少设备即将到期？
+• 本月检定了多少台？
+• 辖区检定合格率是多少？`
+      break
+    case 'super_admin':
+      dataQueryExamples = `📊 **数据查询（全平台）：**
+• 平台有多少设备即将到期？
+• 本月全平台检定了多少台？
+• 平台检定合格率是多少？`
+      break
+    default:
+      dataQueryExamples = `📊 **数据查询：**
+• 有多少设备即将到期？
+• 本月检定了多少台？
+• 检定合格率是多少？`
+  }
+  
+  return `您好！我是AI智能管家，可以为您解答以下问题：
+
+📚 **专业知识：**
+• 压力表检定周期是多久？
+• 检定不合格的标准是什么？
+• 压力表如何选型？
+• 什么情况需要更换压力表？
+
+${dataQueryExamples}
+
+请告诉我您想了解什么？`
+}
+
+/**
+ * 处理通用问答
+ */
+function handleGeneralQuery(question, permission) {
+  const q = question.toLowerCase()
+  
+  // 问候语
+  if (q.includes('你好') || q.includes('您好') || q.includes('hi') || q.includes('hello')) {
+    return getWelcomeMessage(permission)
+  }
+  
+  // 感谢
+  if (q.includes('谢谢') || q.includes('感谢') || q.includes('thanks')) {
+    return '不客气！如有其他问题随时可以问我。祝您工作顺利！'
+  }
+  
+  // 默认回答
+  return getGeneralKnowledgeAnswer(question, permission)
+}
+
+/**
+ * 获取欢迎消息
+ */
+function getWelcomeMessage(permission) {
+  let scopeInfo = ''
+  let dataQueryHint = ''
+  
+  switch (permission.type) {
+    case 'enterprise':
+      scopeInfo = `当前身份：**${permission.scope}** 企业用户`
+      dataQueryHint = '• 查询本企业的检定数据'
+      break
+    case 'district_admin':
+      scopeInfo = `当前身份：**${permission.scope}** 辖区管理员`
+      dataQueryHint = '• 查询本辖区的检定数据'
+      break
+    case 'super_admin':
+      scopeInfo = '当前身份：**总管理员**'
+      dataQueryHint = '• 查询全平台的检定数据'
+      break
+    default:
+      scopeInfo = '当前身份：访客'
+      dataQueryHint = '• 登录后可查询检定数据'
+  }
+
+  return `您好！我是压力表检定AI智能管家 🤖
+
+${scopeInfo}
+
+我可以帮您：
+1. 📚 解答压力表检定专业问题
+2. 📊 ${dataQueryHint.replace('• ', '')}
+3. ⏰ 提醒设备检定到期
+
+请问有什么可以帮您的？`
+}

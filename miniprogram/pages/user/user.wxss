@@ -1,0 +1,182 @@
+/* iOS 26 Style - User Page */
+page {
+  background: #f2f2f7;
+}
+
+.container {
+  min-height: 100vh;
+  padding-bottom: 40rpx;
+}
+
+/* 大标题区域 */
+.header-section {
+  background: #f2f2f7;
+  padding: 0 32rpx 24rpx;
+}
+
+.header-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.large-title {
+  font-size: 60rpx;
+  font-weight: 700;
+  color: #000;
+  letter-spacing: -1rpx;
+}
+
+/* 卡片 */
+.card {
+  background: #fff;
+  border-radius: 24rpx;
+  margin: 0 32rpx 16rpx;
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 24rpx 28rpx 0;
+}
+
+.card-title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #8e8e93;
+  text-transform: uppercase;
+  letter-spacing: 1rpx;
+}
+
+.card-content {
+  padding: 20rpx 28rpx 24rpx;
+}
+
+/* 用户信息 */
+.user-row {
+  display: flex;
+  align-items: center;
+}
+
+.avatar-box {
+  width: 80rpx;
+  height: 80rpx;
+  background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 20rpx;
+}
+
+.avatar-icon {
+  font-size: 40rpx;
+}
+
+.user-info {
+  flex: 1;
+}
+
+.user-name {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #000;
+  display: block;
+  margin-bottom: 4rpx;
+}
+
+.user-desc {
+  font-size: 26rpx;
+  color: #8e8e93;
+}
+
+/* 统计信息 */
+.stats-grid {
+  display: flex;
+}
+
+.stat-item {
+  flex: 1;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #007AFF;
+  display: block;
+  margin-bottom: 4rpx;
+}
+
+.stat-label {
+  font-size: 24rpx;
+  color: #8e8e93;
+}
+
+/* 信息列表 */
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #e5e5ea;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-size: 30rpx;
+  color: #000;
+}
+
+.info-value {
+  font-size: 30rpx;
+  color: #8e8e93;
+  max-width: 400rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.info-value.code {
+  font-size: 26rpx;
+  font-family: monospace;
+}
+
+/* 菜单 */
+.menu-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #e5e5ea;
+}
+
+.menu-item.last {
+  border-bottom: none;
+}
+
+.menu-label {
+  font-size: 30rpx;
+  color: #000;
+}
+
+.menu-label.danger {
+  color: #FF3B30;
+}
+
+.menu-arrow {
+  font-size: 32rpx;
+  color: #c7c7cc;
+}
+
+/* 关于 */
+.about-section {
+  text-align: center;
+  padding: 40rpx;
+}
+
+.about-text {
+  font-size: 26rpx;
+  color: #8e8e93;
+}

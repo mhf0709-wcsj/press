@@ -1,0 +1,304 @@
+<view class="dashboard-container">
+  <!-- 顶部标题 -->
+  <view class="header-section">
+    <text class="header-title">压力表检定智能体</text>
+    <text class="header-subtitle">{{adminName}}</text>
+  </view>
+
+  <!-- 核心数据卡片 -->
+  <view class="core-stats">
+    <view class="stat-card total" bindtap="goToDetail" data-type="all">
+      <text class="stat-icon">📋</text>
+      <text class="stat-num">{{overviewData.totalRecords}}</text>
+      <text class="stat-label">总记录数</text>
+    </view>
+    <view class="stat-card enterprise" bindtap="goToDetail" data-type="enterprise">
+      <text class="stat-icon">🏢</text>
+      <text class="stat-num">{{overviewData.totalEnterprises}}</text>
+      <text class="stat-label">企业总数</text>
+    </view>
+    <view class="stat-card district" bindtap="goToDetail" data-type="district">
+      <text class="stat-icon">📍</text>
+      <text class="stat-num">{{overviewData.totalDistricts}}</text>
+      <text class="stat-label">辖区数量</text>
+    </view>
+  </view>
+
+  <!-- 检定结论统计 -->
+  <view class="conclusion-section">
+    <view class="section-header">
+      <text class="section-title">📊 检定结论统计</text>
+    </view>
+    <view class="conclusion-cards">
+      <view class="conclusion-card qualified" bindtap="goToDetail" data-type="qualified">
+        <text class="conclusion-num">{{conclusionStats.qualified}}</text>
+        <text class="conclusion-label">合格</text>
+      </view>
+      <view class="conclusion-card unqualified" bindtap="goToDetail" data-type="unqualified">
+        <text class="conclusion-num">{{conclusionStats.unqualified}}</text>
+        <text class="conclusion-label">不合格</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 到期提醒区域 -->
+  <view class="expiry-section">
+    <view class="section-header">
+      <text class="section-title">⚠️ 到期提醒</text>
+      <text class="section-action" bindtap="goToDetail" data-type="expiry">查看详情 ›</text>
+    </view>
+    <view class="expiry-cards">
+      <view class="expiry-card expired" bindtap="goToDetail" data-type="expired">
+        <text class="expiry-num">{{expirySummary.expiredCount || 0}}</text>
+        <text class="expiry-label">已过期</text>
+      </view>
+      <view class="expiry-card expiring" bindtap="goToDetail" data-type="expiring">
+        <text class="expiry-num">{{expirySummary.expiringCount || 0}}</text>
+        <text class="expiry-label">即将到期</text>
+      </view>
+      <view class="expiry-card warning">
+        <text class="expiry-num">{{expirySummary.enterpriseCount || 0}}</text>
+        <text class="expiry-label">涉及企业</text>
+      </view>
+    </view>
+    <!-- 临期企业列表 -->
+    <view class="expiry-list" wx:if="{{expiryEnterprises.length > 0}}">
+      <view class="expiry-item" wx:for="{{expiryEnterprises}}" wx:key="enterpriseName" bindtap="goToDetail" data-type="enterpriseDetail" data-name="{{item.enterpriseName}}">
+        <view class="item-info">
+          <text class="item-name">{{item.enterpriseName}}</text>
+          <text class="item-phone" wx:if="{{item.phone}}">📞 {{item.phone}}</text>
+        </view>
+        <view class="item-tags">
+          <text class="tag expired" wx:if="{{item.expiredCount > 0}}">{{item.expiredCount}}过期</text>
+          <text class="tag expiring" wx:if="{{item.expiringCount > 0}}">{{item.expiringCount}}临期</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 辖区分布 -->
+  <view class="district-section">
+    <view class="section-header">
+      <text class="section-title">📍 辖区分布</text>
+    </view>
+    <view class="district-list">
+      <view class="district-item" wx:for="{{overviewData.districtStats}}" wx:key="district" bindtap="goToDetail" data-type="districtDetail" data-district="{{item.district}}">
+        <view class="district-info">
+          <text class="district-name">{{item.district}}</text>
+          <text class="district-count">{{item.count}}条</text>
+        </view>
+        <view class="district-bar-wrap">
+          <view class="district-bar" style="width: {{item.percent}}%"></view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部快捷入口 -->
+  <view class="quick-actions">
+    <view class="action-btn" bindtap="goToAdmin">
+      <text class="btn-icon">📋</text>
+      <text class="btn-text">管理端</text>
+    </view>
+    <view class="action-btn" bindtap="goToOCR">
+      <text class="btn-icon">📷</text>
+      <text class="btn-text">OCR识别</text>
+    </view>
+    <view class="action-btn" bindtap="goToAccountSettings">
+      <text class="btn-icon">⚙️</text>
+      <text class="btn-text">账号设置</text>
+    </view>
+  </view>
+</view>
+
+<!-- 到期提醒弹窗 -->
+<view class="modal-overlay" wx:if="{{showExpiryModal}}" bindtap="closeExpiryModal">
+  <view class="modal-content" catchtap="stopPropagation">
+    <view class="modal-header">
+      <text class="modal-icon">⚠️</text>
+      <text class="modal-title">到期提醒</text>
+    </view>
+    
+    <view class="modal-body">
+      <view class="reminder-summary">
+        <view class="summary-item expired" wx:if="{{expirySummary.expiredCount > 0}}">
+          <text class="summary-count">{{expirySummary.expiredCount}}</text>
+          <text class="summary-label">已过期</text>
+        </view>
+        <view class="summary-item expiring" wx:if="{{expirySummary.expiringCount > 0}}">
+          <text class="summary-count">{{expirySummary.expiringCount}}</text>
+          <text class="summary-label">即将到期</text>
+        </view>
+        <view class="summary-item warning" wx:if="{{expirySummary.enterpriseCount > 0}}">
+          <text class="summary-count">{{expirySummary.enterpriseCount}}</text>
+          <text class="summary-label">涉及企业</text>
+        </view>
+      </view>
+      
+      <view class="enterprise-list" wx:if="{{expiryEnterprises.length > 0}}">
+        <text class="list-title">临期企业列表</text>
+        <view class="enterprise-item" wx:for="{{expiryEnterprises}}" wx:key="enterpriseName">
+          <view class="enterprise-info">
+            <text class="enterprise-name">{{item.enterpriseName}}</text>
+            <text class="enterprise-phone" wx:if="{{item.phone}}">{{item.phone}}</text>
+          </view>
+          <view class="enterprise-tags">
+            <text class="tag expired" wx:if="{{item.expiredCount > 0}}">{{item.expiredCount}}过期</text>
+            <text class="tag expiring" wx:if="{{item.expiringCount > 0}}">{{item.expiringCount}}临期</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <view class="modal-footer">
+      <button class="modal-btn secondary" bindtap="closeExpiryModal">稍后处理</button>
+      <button class="modal-btn primary" bindtap="viewExpiryDetail">查看详情</button>
+    </view>
+  </view>
+</view>
+
+<!-- 管理端OCR识别弹窗 -->
+<view class="modal-overlay" wx:if="{{showOcrModal}}" bindtap="closeOcrModal">
+  <view class="ocr-modal-content" catchtap="stopPropagation">
+    <!-- 弹窗头部 -->
+    <view class="ocr-modal-header">
+      <text class="ocr-modal-icon">📷</text>
+      <text class="ocr-modal-title">OCR识别录入</text>
+      <view class="ocr-close-btn" bindtap="closeOcrModal">✕</view>
+    </view>
+    
+    <!-- 弹窗内容 - 可滚动 -->
+    <scroll-view class="ocr-modal-body" scroll-y>
+      <!-- 步骤1：选择图片 -->
+      <view class="ocr-step" wx:if="{{!ocrImagePath}}">
+        <view class="ocr-upload-area" bindtap="chooseOcrImage">
+          <text class="upload-icon-large">📷</text>
+          <text class="upload-text-main">点击拍摄或选择图片</text>
+          <text class="upload-text-sub">支持检定证书、压力表铭牌等</text>
+        </view>
+      </view>
+      
+      <!-- 步骤2：图片预览和识别 -->
+      <view class="ocr-step" wx:if="{{ocrImagePath && !ocrShowForm}}">
+        <view class="ocr-preview-area">
+          <image src="{{ocrImagePath}}" mode="widthFix" class="ocr-preview-img" bindtap="previewOcrImage" />
+        </view>
+        <view class="ocr-action-btns">
+          <button class="ocr-btn secondary" bindtap="retakeOcrImage">
+            <text>↺</text>
+            <text>重新选择</text>
+          </button>
+          <button class="ocr-btn primary" bindtap="startOcrRecognize" loading="{{ocrLoading}}">
+            <text>🔍</text>
+            <text>{{ocrLoading ? '识别中...' : '开始识别'}}</text>
+          </button>
+        </view>
+      </view>
+      
+      <!-- 步骤3：表单编辑 -->
+      <view class="ocr-form-section" wx:if="{{ocrShowForm}}">
+        <!-- 基本信息卡片 -->
+        <view class="ocr-form-card">
+          <view class="ocr-card-header">
+            <text class="ocr-card-title">📋 基本信息</text>
+          </view>
+          <view class="ocr-form-row">
+            <text class="ocr-form-label">证书编号</text>
+            <input class="ocr-form-input" value="{{ocrFormData.certNo}}" bindinput="onOcrInput" data-field="certNo" placeholder="请输入" />
+          </view>
+          <view class="ocr-form-row">
+            <text class="ocr-form-label">出厂编号</text>
+            <input class="ocr-form-input required" value="{{ocrFormData.factoryNo}}" bindinput="onOcrInput" data-field="factoryNo" placeholder="必填" />
+          </view>
+          <view class="ocr-form-row">
+            <text class="ocr-form-label">送检单位</text>
+            <input class="ocr-form-input" value="{{ocrFormData.sendUnit}}" bindinput="onOcrInput" data-field="sendUnit" placeholder="请输入" />
+          </view>
+          <view class="ocr-form-row">
+            <text class="ocr-form-label">器具名称</text>
+            <input class="ocr-form-input" value="{{ocrFormData.instrumentName}}" bindinput="onOcrInput" data-field="instrumentName" placeholder="压力表" />
+          </view>
+          <view class="ocr-form-row">
+            <text class="ocr-form-label">型号规格</text>
+            <input class="ocr-form-input" value="{{ocrFormData.modelSpec}}" bindinput="onOcrInput" data-field="modelSpec" placeholder="请输入" />
+          </view>
+          <view class="ocr-form-row">
+            <text class="ocr-form-label">制造单位</text>
+            <input class="ocr-form-input" value="{{ocrFormData.manufacturer}}" bindinput="onOcrInput" data-field="manufacturer" placeholder="请输入" />
+          </view>
+        </view>
+        
+        <!-- 检定信息卡片 -->
+        <view class="ocr-form-card">
+          <view class="ocr-card-header">
+            <text class="ocr-card-title">📝 检定信息</text>
+          </view>
+          <view class="ocr-form-row">
+            <text class="ocr-form-label">检定依据</text>
+            <input class="ocr-form-input" value="{{ocrFormData.verificationStd}}" bindinput="onOcrInput" data-field="verificationStd" placeholder="JJG52-2013" />
+          </view>
+          <view class="ocr-form-row">
+            <text class="ocr-form-label">检定结论</text>
+            <picker mode="selector" range="{{['合格', '不合格']}}" value="{{ocrConclusionIndex}}" bindchange="onOcrConclusionChange">
+              <view class="ocr-picker">
+                <text>{{ocrFormData.conclusion || '请选择'}}</text>
+                <text class="picker-arrow">›</text>
+              </view>
+            </picker>
+          </view>
+          <view class="ocr-form-row">
+            <text class="ocr-form-label">检定日期</text>
+            <picker mode="date" value="{{ocrFormData.verificationDate}}" bindchange="onOcrDateChange">
+              <view class="ocr-picker">
+                <text>{{ocrFormData.verificationDate || '请选择'}}</text>
+                <text class="picker-arrow">›</text>
+              </view>
+            </picker>
+          </view>
+          <view class="ocr-form-row">
+            <text class="ocr-form-label">到期日期</text>
+            <text class="ocr-form-readonly">{{ocrExpiryDateText || '自动计算'}}</text>
+          </view>
+        </view>
+        
+        <!-- 辖区信息卡片 -->
+        <view class="ocr-form-card">
+          <view class="ocr-card-header">
+            <text class="ocr-card-title">📍 所在辖区</text>
+          </view>
+          <view class="ocr-form-row">
+            <text class="ocr-form-label">辖区</text>
+            <picker mode="selector" range="{{districtOptions}}" value="{{ocrDistrictIndex}}" bindchange="onOcrDistrictChange">
+              <view class="ocr-picker">
+                <text>{{ocrFormData.district || '请选择'}}</text>
+                <text class="picker-arrow">›</text>
+              </view>
+            </picker>
+          </view>
+        </view>
+        
+        <!-- 图片预览 -->
+        <view class="ocr-form-card" wx:if="{{ocrImagePath}}">
+          <view class="ocr-card-header">
+            <text class="ocr-card-title">🖼️ 证书图片</text>
+            <text class="ocr-card-action" bindtap="previewOcrImage">查看原图</text>
+          </view>
+          <view class="ocr-thumb-wrap">
+            <image src="{{ocrImagePath}}" mode="aspectFill" class="ocr-thumb-img" bindtap="previewOcrImage" />
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+    
+    <!-- 弹窗底部操作栏 -->
+    <view class="ocr-modal-footer" wx:if="{{ocrShowForm}}">
+      <button class="ocr-footer-btn secondary" bindtap="resetOcrForm">重置</button>
+      <button class="ocr-footer-btn primary" bindtap="saveOcrRecord" loading="{{ocrSaving}}">
+        {{ocrSaving ? '保存中...' : '确认存档'}}
+      </button>
+    </view>
+  </view>
+</view>
+
+<!-- AI悬浮按钮 -->
+<ai-float-btn />

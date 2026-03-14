@@ -1,0 +1,88 @@
+.privacy-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.privacy-container {
+  width: 600rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  overflow: hidden;
+}
+
+.privacy-header {
+  padding: 40rpx 32rpx 24rpx;
+  text-align: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.privacy-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #fff;
+}
+
+.privacy-content {
+  padding: 32rpx;
+  max-height: 500rpx;
+  overflow-y: auto;
+}
+
+.privacy-text {
+  display: block;
+  font-size: 28rpx;
+  color: #333;
+  line-height: 1.8;
+  margin-bottom: 16rpx;
+}
+
+.privacy-link {
+  display: inline;
+  font-size: 28rpx;
+  color: #1890ff;
+  text-decoration: underline;
+}
+
+.privacy-footer {
+  display: flex;
+  padding: 24rpx 32rpx 40rpx;
+  gap: 24rpx;
+}
+
+.btn-reject {
+  flex: 1;
+  height: 88rpx;
+  line-height: 88rpx;
+  font-size: 30rpx;
+  color: #666;
+  background: #f5f5f5;
+  border: none;
+  border-radius: 44rpx;
+}
+
+.btn-reject::after {
+  border: none;
+}
+
+.btn-agree {
+  flex: 1;
+  height: 88rpx;
+  line-height: 88rpx;
+  font-size: 30rpx;
+  color: #fff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 44rpx;
+}
+
+.btn-agree::after {
+  border: none;
+}

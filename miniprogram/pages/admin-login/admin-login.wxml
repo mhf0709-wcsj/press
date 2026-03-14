@@ -1,0 +1,44 @@
+<view class="container">
+  <view class="header">
+    <view class="title">管理端</view>
+    <view class="subtitle">系统管理登录</view>
+  </view>
+
+  <view class="form">
+    <view class="form-item">
+      <view class="label">用户名</view>
+      <input 
+        class="input" 
+        placeholder="请输入用户名" 
+        value="{{username}}"
+        bindinput="onInputUsername"
+      />
+    </view>
+
+    <view class="form-item">
+      <view class="label">密码</view>
+      <input 
+        class="input" 
+        password
+        placeholder="请输入密码" 
+        value="{{password}}"
+        bindinput="onInputPassword"
+      />
+    </view>
+
+    <button 
+      class="login-btn" 
+      bindtap="handleLogin"
+      disabled="{{loading}}"
+    >
+      {{loading ? '登录中...' : '登录'}}
+    </button>
+
+    <view class="back-link">
+      <text class="link" bindtap="goToEnterprise">返回企业端</text>
+    </view>
+  </view>
+</view>
+
+<!-- 隐私弹窗 -->
+<privacy />

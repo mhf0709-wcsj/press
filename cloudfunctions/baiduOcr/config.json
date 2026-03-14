@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "openapi": [
+      "http.request"
+    ]
+  },
+  "timeout": 30,
+  "memorySize": 256
+}

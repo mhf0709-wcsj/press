@@ -1,0 +1,239 @@
+/* iOS 26 Style - Detail Page */
+page {
+  background: #f2f2f7;
+}
+
+.container {
+  min-height: 100vh;
+  padding-bottom: 140rpx;
+}
+
+/* 导航栏 */
+.nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 32rpx;
+  background: #f2f2f7;
+}
+
+.nav-left {
+  display: flex;
+  align-items: center;
+}
+
+.nav-back {
+  font-size: 48rpx;
+  color: #007AFF;
+  margin-right: 4rpx;
+}
+
+.nav-back-text {
+  font-size: 28rpx;
+  color: #007AFF;
+}
+
+.nav-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #000;
+}
+
+.nav-right {
+  width: 100rpx;
+}
+
+/* 状态标签 */
+.status-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20rpx;
+  margin: 0 32rpx 16rpx;
+  border-radius: 16rpx;
+}
+
+.status-header.pass {
+  background: #d1fae5;
+}
+
+.status-header.fail {
+  background: #fee2e2;
+}
+
+.status-header.conditional {
+  background: #fef3c7;
+}
+
+.status-icon {
+  font-size: 32rpx;
+  margin-right: 8rpx;
+}
+
+.status-header.pass .status-icon {
+  color: #059669;
+}
+
+.status-header.fail .status-icon {
+  color: #dc2626;
+}
+
+.status-header.conditional .status-icon {
+  color: #d97706;
+}
+
+.status-text {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.status-header.pass .status-text {
+  color: #059669;
+}
+
+.status-header.fail .status-text {
+  color: #dc2626;
+}
+
+.status-header.conditional .status-text {
+  color: #d97706;
+}
+
+/* 卡片 */
+.card {
+  background: #fff;
+  border-radius: 24rpx;
+  margin: 0 32rpx 16rpx;
+  overflow: hidden;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 28rpx 0;
+}
+
+.card-title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #8e8e93;
+  text-transform: uppercase;
+  letter-spacing: 1rpx;
+}
+
+.card-action {
+  font-size: 26rpx;
+  color: #007AFF;
+}
+
+.card-content {
+  padding: 20rpx 28rpx 24rpx;
+}
+
+/* 表单 */
+.form-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #e5e5ea;
+}
+
+.form-row.last {
+  border-bottom: none;
+}
+
+.form-label {
+  font-size: 30rpx;
+  color: #000;
+}
+
+.form-input {
+  flex: 1;
+  text-align: right;
+  font-size: 30rpx;
+  color: #000;
+}
+
+.placeholder-required {
+  color: #FF3B30;
+}
+
+.form-picker {
+  display: flex;
+  align-items: center;
+}
+
+.picker-value {
+  font-size: 30rpx;
+  color: #000;
+}
+
+.picker-arrow {
+  font-size: 32rpx;
+  color: #c7c7cc;
+  margin-left: 8rpx;
+}
+
+.form-readonly {
+  font-size: 30rpx;
+  color: #8e8e93;
+}
+
+.form-readonly.ocr {
+  color: #007AFF;
+}
+
+.form-readonly.manual {
+  color: #FF9500;
+}
+
+/* 图片 */
+.cert-image {
+  width: 100%;
+  border-radius: 16rpx;
+}
+
+/* 底部操作栏 */
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 16rpx;
+  padding: 20rpx 32rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  background: #f2f2f7;
+}
+
+.delete-btn {
+  width: 140rpx;
+  height: 104rpx;
+  background: #e5e5ea;
+  color: #FF3B30;
+  font-size: 30rpx;
+  font-weight: 600;
+  border-radius: 24rpx;
+  border: none;
+}
+
+.delete-btn::after {
+  border: none;
+}
+
+.save-btn {
+  flex: 1;
+  height: 104rpx;
+  background: #007AFF;
+  color: #fff;
+  font-size: 34rpx;
+  font-weight: 600;
+  border-radius: 24rpx;
+  border: none;
+}
+
+.save-btn::after {
+  border: none;
+}

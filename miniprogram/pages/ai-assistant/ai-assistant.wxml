@@ -1,0 +1,117 @@
+<view class="container">
+  <!-- 聊天消息列表 -->
+  <scroll-view 
+    scroll-y 
+    class="chat-list" 
+    scroll-into-view="{{scrollToView}}"
+    scroll-with-animation="{{true}}"
+  >
+    <!-- 欢迎消息 -->
+    <view class="welcome-section" wx:if="{{messages.length === 0}}">
+      <view class="ai-avatar-large">
+        <text class="avatar-icon">🤖</text>
+      </view>
+      <text class="welcome-title">AI智能管家</text>
+      <text class="welcome-desc">我是您的压力表检定助手，可以回答专业问题和查询您的检定数据</text>
+      
+      <!-- 用户身份标识 -->
+      <view class="user-scope-tag" wx:if="{{userScope}}">
+        <text class="scope-icon">👤</text>
+        <text class="scope-text">当前身份：{{userScope}}</text>
+      </view>
+      
+      <!-- 快捷问题 -->
+      <view class="quick-questions">
+        <view class="quick-title">常用问题</view>
+        <view class="quick-list">
+          <view class="quick-item" wx:for="{{quickQuestions}}" wx:key="index" bindtap="onQuickQuestion" data-question="{{item}}">
+            {{item}}
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 消息列表 -->
+    <view class="message-list">
+      <view 
+        class="message-item {{item.role === 'user' ? 'user' : 'assistant'}}" 
+        wx:for="{{messages}}" 
+        wx:key="id"
+        id="msg-{{item.id}}"
+      >
+        <!-- AI消息 -->
+        <view class="message-row" wx:if="{{item.role === 'assistant'}}">
+          <view class="avatar ai-avatar">
+            <text class="avatar-icon">🤖</text>
+          </view>
+          <view class="message-content">
+            <view class="message-bubble ai-bubble">
+              <text class="message-text" user-select>{{item.content}}</text>
+            </view>
+            <text class="message-time">{{item.time}}</text>
+          </view>
+        </view>
+        
+        <!-- 用户消息 -->
+        <view class="message-row user-row" wx:if="{{item.role === 'user'}}">
+          <view class="message-content">
+            <view class="message-bubble user-bubble">
+              <text class="message-text">{{item.content}}</text>
+            </view>
+            <text class="message-time">{{item.time}}</text>
+          </view>
+          <view class="avatar user-avatar">
+            <text class="avatar-icon">👤</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 加载中状态 -->
+      <view class="message-item assistant" wx:if="{{isLoading}}" id="msg-loading">
+        <view class="message-row">
+          <view class="avatar ai-avatar">
+            <text class="avatar-icon">🤖</text>
+          </view>
+          <view class="message-content">
+            <view class="message-bubble ai-bubble loading-bubble">
+              <view class="loading-dots">
+                <text class="dot">●</text>
+                <text class="dot">●</text>
+                <text class="dot">●</text>
+              </view>
+              <text class="loading-text">正在思考...</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 底部占位 -->
+    <view class="bottom-placeholder"></view>
+  </scroll-view>
+
+  <!-- 输入区域 -->
+  <view class="input-area">
+    <view class="input-wrapper">
+      <textarea 
+        class="input-field" 
+        placeholder="输入您的问题..." 
+        value="{{inputValue}}"
+        bindinput="onInput"
+        bindconfirm="onSend"
+        confirm-type="send"
+        auto-height
+        maxlength="500"
+        show-confirm-bar="{{false}}"
+        adjust-position="{{true}}"
+        cursor-spacing="20"
+      />
+      <view class="send-btn {{inputValue.trim() ? 'active' : ''}}" bindtap="onSend">
+        <text class="send-icon">➤</text>
+      </view>
+    </view>
+    <view class="disclaimer">
+      <text>AI回答仅供参考，具体请以官方检定规程为准</text>
+    </view>
+  </view>
+</view>

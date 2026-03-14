@@ -1,0 +1,98 @@
+<view class="container">
+  <!-- 大标题区域 -->
+  <view class="header-section">
+    <view class="header-content">
+      <text class="large-title">我的</text>
+    </view>
+  </view>
+
+  <!-- 用户信息卡片 -->
+  <view class="card">
+    <view class="card-content">
+      <view class="user-row" wx:if="{{enterpriseUser}}">
+        <view class="avatar-box">
+          <text class="avatar-icon">🏢</text>
+        </view>
+        <view class="user-info">
+          <text class="user-name">{{enterpriseUser.companyName}}</text>
+          <text class="user-desc">法人: {{enterpriseUser.legalPerson}}</text>
+        </view>
+      </view>
+      <view class="user-row" wx:else>
+        <view class="avatar-box">
+          <text class="avatar-icon">👤</text>
+        </view>
+        <view class="user-info">
+          <text class="user-name">未登录</text>
+          <text class="user-desc">请登录企业账号</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 企业信息 -->
+  <view class="card" wx:if="{{enterpriseUser}}">
+    <view class="card-header">
+      <text class="card-title">企业信息</text>
+    </view>
+    <view class="card-content">
+      <view class="info-row">
+        <text class="info-label">企业名称</text>
+        <text class="info-value">{{enterpriseUser.companyName}}</text>
+      </view>
+      <view class="info-row">
+        <text class="info-label">信用代码</text>
+        <text class="info-value code">{{enterpriseUser.creditCode}}</text>
+      </view>
+      <view class="info-row">
+        <text class="info-label">联系电话</text>
+        <text class="info-value">{{enterpriseUser.phone}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 统计信息 -->
+  <view class="card" wx:if="{{enterpriseUser}}">
+    <view class="card-header">
+      <text class="card-title">数据统计</text>
+    </view>
+    <view class="card-content">
+      <view class="stats-grid">
+        <view class="stat-item">
+          <text class="stat-value">{{recordCount || 0}}</text>
+          <text class="stat-label">存档数量</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-value">{{passCount || 0}}</text>
+          <text class="stat-label">合格数量</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-value">{{storageUsage || '0KB'}}</text>
+          <text class="stat-label">存储占用</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 功能菜单 -->
+  <view class="card">
+    <view class="card-content">
+      <view class="menu-item" bindtap="clearCache">
+        <text class="menu-label">清理缓存</text>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-item last" bindtap="logout">
+        <text class="menu-label danger">退出登录</text>
+        <text class="menu-arrow">›</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 关于 -->
+  <view class="about-section">
+    <text class="about-text">压力表检定智能体 v1.2.0</text>
+  </view>
+</view>
+
+<!-- AI悬浮按钮 -->
+<ai-float-btn />

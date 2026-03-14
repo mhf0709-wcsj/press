@@ -1,0 +1,7 @@
+{
+  "usingComponents": {
+    "ai-float-btn": "/components/ai-float-btn/index"
+  },
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark"
+}

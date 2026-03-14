@@ -1,0 +1,142 @@
+<view class="container">
+  <!-- 导航栏 -->
+  <view class="nav-bar">
+    <view class="nav-left" bindtap="goBack">
+      <text class="nav-back">‹</text>
+      <text class="nav-back-text">返回</text>
+    </view>
+    <text class="nav-title">记录详情</text>
+    <view class="nav-right"></view>
+  </view>
+
+  <!-- 状态标签 -->
+  <view class="status-header {{formData.conclusion === '合格' ? 'pass' : formData.conclusion === '不合格' ? 'fail' : 'conditional'}}">
+    <text class="status-icon">{{formData.conclusion === '合格' ? '✓' : formData.conclusion === '不合格' ? '✗' : '⚠'}}</text>
+    <text class="status-text">{{formData.conclusion || '待检定'}}</text>
+  </view>
+
+  <!-- 证书信息 -->
+  <view class="card">
+    <view class="card-header">
+      <text class="card-title">证书信息</text>
+    </view>
+    <view class="card-content">
+      <view class="form-row">
+        <text class="form-label">证书编号</text>
+        <input class="form-input" value="{{formData.certNo}}" bindinput="onInput" data-field="certNo" placeholder="必填" placeholder-class="placeholder-required" />
+      </view>
+      <view class="form-row">
+        <text class="form-label">送检单位</text>
+        <input class="form-input" value="{{formData.sendUnit}}" bindinput="onInput" data-field="sendUnit" placeholder="选填" />
+      </view>
+      <view class="form-row">
+        <text class="form-label">器具名称</text>
+        <input class="form-input" value="{{formData.instrumentName}}" bindinput="onInput" data-field="instrumentName" placeholder="压力表" />
+      </view>
+      <view class="form-row">
+        <text class="form-label">型号规格</text>
+        <input class="form-input" value="{{formData.modelSpec}}" bindinput="onInput" data-field="modelSpec" placeholder="选填" />
+      </view>
+      <view class="form-row">
+        <text class="form-label">出厂编号</text>
+        <input class="form-input" value="{{formData.factoryNo}}" bindinput="onInput" data-field="factoryNo" placeholder="必填" placeholder-class="placeholder-required" />
+      </view>
+      <view class="form-row">
+        <text class="form-label">制造单位</text>
+        <input class="form-input" value="{{formData.manufacturer}}" bindinput="onInput" data-field="manufacturer" placeholder="选填" />
+      </view>
+      <view class="form-row">
+        <text class="form-label">检定依据</text>
+        <input class="form-input" value="{{formData.verificationStd}}" bindinput="onInput" data-field="verificationStd" placeholder="JJG52-2013" />
+      </view>
+      <view class="form-row last">
+        <text class="form-label">检定结论</text>
+        <picker mode="selector" range="{{['合格', '不合格']}}" value="{{conclusionIndex}}" bindchange="onConclusionChange">
+          <view class="form-picker">
+            <text class="picker-value">{{formData.conclusion}}</text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+      </view>
+    </view>
+  </view>
+
+  <!-- 检定信息 -->
+  <view class="card">
+    <view class="card-header">
+      <text class="card-title">检定信息</text>
+    </view>
+    <view class="card-content">
+      <view class="form-row">
+        <text class="form-label">检定日期</text>
+        <picker mode="date" value="{{formData.verificationDate}}" bindchange="onDateChange">
+          <view class="form-picker">
+            <text class="picker-value">{{formData.verificationDate || '请选择'}}</text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+      </view>
+      <view class="form-row">
+        <text class="form-label">到期日期</text>
+        <text class="form-readonly">{{expiryDateText || '自动计算'}}</text>
+      </view>
+      <view class="form-row last">
+        <text class="form-label">数据来源</text>
+        <text class="form-readonly {{record.ocrSource === 'baidu' ? 'ocr' : 'manual'}}">{{record.ocrSource === 'baidu' ? 'OCR识别' : '手动录入'}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 所在辖区 -->
+  <view class="card">
+    <view class="card-header">
+      <text class="card-title">所在辖区</text>
+    </view>
+    <view class="card-content">
+      <view class="form-row last">
+        <text class="form-label">辖区</text>
+        <picker mode="selector" range="{{districtOptions}}" value="{{districtIndex}}" bindchange="onDistrictChange">
+          <view class="form-picker">
+            <text class="picker-value">{{formData.district || '请选择'}}</text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+      </view>
+    </view>
+  </view>
+
+  <!-- 证书图片 -->
+  <view class="card" wx:if="{{record.fileID}}">
+    <view class="card-header">
+      <text class="card-title">证书图片</text>
+      <text class="card-action" bindtap="previewImage">查看原图</text>
+    </view>
+    <view class="card-content">
+      <image src="{{record.fileID}}" mode="widthFix" class="cert-image" bindtap="previewImage" />
+    </view>
+  </view>
+
+  <!-- 安装照片 -->
+  <view class="card" wx:if="{{record.installPhotoFileID}}">
+    <view class="card-header">
+      <text class="card-title">安装照片</text>
+      <text class="card-action" bindtap="previewInstallPhoto">查看原图</text>
+    </view>
+    <view class="card-content">
+      <image src="{{record.installPhotoFileID}}" mode="widthFix" class="cert-image" bindtap="previewInstallPhoto" />
+    </view>
+  </view>
+
+  <!-- 照片缺失提示 -->
+  <view class="card missing-photo" wx:if="{{!record.fileID && !record.installPhotoFileID}}">
+    <view class="card-content center">
+      <text class="missing-text">📷 暂无照片</text>
+    </view>
+  </view>
+
+  <!-- 底部操作栏 -->
+  <view class="bottom-bar">
+    <button class="delete-btn" bindtap="deleteRecord">删除</button>
+    <button class="save-btn" bindtap="saveRecord" loading="{{saving}}">{{saving ? '保存中' : '保存修改'}}</button>
+  </view>
+</view>

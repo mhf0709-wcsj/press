@@ -1,0 +1,85 @@
+<view class="container">
+  <!-- 顶部装饰 -->
+  <view class="bg-decoration">
+    <view class="circle circle-1"></view>
+    <view class="circle circle-2"></view>
+    <view class="circle circle-3"></view>
+  </view>
+
+  <!-- Logo区域 -->
+  <view class="logo-section">
+    <view class="logo-icon">
+      <text class="icon-text">P</text>
+    </view>
+    <view class="app-name">压力表检定智能体</view>
+    <view class="app-slogan">智能识别 · 高效管理</view>
+  </view>
+
+  <!-- 登录卡片 -->
+  <view class="login-card">
+    <view class="card-header">
+      <view class="card-title">企业登录</view>
+      <view class="card-line"></view>
+    </view>
+
+    <view class="form-section">
+      <view class="input-group">
+        <view class="input-icon">
+          <text class="iconfont">🏢</text>
+        </view>
+        <input 
+          class="input-field" 
+          placeholder="请输入企业名称" 
+          value="{{companyName}}"
+          bindinput="onInputCompanyName"
+          placeholder-class="placeholder-style"
+        />
+      </view>
+
+      <view class="input-group">
+        <view class="input-icon">
+          <text class="iconfont">📱</text>
+        </view>
+        <input 
+          class="input-field" 
+          type="number"
+          maxlength="11"
+          placeholder="请输入法人手机号" 
+          value="{{phone}}"
+          bindinput="onInputPhone"
+          placeholder-class="placeholder-style"
+        />
+      </view>
+    </view>
+
+    <button 
+      class="login-btn {{loading ? 'disabled' : ''}}" 
+      bindtap="handleLogin"
+      disabled="{{loading}}"
+    >
+      <text wx:if="{{!loading}}">登 录</text>
+      <text wx:else>登录中...</text>
+    </button>
+
+    <view class="links-section">
+      <view class="link-item" bindtap="goToRegister">
+        <text class="link-text">还没有账号？</text>
+        <text class="link-highlight">立即注册</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部链接 -->
+  <view class="footer-link" bindtap="goToAdminLogin">
+    <text class="footer-text">管理端入口</text>
+    <text class="arrow">›</text>
+  </view>
+
+  <!-- 版本信息 -->
+  <view class="version-info">
+    <text>Version 1.2.0</text>
+  </view>
+</view>
+
+<!-- 隐私弹窗 -->
+<privacy />

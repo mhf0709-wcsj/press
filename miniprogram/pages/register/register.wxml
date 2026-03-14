@@ -1,0 +1,144 @@
+<view class="container">
+  <!-- 顶部装饰 -->
+  <view class="bg-decoration">
+    <view class="circle circle-1"></view>
+    <view class="circle circle-2"></view>
+  </view>
+
+  <!-- 返回按钮 -->
+  <view class="nav-bar">
+    <view class="back-btn" bindtap="goBack">
+      <text class="back-icon">‹</text>
+      <text class="back-text">返回</text>
+    </view>
+  </view>
+
+  <!-- 标题区域 -->
+  <view class="header-section">
+    <view class="page-title">企业注册</view>
+    <view class="page-desc">请填写以下企业信息完成注册</view>
+  </view>
+
+  <!-- 注册卡片 -->
+  <view class="register-card">
+    <view class="form-section">
+      <!-- 企业名称 -->
+      <view class="input-item">
+        <view class="input-label">
+          <text class="label-text">企业名称</text>
+          <text class="required">*</text>
+        </view>
+        <view class="input-wrapper">
+          <text class="input-icon">🏢</text>
+          <input 
+            class="input-field" 
+            placeholder="请输入企业全称" 
+            value="{{companyName}}"
+            bindinput="onInputCompanyName"
+            placeholder-class="placeholder-style"
+          />
+        </view>
+      </view>
+
+      <!-- 企业信用代码 -->
+      <view class="input-item">
+        <view class="input-label">
+          <text class="label-text">统一社会信用代码</text>
+          <text class="required">*</text>
+        </view>
+        <view class="input-wrapper">
+          <text class="input-icon">📋</text>
+          <input 
+            class="input-field" 
+            placeholder="请输入18位信用代码" 
+            value="{{creditCode}}"
+            maxlength="18"
+            bindinput="onInputCreditCode"
+            placeholder-class="placeholder-style"
+          />
+        </view>
+      </view>
+
+      <!-- 企业法人 -->
+      <view class="input-item">
+        <view class="input-label">
+          <text class="label-text">企业法人</text>
+          <text class="required">*</text>
+        </view>
+        <view class="input-wrapper">
+          <text class="input-icon">👤</text>
+          <input 
+            class="input-field" 
+            placeholder="请输入法人姓名" 
+            value="{{legalPerson}}"
+            bindinput="onInputLegalPerson"
+            placeholder-class="placeholder-style"
+          />
+        </view>
+      </view>
+
+      <!-- 手机号 -->
+      <view class="input-item">
+        <view class="input-label">
+          <text class="label-text">法人手机号</text>
+          <text class="required">*</text>
+        </view>
+        <view class="input-wrapper">
+          <text class="input-icon">📱</text>
+          <input 
+            class="input-field" 
+            type="number"
+            maxlength="11"
+            placeholder="请输入手机号" 
+            value="{{phone}}"
+            bindinput="onInputPhone"
+            placeholder-class="placeholder-style"
+          />
+        </view>
+      </view>
+
+      <!-- 所在辖区 -->
+      <view class="input-item">
+        <view class="input-label">
+          <text class="label-text">所在辖区</text>
+          <text class="required">*</text>
+        </view>
+        <view class="input-wrapper picker-wrapper">
+          <text class="input-icon">📍</text>
+          <picker 
+            mode="selector" 
+            range="{{districtOptions}}" 
+            value="{{districtIndex}}"
+            bindchange="onDistrictChange"
+            class="picker-field"
+          >
+            <view class="picker-content">
+              <text class="{{district ? 'picker-value' : 'picker-placeholder'}}">
+                {{district || '请选择所在辖区'}}
+              </text>
+              <text class="picker-arrow">›</text>
+            </view>
+          </picker>
+        </view>
+      </view>
+    </view>
+
+    <!-- 注册按钮 -->
+    <button 
+      class="register-btn {{loading ? 'disabled' : ''}}" 
+      bindtap="handleRegister"
+      disabled="{{loading}}"
+    >
+      <text wx:if="{{!loading}}">立即注册</text>
+      <text wx:else>注册中...</text>
+    </button>
+
+    <view class="agreement">
+      <text class="agreement-text">注册即表示同意</text>
+      <text class="agreement-link">《用户服务协议》</text>
+    </view>
+  </view>
+</view>
+
+<!-- 隐私弹窗 -->
+<privacy />

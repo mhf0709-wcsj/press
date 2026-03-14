@@ -1,0 +1,93 @@
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view class="header-left" wx:if="{{fromDashboard}}" bindtap="goToDashboard">
+      <text class="back-arrow">‹</text>
+      <text class="back-text">返回</text>
+    </view>
+    <text class="page-title">数据管理</text>
+    <text class="header-right" bindtap="goToDashboard">📊</text>
+  </view>
+
+  <!-- 筛选提示 -->
+  <view class="filter-tip" wx:if="{{selectedConclusion}}">
+    <text class="filter-text">当前筛选：{{selectedConclusion}}记录</text>
+    <text class="filter-clear" bindtap="clearConclusionFilter">清除</text>
+  </view>
+
+  <view class="toolbar">
+    <view class="search-box">
+      <input class="search-input" placeholder="搜索证书编号/出厂编号" bindinput="onSearch" />
+    </view>
+    <picker bindchange="onDistrictChange" value="{{0}}" range="{{districtOptions}}" wx:if="{{isAdmin}}">
+      <view class="district-picker">{{selectedDistrict}} ▼</view>
+    </picker>
+    <view class="district-label" wx:else>{{adminDistrict}}</view>
+    <picker bindchange="onEnterpriseChange" value="{{0}}" range="{{enterprises}}" range-key="companyName">
+      <view class="enterprise-picker">{{selectedEnterprise}} ▼</view>
+    </picker>
+  </view>
+  <view class="action-bar">
+    <button class="btn add" bindtap="showAdd">新增记录</button>
+  </view>
+  <scroll-view scroll-y class="record-list">
+    <block wx:if="{{records.length > 0}}">
+      <view class="record-card" wx:for="{{records}}" wx:key="_id">
+        <view class="record-header">
+          <text class="record-factory">{{item.factoryNo}}</text>
+          <text class="record-conclusion">{{item.conclusion}}</text>
+        </view>
+        <view class="record-body">
+          <view class="record-row"><text class="label">证书编号：</text><text class="value">{{item.certNo || '-'}}</text></view>
+          <view class="record-row"><text class="label">企业：</text><text class="value">{{item.enterpriseName || item.sendUnit || '-'}}</text></view>
+          <view class="record-row" wx:if="{{item.enterprisePhone}}"><text class="label">联系方式：</text><text class="value phone">{{item.enterprisePhone}}</text></view>
+          <view class="record-row"><text class="label">辖区：</text><text class="value">{{item.district || '-'}}</text></view>
+          <view class="record-row"><text class="label">检定日期：</text><text class="value">{{item.verificationDate || '-'}}</text></view>
+          <view class="record-row"><text class="label">到期日期：</text><text class="value {{item.expiryDate < today ? 'expired' : ''}}">{{item.expiryDate || '-'}}</text></view>
+        </view>
+        <view class="record-actions">
+          <button class="action-btn edit" size="mini" bindtap="editRecord" data-record="{{item}}">编辑</button>
+          <button class="action-btn delete" size="mini" bindtap="deleteRecord" data-record="{{item}}">删除</button>
+        </view>
+      </view>
+    </block>
+    <view wx:else class="empty"><text>暂无数据</text></view>
+  </scroll-view>
+
+  <!-- 新增记录弹窗 -->
+  <view class="modal-mask" wx:if="{{showAddModal}}">
+    <view class="modal">
+      <view class="modal-header">新增记录</view>
+      <view class="modal-body">
+        <view class="form-item"><text class="label">出厂编号 *</text><input class="input" data-field="factoryNo" value="{{newRecord.factoryNo}}" bindinput="onNewInput" placeholder="请输入出厂编号" /></view>
+        <view class="form-item"><text class="label">证书编号</text><input class="input" data-field="certNo" value="{{newRecord.certNo}}" bindinput="onNewInput" placeholder="请输入证书编号" /></view>
+        <view class="form-item"><text class="label">企业名称</text><input class="input" data-field="enterpriseName" value="{{newRecord.enterpriseName}}" bindinput="onNewInput" placeholder="请输入企业名称" /></view>
+        <view class="form-item"><text class="label">检定结论</text><picker bindchange="onNewConclusionChange" value="{{0}}" range="{{conclusionOptions}}"><view class="picker">{{newRecord.conclusion}}</view></picker></view>
+        <view class="form-item"><text class="label">检定日期</text><picker mode="date" value="{{newRecord.verificationDate}}" bindchange="onNewDateChange"><view class="picker">{{newRecord.verificationDate}}</view></picker></view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="closeAddModal">取消</button>
+        <button class="btn-confirm" bindtap="saveNewRecord">保存</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 编辑记录弹窗 -->
+  <view class="modal-mask" wx:if="{{showEditModal}}">
+    <view class="modal">
+      <view class="modal-header">编辑记录</view>
+      <view class="modal-body">
+        <view class="form-item"><text class="label">出厂编号 *</text><input class="input" data-field="factoryNo" value="{{editingRecord.factoryNo}}" bindinput="onEditInput" /></view>
+        <view class="form-item"><text class="label">证书编号</text><input class="input" data-field="certNo" value="{{editingRecord.certNo}}" bindinput="onEditInput" /></view>
+        <view class="form-item"><text class="label">企业名称</text><input class="input" data-field="enterpriseName" value="{{editingRecord.enterpriseName}}" bindinput="onEditInput" /></view>
+        <view class="form-item"><text class="label">送检单位</text><input class="input" data-field="sendUnit" value="{{editingRecord.sendUnit}}" bindinput="onEditInput" /></view>
+        <view class="form-item"><text class="label">检定结论</text><picker bindchange="onEditConclusionChange" value="{{0}}" range="{{conclusionOptions}}"><view class="picker">{{editingRecord.conclusion}}</view></picker></view>
+        <view class="form-item"><text class="label">检定日期</text><picker mode="date" value="{{editingRecord.verificationDate}}" bindchange="onEditDateChange"><view class="picker">{{editingRecord.verificationDate}}</view></picker></view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="closeEditModal">取消</button>
+        <button class="btn-confirm" bindtap="saveEditRecord">保存</button>
+      </view>
+    </view>
+  </view>
+</view>
