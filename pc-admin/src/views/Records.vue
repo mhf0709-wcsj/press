@@ -28,6 +28,17 @@
           </el-select>
         </el-form-item>
         
+        <el-form-item label="设备">
+          <el-select v-model="filters.deviceName" placeholder="全部设备" clearable>
+            <el-option
+              v-for="item in deviceOptions"
+              :key="item.id"
+              :label="item.name"
+              :value="item.name"
+            />
+          </el-select>
+        </el-form-item>
+        
         <el-form-item label="结论">
           <el-select v-model="filters.conclusion" placeholder="全部" clearable>
             <el-option label="合格" value="合格" />
@@ -70,6 +81,11 @@
         <el-table-column prop="certNo" label="证书编号" width="180" />
         <el-table-column prop="factoryNo" label="出厂编号" width="120" />
         <el-table-column prop="enterpriseName" label="企业名称" min-width="150" />
+        <el-table-column prop="deviceName" label="设备" width="100">
+          <template #default="{ row }">
+            <span>{{ row.deviceName || '-' }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="instrumentName" label="器具名称" width="120" />
         <el-table-column prop="district" label="辖区" width="100" />
         <el-table-column prop="conclusion" label="结论" width="80">
@@ -195,6 +211,21 @@
             </el-form-item>
           </el-col>
         </el-row>
+        
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="关联设备">
+              <el-select v-model="form.deviceName" placeholder="请选择设备" style="width: 100%" clearable>
+                <el-option
+                  v-for="item in deviceOptions"
+                  :key="item.id"
+                  :label="item.name"
+                  :value="item.name"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
       </el-form>
       
       <template #footer>
@@ -219,6 +250,7 @@
         <el-descriptions-item label="型号规格">{{ currentRecord.modelSpec }}</el-descriptions-item>
         <el-descriptions-item label="制造单位">{{ currentRecord.manufacturer }}</el-descriptions-item>
         <el-descriptions-item label="辖区">{{ currentRecord.district }}</el-descriptions-item>
+        <el-descriptions-item label="关联设备">{{ currentRecord.deviceName || '-' }}</el-descriptions-item>
         <el-descriptions-item label="检定结论">
           <el-tag :type="currentRecord.conclusion === '合格' ? 'success' : 'danger'" size="small">
             {{ currentRecord.conclusion }}
@@ -238,6 +270,7 @@ import dayjs from 'dayjs'
 import { districts } from '@/api/config'
 
 const districtOptions = districts
+const deviceOptions = ref([]) // 设备选项列表
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -248,7 +281,8 @@ const selectedRows = ref([])
 const filters = reactive({
   keyword: '',
   district: '',
-  conclusion: ''
+  conclusion: '',
+  deviceName: ''
 })
 
 const pagination = reactive({
@@ -274,7 +308,9 @@ const form = reactive({
   district: '',
   conclusion: '合格',
   verificationDate: '',
-  expiryDate: ''
+  expiryDate: '',
+  deviceId: '',
+  deviceName: ''
 })
 
 const rules = {
@@ -304,7 +340,9 @@ const loadData = async () => {
       district: districtOptions[i % districtOptions.length],
       conclusion: i % 10 === 0 ? '不合格' : '合格',
       verificationDate: dayjs().subtract(i, 'day').format('YYYY-MM-DD'),
-      expiryDate: dayjs().subtract(i, 'day').add(6, 'month').format('YYYY-MM-DD')
+      expiryDate: dayjs().subtract(i, 'day').add(6, 'month').format('YYYY-MM-DD'),
+      deviceId: `device-${i % 5}`,
+      deviceName: `设备${i % 5 + 1}`
     })
   }
   
@@ -325,6 +363,7 @@ const handleReset = () => {
   filters.keyword = ''
   filters.district = ''
   filters.conclusion = ''
+  filters.deviceName = ''
   handleSearch()
 }
 
@@ -366,7 +405,9 @@ const handleAdd = () => {
     district: '',
     conclusion: '合格',
     verificationDate: '',
-    expiryDate: ''
+    expiryDate: '',
+    deviceId: '',
+    deviceName: ''
   })
   dialogVisible.value = true
 }
@@ -384,7 +425,9 @@ const handleEdit = (row) => {
     district: row.district,
     conclusion: row.conclusion,
     verificationDate: row.verificationDate,
-    expiryDate: row.expiryDate
+    expiryDate: row.expiryDate,
+    deviceId: row.deviceId || '',
+    deviceName: row.deviceName || ''
   })
   dialogVisible.value = true
 }
@@ -442,8 +485,21 @@ const handleExport = () => {
   ElMessage.info('导出功能开发中...')
 }
 
+// 加载设备列表
+const loadDevices = () => {
+  // 模拟设备数据
+  deviceOptions.value = [
+    { id: 'device-0', name: '设备1' },
+    { id: 'device-1', name: '设备2' },
+    { id: 'device-2', name: '设备3' },
+    { id: 'device-3', name: '设备4' },
+    { id: 'device-4', name: '设备5' }
+  ]
+}
+
 onMounted(() => {
   loadData()
+  loadDevices()
 })
 </script>
 

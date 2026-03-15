@@ -665,6 +665,7 @@ Page({
   calculateExpiryDate(verificationDate) {
     const date = new Date(verificationDate)
     date.setMonth(date.getMonth() + 6)
+    date.setDate(date.getDate() - 1) // 检定日期+6个月-1天
     return date
   },
 
@@ -712,6 +713,7 @@ Page({
     const verifyDate = new Date(ocrFormData.verificationDate)
     const expiryDate = new Date(verifyDate)
     expiryDate.setMonth(expiryDate.getMonth() + 6)
+    expiryDate.setDate(expiryDate.getDate() - 1) // 检定日期+6个月-1天
 
     const mainData = {
       ...ocrFormData,

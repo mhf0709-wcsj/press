@@ -64,6 +64,24 @@
         <view class="form-item"><text class="label">企业名称</text><input class="input" data-field="enterpriseName" value="{{newRecord.enterpriseName}}" bindinput="onNewInput" placeholder="请输入企业名称" /></view>
         <view class="form-item"><text class="label">检定结论</text><picker bindchange="onNewConclusionChange" value="{{0}}" range="{{conclusionOptions}}"><view class="picker">{{newRecord.conclusion}}</view></picker></view>
         <view class="form-item"><text class="label">检定日期</text><picker mode="date" value="{{newRecord.verificationDate}}" bindchange="onNewDateChange"><view class="picker">{{newRecord.verificationDate}}</view></picker></view>
+        <!-- 设备选择 -->
+        <view class="form-item">
+          <text class="label">关联设备</text>
+          <picker bindchange="onDeviceChange" value="{{deviceIndex}}" range="{{devices}}" range-key="deviceName">
+            <view class="picker">{{selectedDeviceName || '请选择（可选）'}}</view>
+          </picker>
+        </view>
+        <view class="form-item" wx:if="{{!selectedDeviceId}}">
+          <button class="link-btn" bindtap="showNewDeviceForm">+ 新建设备</button>
+        </view>
+        <!-- 新建设备表单 -->
+        <view class="new-device-form" wx:if="{{showNewDevice}}">
+          <view class="form-item"><text class="label">设备编号</text><input class="input" data-field="deviceNo" value="{{newDevice.deviceNo}}" bindinput="onNewDeviceInput" placeholder="选填" /></view>
+          <view class="form-item"><text class="label">设备名称 *</text><input class="input" data-field="deviceName" value="{{newDevice.deviceName}}" bindinput="onNewDeviceInput" placeholder="必填" /></view>
+          <view class="form-item"><text class="label">设备类型</text><input class="input" data-field="deviceType" value="{{newDevice.deviceType}}" bindinput="onNewDeviceInput" placeholder="如：压力表" /></view>
+          <button class="btn-small" bindtap="saveNewDevice">创建设备</button>
+          <button class="btn-small btn-cancel-small" bindtap="hideNewDeviceForm">取消</button>
+        </view>
       </view>
       <view class="modal-footer">
         <button class="btn-cancel" bindtap="closeAddModal">取消</button>
@@ -83,6 +101,24 @@
         <view class="form-item"><text class="label">送检单位</text><input class="input" data-field="sendUnit" value="{{editingRecord.sendUnit}}" bindinput="onEditInput" /></view>
         <view class="form-item"><text class="label">检定结论</text><picker bindchange="onEditConclusionChange" value="{{0}}" range="{{conclusionOptions}}"><view class="picker">{{editingRecord.conclusion}}</view></picker></view>
         <view class="form-item"><text class="label">检定日期</text><picker mode="date" value="{{editingRecord.verificationDate}}" bindchange="onEditDateChange"><view class="picker">{{editingRecord.verificationDate}}</view></picker></view>
+        <!-- 设备选择 -->
+        <view class="form-item">
+          <text class="label">关联设备</text>
+          <picker bindchange="onDeviceChange" value="{{deviceIndex}}" range="{{devices}}" range-key="deviceName">
+            <view class="picker">{{selectedDeviceName || editingRecord.deviceName || '请选择（可选）'}}</view>
+          </picker>
+        </view>
+        <view class="form-item" wx:if="{{!selectedDeviceId && !editingRecord.deviceId}}">
+          <button class="link-btn" bindtap="showNewDeviceForm">+ 新建设备</button>
+        </view>
+        <!-- 新建设备表单 -->
+        <view class="new-device-form" wx:if="{{showNewDevice}}">
+          <view class="form-item"><text class="label">设备编号</text><input class="input" data-field="deviceNo" value="{{newDevice.deviceNo}}" bindinput="onNewDeviceInput" placeholder="选填" /></view>
+          <view class="form-item"><text class="label">设备名称 *</text><input class="input" data-field="deviceName" value="{{newDevice.deviceName}}" bindinput="onNewDeviceInput" placeholder="必填" /></view>
+          <view class="form-item"><text class="label">设备类型</text><input class="input" data-field="deviceType" value="{{newDevice.deviceType}}" bindinput="onNewDeviceInput" placeholder="如：压力表" /></view>
+          <button class="btn-small" bindtap="saveNewDevice">创建设备</button>
+          <button class="btn-small btn-cancel-small" bindtap="hideNewDeviceForm">取消</button>
+        </view>
       </view>
       <view class="modal-footer">
         <button class="btn-cancel" bindtap="closeEditModal">取消</button>

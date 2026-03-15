@@ -1,44 +1,30 @@
 <view class="container">
-  <!-- 大标题区域 -->
-  <view class="header-section">
-    <view class="header-content">
-      <text class="large-title">数据填报</text>
-      
+  <!-- 顶部导航栏 - 表单显示时显示 -->
+  <view class="nav-bar" hidden="{{!showEditForm}}">
+    <view class="nav-left" bindtap="goBack">
+      <text class="nav-back">‹</text>
+      <text class="nav-back-text">返回</text>
     </view>
+    <text class="nav-title">数据填报</text>
+    <view class="nav-right"></view>
   </view>
 
-  <!-- Tab切换 -->
-  <view class="tab-bar">
-    <view class="tab-item {{activeTab === 'ocr' ? 'active' : ''}}" bindtap="switchTab" data-tab="ocr">
-      <text class="tab-icon">📷</text>
-      <text class="tab-text">拍照识别</text>
-    </view>
-    <view class="tab-item {{activeTab === 'manual' ? 'active' : ''}}" bindtap="switchTab" data-tab="manual">
-      <text class="tab-icon">✏️</text>
-      <text class="tab-text">手动填报</text>
+  <!-- 大标题区域 - 仅在非表单状态显示 -->
+  <view class="header-section" hidden="{{showEditForm}}">
+    <view class="header-content">
+      <text class="large-title">数据填报</text>
     </view>
   </view>
 
   <!-- 拍照识别模式 -->
   <view class="content-section" wx:if="{{activeTab === 'ocr'}}">
-    <!-- 拍摄指南卡片 -->
-    <view class="card-group" wx:if="{{!imagePath && !showEditForm}}">
-      <view class="card">
-        <view class="card-content">
-          <view class="guide-row">
-            <view class="guide-icon-box">
-              <text class="guide-icon">📷</text>
-            </view>
-            <view class="guide-text">
-              <text class="guide-title">拍摄检定证书</text>
-              <text class="guide-desc">请确保证书完整、清晰入镜</text>
-            </view>
-          </view>
-        </view>
-      </view>
+    <!-- 拍摄指南 - 简化样式 -->
+    <view class="guide-simple" wx:if="{{!imagePath && !showEditForm}}">
+      <text class="guide-title-simple">拍摄检定证书</text>
+      <text class="guide-desc-simple">请确保证书完整、清晰入镜</text>
     </view>
     
-    <!-- 开始拍摄按钮 - 居中突出 -->
+    <!-- 开始拍摄按钮 -->
     <view class="photo-action-area" wx:if="{{!imagePath && !showEditForm}}">
       <button class="primary-btn-large" bindtap="takePhoto">
         <text class="btn-icon-large">📷</text>
@@ -46,7 +32,7 @@
       </button>
     </view>
     
-    <!-- 拍摄提示 - 简洁文字 -->
+    <!-- 拍摄提示 -->
     <view class="tips-simple" wx:if="{{!imagePath && !showEditForm}}">
       <text class="tips-text">拍摄提示：证书平铺 · 光线充足 · 垂直拍摄 · 文字清晰</text>
     </view>
@@ -170,6 +156,50 @@
               </view>
             </view>
           </picker>
+          </view>
+        </view>
+
+        <!-- 关联设备 -->
+        <view class="card">
+          <view class="card-header">
+            <text class="card-title">关联设备</text>
+          </view>
+          <view class="card-content">
+            <picker mode="selector" range="{{devices}}" range-key="deviceName" value="{{deviceIndex}}" bindchange="onDeviceChange">
+              <view class="form-row">
+                <text class="form-label">选择设备</text>
+                <view class="form-picker">
+                  <text class="picker-value">{{selectedDeviceName || '请选择（可选）'}}</text>
+                  <text class="picker-arrow">›</text>
+                </view>
+              </view>
+            </picker>
+            <view class="form-row last" wx:if="{{!selectedDeviceId}}">
+              <button class="link-btn" bindtap="showNewDeviceForm">+ 新建设备</button>
+            </view>
+          </view>
+        </view>
+
+        <!-- 新建设备表单 -->
+        <view class="card" wx:if="{{showNewDevice}}">
+          <view class="card-header">
+            <text class="card-title">新建设备</text>
+            <text class="card-action" bindtap="hideNewDeviceForm">取消</text>
+          </view>
+          <view class="card-content">
+            <view class="form-row">
+              <text class="form-label">设备编号</text>
+              <input class="form-input" value="{{newDevice.deviceNo}}" bindinput="onNewDeviceInput" data-field="deviceNo" placeholder="选填" />
+            </view>
+            <view class="form-row">
+              <text class="form-label">设备名称</text>
+              <input class="form-input" value="{{newDevice.deviceName}}" bindinput="onNewDeviceInput" data-field="deviceName" placeholder="必填" placeholder-class="placeholder-required" />
+            </view>
+            <view class="form-row last">
+              <text class="form-label">设备类型</text>
+              <input class="form-input" value="{{newDevice.deviceType}}" bindinput="onNewDeviceInput" data-field="deviceType" placeholder="如：压力表" />
+            </view>
+            <button class="primary-btn" bindtap="saveNewDevice" style="margin-top: 16rpx;">创建设备</button>
           </view>
         </view>
 
@@ -298,6 +328,50 @@
         </view>
       </view>
 
+      <!-- 关联设备 -->
+      <view class="card">
+        <view class="card-header">
+          <text class="card-title">关联设备</text>
+        </view>
+        <view class="card-content">
+          <picker mode="selector" range="{{devices}}" range-key="deviceName" value="{{deviceIndex}}" bindchange="onDeviceChange">
+            <view class="form-row">
+              <text class="form-label">选择设备</text>
+              <view class="form-picker">
+                <text class="picker-value">{{selectedDeviceName || '请选择（可选）'}}</text>
+                <text class="picker-arrow">›</text>
+              </view>
+            </view>
+          </picker>
+          <view class="form-row last" wx:if="{{!selectedDeviceId}}">
+            <button class="link-btn" bindtap="showNewDeviceForm">+ 新建设备</button>
+          </view>
+        </view>
+      </view>
+
+      <!-- 新建设备表单 -->
+      <view class="card" wx:if="{{showNewDevice}}">
+        <view class="card-header">
+          <text class="card-title">新建设备</text>
+          <text class="card-action" bindtap="hideNewDeviceForm">取消</text>
+        </view>
+        <view class="card-content">
+          <view class="form-row">
+            <text class="form-label">设备编号</text>
+            <input class="form-input" value="{{newDevice.deviceNo}}" bindinput="onNewDeviceInput" data-field="deviceNo" placeholder="选填" />
+          </view>
+          <view class="form-row">
+            <text class="form-label">设备名称</text>
+            <input class="form-input" value="{{newDevice.deviceName}}" bindinput="onNewDeviceInput" data-field="deviceName" placeholder="必填" placeholder-class="placeholder-required" />
+          </view>
+          <view class="form-row last">
+            <text class="form-label">设备类型</text>
+            <input class="form-input" value="{{newDevice.deviceType}}" bindinput="onNewDeviceInput" data-field="deviceType" placeholder="如：压力表" />
+          </view>
+          <button class="primary-btn" bindtap="saveNewDevice" style="margin-top: 16rpx;">创建设备</button>
+        </view>
+      </view>
+
       <!-- 图片上传（必填） -->
       <view class="card">
         <view class="card-header">
@@ -350,6 +424,18 @@
     <button class="primary-btn" bindtap="saveRecord" loading="{{saving}}">
       {{saving ? '保存中' : '确认存档'}}
     </button>
+  </view>
+
+  <!-- 底部Tab切换 - 拍照识别初始状态时显示 -->
+  <view class="bottom-tab-bar" wx:if="{{!showEditForm && !imagePath && activeTab === 'ocr'}}">
+    <view class="bottom-tab-item active" bindtap="switchTab" data-tab="ocr">
+      <text class="bottom-tab-icon">📷</text>
+      <text class="bottom-tab-text">拍照识别</text>
+    </view>
+    <view class="bottom-tab-item" bindtap="switchTab" data-tab="manual">
+      <text class="bottom-tab-icon">✏️</text>
+      <text class="bottom-tab-text">手动填报</text>
+    </view>
   </view>
 
   <!-- 到期提醒弹窗 -->

@@ -105,6 +105,50 @@
     </view>
   </view>
 
+  <!-- 关联设备 -->
+  <view class="card">
+    <view class="card-header">
+      <text class="card-title">关联设备</text>
+    </view>
+    <view class="card-content">
+      <picker mode="selector" range="{{devices}}" range-key="deviceName" value="{{deviceIndex}}" bindchange="onDeviceChange">
+        <view class="form-row">
+          <text class="form-label">选择设备</text>
+          <view class="form-picker">
+            <text class="picker-value">{{selectedDeviceName || '请选择（可选）'}}</text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </view>
+      </picker>
+      <view class="form-row last" wx:if="{{!selectedDeviceId}}">
+        <button class="link-btn" bindtap="showNewDeviceForm">+ 新建设备</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 新建设备表单 -->
+  <view class="card" wx:if="{{showNewDevice}}">
+    <view class="card-header">
+      <text class="card-title">新建设备</text>
+      <text class="card-action" bindtap="hideNewDeviceForm">取消</text>
+    </view>
+    <view class="card-content">
+      <view class="form-row">
+        <text class="form-label">设备编号</text>
+        <input class="form-input" value="{{newDevice.deviceNo}}" bindinput="onNewDeviceInput" data-field="deviceNo" placeholder="选填" />
+      </view>
+      <view class="form-row">
+        <text class="form-label">设备名称</text>
+        <input class="form-input" value="{{newDevice.deviceName}}" bindinput="onNewDeviceInput" data-field="deviceName" placeholder="必填" placeholder-class="placeholder-required" />
+      </view>
+      <view class="form-row last">
+        <text class="form-label">设备类型</text>
+        <input class="form-input" value="{{newDevice.deviceType}}" bindinput="onNewDeviceInput" data-field="deviceType" placeholder="如：压力表" />
+      </view>
+      <button class="primary-btn" bindtap="saveNewDevice" style="margin-top: 16rpx;">创建设备</button>
+    </view>
+  </view>
+
   <!-- 证书图片 -->
   <view class="card" wx:if="{{record.fileID}}">
     <view class="card-header">

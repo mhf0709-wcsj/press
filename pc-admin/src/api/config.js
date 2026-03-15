@@ -9,7 +9,8 @@ export const cloudConfig = {
 export const collections = {
   RECORDS: 'pressure_records',
   ADMINS: 'admins',
-  ENTERPRISES: 'enterprises'
+  ENTERPRISES: 'enterprises',
+  DEVICES: 'devices'
 }
 
 // 辖区列表

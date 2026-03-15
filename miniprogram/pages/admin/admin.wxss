@@ -875,3 +875,46 @@
 .logout-card .action-text {
   color: #ff4d4f;
 }
+
+/* 链接按钮 */
+.link-btn {
+  background: transparent;
+  color: #667eea;
+  font-size: 26rpx;
+  padding: 0;
+  margin: 0;
+  line-height: normal;
+  border: none;
+}
+
+.link-btn::after {
+  border: none;
+}
+
+/* 新建设备表单 */
+.new-device-form {
+  background: #f9f9f9;
+  border-radius: 12rpx;
+  padding: 20rpx;
+  margin-top: 16rpx;
+}
+
+/* 小按钮 */
+.btn-small {
+  font-size: 26rpx;
+  padding: 16rpx 32rpx;
+  background: #667eea;
+  color: #fff;
+  border-radius: 8rpx;
+  margin-top: 16rpx;
+  margin-right: 16rpx;
+}
+
+.btn-small::after {
+  border: none;
+}
+
+.btn-cancel-small {
+  background: #f5f5f5;
+  color: #666;
+}

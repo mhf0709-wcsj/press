@@ -29,7 +29,18 @@ Page({
     // 从dashboard跳转相关
     fromDashboard: false,
     filterType: '',
-    today: ''
+    today: '',
+    // 设备相关
+    devices: [],
+    deviceIndex: -1,
+    selectedDeviceId: '',
+    selectedDeviceName: '',
+    showNewDevice: false,
+    newDevice: {
+      deviceNo: '',
+      deviceName: '',
+      deviceType: ''
+    }
   },
 
   onLoad(options) {
@@ -79,6 +90,7 @@ Page({
     
     this.loadEnterprises()
     this.loadRecords()
+    this.loadDevices()
   },
 
   // 清除结论筛选
@@ -121,6 +133,114 @@ Page({
       .catch(err => {
         console.error('加载企业失败:', err)
       })
+  },
+
+  // 加载设备列表
+  loadDevices() {
+    const { isAdmin, adminDistrict, selectedDistrict } = this.data
+    
+    let whereCondition = {}
+    
+    if (!isAdmin && adminDistrict) {
+      // 辖区管理员：只看自己辖区
+      whereCondition.district = adminDistrict
+    } else if (selectedDistrict && selectedDistrict !== '全部') {
+      // 总管理员：按选中辖区筛选
+      whereCondition.district = selectedDistrict
+    }
+    
+    db.collection('devices').where(whereCondition)
+      .orderBy('createTime', 'desc')
+      .limit(100)
+      .get()
+      .then(res => {
+        this.setData({ devices: res.data })
+      })
+      .catch(err => {
+        console.error('加载设备失败:', err)
+      })
+  },
+
+  // 设备选择
+  onDeviceChange(e) {
+    const index = e.detail.value
+    const device = this.data.devices[index]
+    if (device) {
+      this.setData({
+        deviceIndex: index,
+        selectedDeviceId: device._id,
+        selectedDeviceName: device.deviceName,
+        showNewDevice: false
+      })
+    }
+  },
+
+  // 显示新建设备表单
+  showNewDeviceForm() {
+    this.setData({
+      showNewDevice: true,
+      newDevice: {
+        deviceNo: '',
+        deviceName: '',
+        deviceType: '压力表'
+      }
+    })
+  },
+
+  // 隐藏新建设备表单
+  hideNewDeviceForm() {
+    this.setData({ showNewDevice: false })
+  },
+
+  // 新建设备输入
+  onNewDeviceInput(e) {
+    const field = e.currentTarget.dataset.field
+    const value = e.detail.value
+    this.setData({ [`newDevice.${field}`]: value })
+  },
+
+  // 保存新设备
+  saveNewDevice() {
+    const { newDevice, isAdmin, adminDistrict, selectedDistrict, newRecord } = this.data
+    
+    if (!newDevice.deviceName.trim()) {
+      wx.showToast({ title: '请输入设备名称', icon: 'none' })
+      return
+    }
+    
+    wx.showLoading({ title: '创建中...' })
+    
+    const deviceData = {
+      deviceNo: newDevice.deviceNo || `DEV-${Date.now()}`,
+      deviceName: newDevice.deviceName,
+      deviceType: newDevice.deviceType || '压力表',
+      enterpriseId: 'admin',
+      enterpriseName: '管理端录入',
+      district: newRecord.district || (isAdmin ? selectedDistrict : adminDistrict) || '',
+      factoryNo: '',
+      createTime: this.formatDateTime(new Date()),
+      updateTime: this.formatDateTime(new Date()),
+      recordCount: 0
+    }
+    
+    db.collection('devices').add({
+      data: deviceData
+    }).then(res => {
+      wx.hideLoading()
+      wx.showToast({ title: '创建成功', icon: 'success' })
+      
+      // 刷新设备列表并选中新设备
+      this.loadDevices()
+      this.setData({
+        showNewDevice: false,
+        selectedDeviceId: res._id,
+        selectedDeviceName: newDevice.deviceName
+      })
+    }).catch(err => {
+      wx.hideLoading()
+      console.error('创建设备失败:', err)
+      wx.showToast({ title: '创建失败', icon: 'none' })
+    })
   },
 
   loadRecords() {
@@ -268,6 +388,7 @@ Page({
     const verifyDate = new Date(newRecord.verificationDate)
     const expiryDate = new Date(verifyDate)
     expiryDate.setMonth(expiryDate.getMonth() + 6)
+    expiryDate.setDate(expiryDate.getDate() - 1) // 检定日期+6个月-1天
 
     const saveData = {
       ...newRecord,
@@ -279,16 +400,24 @@ Page({
       updateTime: this.formatDateTime(new Date()),
       ocrSource: 'manual',
       hasImage: false,
-      enterpriseName: newRecord.enterpriseName || '未知企业'
+      enterpriseName: newRecord.enterpriseName || '未知企业',
+      // 设备关联
+      deviceId: this.data.selectedDeviceId || '',
+      deviceName: this.data.selectedDeviceName || '',
+      deviceNo: this.data.selectedDeviceId ? (this.data.devices[this.data.deviceIndex]?.deviceNo || '') : ''
     }
 
     db.collection('pressure_records').add({
       data: saveData
     })
     .then(res => {
+      // 更新设备记录数
+      if (this.data.selectedDeviceId) {
+        this.updateDeviceRecordCount(this.data.selectedDeviceId)
+      }
       wx.hideLoading()
       wx.showToast({ title: '添加成功', icon: 'success' })
-      this.setData({ showAddModal: false })
+      this.setData({ showAddModal: false, selectedDeviceId: '', selectedDeviceName: '', deviceIndex: -1 })
       this.loadRecords()
     })
     .catch(err => {
@@ -341,20 +470,29 @@ Page({
     const verifyDate = new Date(editingRecord.verificationDate)
     const expiryDate = new Date(verifyDate)
     expiryDate.setMonth(expiryDate.getMonth() + 6)
+    expiryDate.setDate(expiryDate.getDate() - 1) // 检定日期+6个月-1天
 
     const updateData = {
       ...editingRecord,
       expiryDate: `${expiryDate.getFullYear()}-${(expiryDate.getMonth()+1).toString().padStart(2,'0')}-${expiryDate.getDate().toString().padStart(2,'0')}`,
-      updateTime: this.formatDateTime(new Date())
+      updateTime: this.formatDateTime(new Date()),
+      // 设备关联
+      deviceId: this.data.selectedDeviceId || editingRecord.deviceId || '',
+      deviceName: this.data.selectedDeviceName || editingRecord.deviceName || '',
+      deviceNo: this.data.selectedDeviceId ? (this.data.devices[this.data.deviceIndex]?.deviceNo || '') : (editingRecord.deviceNo || '')
     }
 
     db.collection('pressure_records').doc(editingRecord._id).update({
       data: updateData
     })
     .then(res => {
+      // 更新设备记录数
+      if (this.data.selectedDeviceId) {
+        this.updateDeviceRecordCount(this.data.selectedDeviceId)
+      }
       wx.hideLoading()
       wx.showToast({ title: '保存成功', icon: 'success' })
-      this.setData({ showEditModal: false, editingRecord: null })
+      this.setData({ showEditModal: false, editingRecord: null, selectedDeviceId: '', selectedDeviceName: '', deviceIndex: -1 })
       this.loadRecords()
     })
     .catch(err => {
@@ -406,5 +544,19 @@ Page({
   formatDateTime(date) {
     if (typeof date === 'string') date = new Date(date)
     return `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2,'0')}-${date.getDate().toString().padStart(2,'0')} ${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}:${date.getSeconds().toString().padStart(2,'0')}`
+  },
+
+  // 更新设备记录数
+  updateDeviceRecordCount(deviceId) {
+    db.collection('pressure_records').where({
+      deviceId: deviceId
+    }).count().then(res => {
+      db.collection('devices').doc(deviceId).update({
+        data: {
+          recordCount: res.total,
+          updateTime: this.formatDateTime(new Date())
+        }
+      })
+    })
   }
 })

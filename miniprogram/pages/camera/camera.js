@@ -24,6 +24,17 @@ Page({
     // 辖区选项
     districtOptions: ['大峃所', '珊溪所', '巨屿所', '峃口所', '黄坦所', '西坑所', '玉壶所', '南田所', '百丈漈所'],
     districtIndex: 0,
+    // 设备相关
+    devices: [],           // 可选设备列表
+    deviceIndex: -1,       // 当前选中设备索引
+    selectedDeviceId: '',  // 选中设备ID
+    selectedDeviceName: '',// 选中设备名称
+    showNewDevice: false,  // 显示新建设备表单
+    newDevice: {
+      deviceNo: '',
+      deviceName: '',
+      deviceType: ''
+    },
     // 表单数据
     formData: {
       certNo: '',
@@ -55,6 +66,8 @@ Page({
     this.initOCRService()
     // 初始化手动填报的默认值
     this.initManualForm()
+    // 加载设备列表
+    this.loadDevices()
   },
 
   onShow() {
@@ -101,6 +114,128 @@ Page({
         }
       }
     }
+  },
+
+  // 加载设备列表
+  loadDevices() {
+    const { enterpriseUser, fromAdmin } = this.data
+    if (!enterpriseUser) return
+    
+    let whereCondition = {}
+    
+    if (fromAdmin) {
+      // 管理员模式：按辖区筛选
+      const adminUser = wx.getStorageSync('adminUser')
+      if (adminUser && adminUser.district) {
+        whereCondition.district = adminUser.district
+      }
+    } else {
+      // 企业用户：只看本企业设备
+      whereCondition.enterpriseName = enterpriseUser.companyName
+    }
+    
+    db.collection('devices').where(whereCondition)
+      .orderBy('createTime', 'desc')
+      .limit(100)
+      .get()
+      .then(res => {
+        this.setData({ devices: res.data })
+      })
+      .catch(err => {
+        console.error('加载设备失败:', err)
+      })
+  },
+
+  // 设备选择
+  onDeviceChange(e) {
+    const index = e.detail.value
+    const device = this.data.devices[index]
+    if (device) {
+      this.setData({
+        deviceIndex: index,
+        selectedDeviceId: device._id,
+        selectedDeviceName: device.deviceName,
+        showNewDevice: false
+      })
+    }
+  },
+
+  // 显示新建设备表单
+  showNewDeviceForm() {
+    this.setData({
+      showNewDevice: true,
+      newDevice: {
+        deviceNo: '',
+        deviceName: '',
+        deviceType: '压力表'
+      }
+    })
+  },
+
+  // 隐藏新建设备表单
+  hideNewDeviceForm() {
+    this.setData({ showNewDevice: false })
+  },
+
+  // 返回上一页
+  goBack() {
+    this.setData({
+      showEditForm: false,
+      imagePath: '',
+      qualityScore: 0
+    })
+  },
+
+  // 新建设备输入
+  onNewDeviceInput(e) {
+    const field = e.currentTarget.dataset.field
+    const value = e.detail.value
+    this.setData({ [`newDevice.${field}`]: value })
+  },
+
+  // 保存新设备
+  saveNewDevice() {
+    const { newDevice, enterpriseUser, formData, fromAdmin } = this.data
+    
+    if (!newDevice.deviceName.trim()) {
+      wx.showToast({ title: '请输入设备名称', icon: 'none' })
+      return
+    }
+    
+    wx.showLoading({ title: '创建中...' })
+    
+    const deviceData = {
+      deviceNo: newDevice.deviceNo || `DEV-${Date.now()}`,
+      deviceName: newDevice.deviceName,
+      deviceType: newDevice.deviceType || '压力表',
+      enterpriseId: enterpriseUser._id || enterpriseUser.companyName,
+      enterpriseName: fromAdmin ? '管理端录入' : enterpriseUser.companyName,
+      district: formData.district || '',
+      factoryNo: '', // 关联的出厂编号，后续录入时更新
+      createTime: this.formatDateTime(new Date()),
+      updateTime: this.formatDateTime(new Date()),
+      recordCount: 0
+    }
+    
+    db.collection('devices').add({
+      data: deviceData
+    }).then(res => {
+      wx.hideLoading()
+      wx.showToast({ title: '创建成功', icon: 'success' })
+      
+      // 刷新设备列表并选中新设备
+      this.loadDevices()
+      this.setData({
+        showNewDevice: false,
+        selectedDeviceId: res._id,
+        selectedDeviceName: newDevice.deviceName,
+        deviceIndex: 0 // 新设备在列表开头
+      })
+    }).catch(err => {
+      wx.hideLoading()
+      console.error('创建设备失败:', err)
+      wx.showToast({ title: '创建失败', icon: 'none' })
+    })
   },
 
   // 检查到期提醒
@@ -231,6 +366,7 @@ Page({
   calculateExpiryDate(verificationDate) {
     const date = new Date(verificationDate)
     date.setMonth(date.getMonth() + 6)
+    date.setDate(date.getDate() - 1) // 检定日期+6个月-1天
     return date
   },
 
@@ -633,6 +769,7 @@ Page({
     const verifyDate = new Date(formData.verificationDate)
     const expiryDate = new Date(verifyDate)
     expiryDate.setMonth(expiryDate.getMonth() + 6)
+    expiryDate.setDate(expiryDate.getDate() - 1) // 检定日期+6个月-1天
 
     const mainData = {
       ...formData,
@@ -649,7 +786,11 @@ Page({
       enterprisePhone: enterpriseUser.phone || '',
       enterpriseLegalPerson: enterpriseUser.legalPerson || '',
       // 标记创建来源
-      createdBy: fromAdmin ? 'admin' : 'enterprise'
+      createdBy: fromAdmin ? 'admin' : 'enterprise',
+      // 设备关联
+      deviceId: this.data.selectedDeviceId || '',
+      deviceName: this.data.selectedDeviceName || '',
+      deviceNo: this.data.selectedDeviceId ? (this.data.devices[this.data.deviceIndex]?.deviceNo || '') : ''
     }
 
     // 先上传安装照片，再上传证书图片
@@ -688,11 +829,17 @@ Page({
 
   // 保存到数据库
   saveToDB(mainData) {
-    const { fromAdmin } = this.data
+    const { fromAdmin, selectedDeviceId } = this.data
     db.collection('pressure_records').add({
       data: mainData,
       success: (res) => {
         console.log('✓ 存档成功:', res._id)
+        
+        // 更新设备记录数
+        if (selectedDeviceId) {
+          this.updateDeviceRecordCount(selectedDeviceId)
+        }
+        
         wx.hideLoading()
         wx.showToast({ title: '✓ 存档成功', icon: 'success', duration: 1500 })
         this.resetForm()
@@ -717,6 +864,20 @@ Page({
         console.error('✗ 保存失败:', err)
         this.handleFail('保存失败')
       }
+    })
+  },
+
+  // 更新设备记录数
+  updateDeviceRecordCount(deviceId) {
+    db.collection('pressure_records').where({
+      deviceId: deviceId
+    }).count().then(res => {
+      db.collection('devices').doc(deviceId).update({
+        data: {
+          recordCount: res.total,
+          updateTime: this.formatDateTime(new Date())
+        }
+      })
     })
   },
 
@@ -777,7 +938,16 @@ Page({
         district: ''
       },
       conclusionIndex: 0,
-      districtIndex: 0
+      districtIndex: 0,
+      deviceIndex: -1,
+      selectedDeviceId: '',
+      selectedDeviceName: '',
+      showNewDevice: false,
+      newDevice: {
+        deviceNo: '',
+        deviceName: '',
+        deviceType: ''
+      }
     })
     // 如果是手动填报模式，重新初始化默认值
     if (this.data.activeTab === 'manual') {

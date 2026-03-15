@@ -237,3 +237,18 @@ page {
 .save-btn::after {
   border: none;
 }
+
+/* 链接按钮 */
+.link-btn {
+  background: transparent;
+  color: #007AFF;
+  font-size: 28rpx;
+  padding: 0;
+  margin: 0;
+  line-height: normal;
+  border: none;
+}
+
+.link-btn::after {
+  border: none;
+}
