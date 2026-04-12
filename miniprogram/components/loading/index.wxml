@@ -1,0 +1,10 @@
+<!-- 加载动画组件 -->
+<view class="loading-container {{transparent ? 'transparent' : ''}}" wx:if="{{show}}">
+  <view class="loading-mask" wx:if="{{mask}}"></view>
+  <view class="loading-content">
+    <view class="loading-spinner">
+      <view class="spinner-dot" wx:for="{{[1,2,3,4,5,6,7,8,9,10,11,12]}}" wx:key="index"></view>
+    </view>
+    <text class="loading-text" wx:if="{{text}}">{{text}}</text>
+  </view>
+</view>

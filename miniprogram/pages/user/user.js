@@ -1,4 +1,5 @@
 const db = wx.cloud.database()
+const { SUBSCRIBE_TEMPLATE_IDS } = require('../../constants/index')
 
 Page({
   data: {
@@ -81,20 +82,79 @@ Page({
     // 已由loadStatistics处理
   },
 
+  // 清理缓存
   clearCache() {
     wx.showModal({
       title: '清理缓存',
-      content: '确认清理本地缓存？这不会删除云端数据。',
+      content: '确定要清理本地缓存数据吗？（不影响云端数据）',
       success: (res) => {
         if (res.confirm) {
-          wx.clearStorage({
-            success: () => {
-              wx.showToast({ title: '缓存已清理', icon: 'success' })
-            }
+          // 保留用户信息，清除其他缓存
+          const user = wx.getStorageSync('enterpriseUser')
+          wx.clearStorageSync()
+          if (user) {
+            wx.setStorageSync('enterpriseUser', user)
+          }
+          
+          wx.showToast({
+            title: '清理成功',
+            icon: 'success'
           })
         }
       }
     })
+  },
+
+  goToEquipmentLibrary() {
+    wx.switchTab({
+      url: '/pages/archive/archive'
+    })
+  },
+
+  goToLogin() {
+    wx.reLaunch({
+      url: '/pages/login/login'
+    })
+  },
+
+  // 订阅预警消息
+  subscribeAlert() {
+    const appConfig = wx.getStorageSync('appConfig') || {}
+    const tmplId = appConfig.deviceExpiryTemplateId || SUBSCRIBE_TEMPLATE_IDS.DEVICE_EXPIRY
+    if (!tmplId) {
+      wx.showModal({
+        title: '未配置模板',
+        content: '请在配置中设置“设备到期提醒”订阅模板ID后再订阅。',
+        showCancel: false
+      })
+      return
+    }
+    
+    wx.requestSubscribeMessage({
+      tmplIds: [tmplId],
+      success(res) {
+        if (res[tmplId] === 'accept') {
+          wx.showToast({ title: '订阅成功', icon: 'success' });
+          console.log('用户同意订阅消息');
+        } else {
+          wx.showToast({ title: '已取消订阅', icon: 'none' });
+          console.log('用户拒绝订阅消息');
+        }
+      },
+      fail(err) {
+        console.error('订阅消息调用失败', err);
+        // 如果使用了无效的模板ID，微信API会报错，这里做一下友好提示
+        if (err.errCode === 20004) {
+          wx.showModal({
+            title: '提示',
+            content: '开发者需要先在微信公众平台申请真实的订阅消息模板ID，并替换代码中的占位符才能生效。',
+            showCancel: false
+          });
+        } else {
+          wx.showToast({ title: '订阅失败', icon: 'none' });
+        }
+      }
+    });
   },
 
   logout() {

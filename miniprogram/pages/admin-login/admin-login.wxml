@@ -1,44 +1,65 @@
-<view class="container">
-  <view class="header">
-    <view class="title">管理端</view>
-    <view class="subtitle">系统管理登录</view>
-  </view>
-
-  <view class="form">
-    <view class="form-item">
-      <view class="label">用户名</view>
-      <input 
-        class="input" 
-        placeholder="请输入用户名" 
-        value="{{username}}"
-        bindinput="onInputUsername"
-      />
+<view class="page-shell admin-page">
+  <view class="content-wrapper admin-wrapper">
+    <view class="admin-hero">
+      <view class="admin-badge">Admin Console</view>
+      <view class="admin-title">管理端登录</view>
+      <view class="admin-desc">进入后台查看统计、企业台账与检定记录。</view>
     </view>
 
-    <view class="form-item">
-      <view class="label">密码</view>
-      <input 
-        class="input" 
-        password
-        placeholder="请输入密码" 
-        value="{{password}}"
-        bindinput="onInputPassword"
-      />
+    <view class="panel admin-panel">
+      <view class="panel-section">
+        <view class="panel-head">
+          <view>
+            <view class="section-title">系统身份验证</view>
+            <view class="section-desc">管理员和辖区负责人从这里进入后台工作台。</view>
+          </view>
+          <view class="admin-pill">受控入口</view>
+        </view>
+
+        <view class="field-block">
+          <view class="field-label">用户名</view>
+          <input
+            class="field-input"
+            placeholder="请输入用户名"
+            value="{{username}}"
+            bindinput="onInputUsername"
+            placeholder-class="input-placeholder"
+          />
+        </view>
+
+        <view class="field-block">
+          <view class="field-label">密码</view>
+          <input
+            class="field-input"
+            password
+            placeholder="请输入密码"
+            value="{{password}}"
+            bindinput="onInputPassword"
+            placeholder-class="input-placeholder"
+          />
+        </view>
+
+        <button
+          class="btn-primary-solid admin-submit {{loading ? 'is-loading' : ''}}"
+          bindtap="handleLogin"
+          disabled="{{loading}}"
+        >
+          <text>{{loading ? '登录中...' : '进入后台'}}</text>
+        </button>
+
+        <view class="admin-tips">
+          <view class="tip-card">
+            <text class="tip-label">场景</text>
+            <text class="tip-value">统计分析 / 记录管理 / 企业管理</text>
+          </view>
+        </view>
+      </view>
     </view>
 
-    <button 
-      class="login-btn" 
-      bindtap="handleLogin"
-      disabled="{{loading}}"
-    >
-      {{loading ? '登录中...' : '登录'}}
-    </button>
-
-    <view class="back-link">
-      <text class="link" bindtap="goToEnterprise">返回企业端</text>
+    <view class="admin-footer">
+      <button class="btn-ghost-link" bindtap="goToEnterprise">返回企业端</button>
     </view>
   </view>
 </view>
 
-<!-- 隐私弹窗 -->
 <privacy />

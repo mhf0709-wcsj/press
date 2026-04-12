@@ -1,6 +1,6 @@
 /* iOS 26 Style - Archive Page */
 page {
-  background: #f2f2f7;
+  background: #F3F4F6;
 }
 
 .container {
@@ -10,7 +10,7 @@ page {
 
 /* 大标题区域 */
 .header-section {
-  background: #f2f2f7;
+  background: #F3F4F6;
   padding: 0 32rpx 24rpx;
 }
 
@@ -22,13 +22,13 @@ page {
 .large-title {
   font-size: 60rpx;
   font-weight: 700;
-  color: #000;
+  color: #111827;
   letter-spacing: -1rpx;
 }
 
 .header-subtitle {
   font-size: 28rpx;
-  color: #8e8e93;
+  color: #6B7280;
   margin-top: 8rpx;
 }
 
@@ -41,7 +41,7 @@ page {
 .search-bar {
   display: flex;
   align-items: center;
-  background: #e5e5ea;
+  background: #E5E7EB;
   border-radius: 20rpx;
   padding: 0 24rpx;
   height: 80rpx;
@@ -50,16 +50,17 @@ page {
 .search-icon {
   font-size: 28rpx;
   margin-right: 12rpx;
+  color: #6B7280;
 }
 
 .search-input {
   flex: 1;
   font-size: 28rpx;
-  color: #000;
+  color: #111827;
 }
 
 .search-input::placeholder {
-  color: #8e8e93;
+  color: #9CA3AF;
 }
 
 /* 空状态 */
@@ -74,7 +75,7 @@ page {
 .empty-icon-wrap {
   width: 120rpx;
   height: 120rpx;
-  background: #e5e5ea;
+  background: #E5E7EB;
   border-radius: 30rpx;
   display: flex;
   align-items: center;
@@ -89,13 +90,13 @@ page {
 .empty-title {
   font-size: 34rpx;
   font-weight: 600;
-  color: #000;
+  color: #111827;
   margin-bottom: 8rpx;
 }
 
 .empty-desc {
   font-size: 28rpx;
-  color: #8e8e93;
+  color: #6B7280;
   margin-bottom: 32rpx;
 }
 
@@ -104,7 +105,7 @@ page {
   width: 100%;
   max-width: 400rpx;
   height: 104rpx;
-  background: #007AFF;
+  background: #3B82F6;
   color: #fff;
   font-size: 34rpx;
   font-weight: 600;
@@ -121,8 +122,8 @@ page {
 
 .secondary-btn {
   height: 104rpx;
-  background: #e5e5ea;
-  color: #000;
+  background: #E5E7EB;
+  color: #111827;
   font-size: 34rpx;
   font-weight: 600;
   border-radius: 24rpx;
@@ -174,7 +175,7 @@ page {
   top: 0;
   bottom: 0;
   width: 140rpx;
-  background: #f2f2f7;
+  background: #F3F4F6;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -186,7 +187,7 @@ page {
 .delete-icon {
   width: 64rpx;
   height: 64rpx;
-  background: #ff3b30;
+  background: #EF4444;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -197,19 +198,33 @@ page {
 
 .delete-text {
   font-size: 22rpx;
-  color: #ff3b30;
+  color: #EF4444;
   font-weight: 500;
 }
 
 /* 记录列表 */
 .records-section {
   padding: 0 24rpx;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.swipe-container {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.swipe-content {
+  width: 100%;
+  display: block;
 }
 
 .card {
   background: #fff;
   border-radius: 24rpx;
   overflow: hidden;
+  width: 100%;
+  display: block;
 }
 
 .card-content {
@@ -230,7 +245,7 @@ page {
 .record-no {
   font-size: 34rpx;
   font-weight: 600;
-  color: #000;
+  color: #111827;
 }
 
 .record-right {
@@ -247,29 +262,53 @@ page {
 }
 
 .status-tag.pass {
-  background: #d1fae5;
-  color: #059669;
+  background: #ECFDF5;
+  color: #10B981;
 }
 
 .status-tag.fail {
-  background: #fee2e2;
-  color: #dc2626;
+  background: #FEF2F2;
+  color: #EF4444;
 }
 
 .status-tag.conditional {
-  background: #fef3c7;
-  color: #d97706;
+  background: #FFFBEB;
+  color: #F59E0B;
+}
+
+/* 设备状态标签 */
+.device-status-tag {
+  font-size: 22rpx;
+  font-weight: 500;
+  padding: 8rpx 16rpx;
+  border-radius: 10rpx;
+  margin-right: 12rpx;
+}
+
+.device-status-tag.in-use {
+  background: #ECFDF5;
+  color: #10B981;
+}
+
+.device-status-tag.stopped {
+  background: #FEF2F2;
+  color: #EF4444;
+}
+
+.device-status-tag.inspecting {
+  background: #FFFBEB;
+  color: #F59E0B;
 }
 
 .arrow {
   font-size: 40rpx;
-  color: #c7c7cc;
+  color: #9CA3AF;
 }
 
 .record-info {
   display: flex;
   flex-wrap: wrap;
-  border-top: 1rpx solid #e5e5ea;
+  border-top: 1rpx solid #F3F4F6;
   padding-top: 20rpx;
   gap: 12rpx 0;
 }
@@ -283,13 +322,13 @@ page {
 
 .info-label {
   font-size: 24rpx;
-  color: #8e8e93;
+  color: #6B7280;
   margin-bottom: 4rpx;
 }
 
 .info-value {
   font-size: 28rpx;
-  color: #000;
+  color: #111827;
   font-weight: 500;
 }
 
@@ -298,20 +337,20 @@ page {
   justify-content: space-between;
   padding-top: 16rpx;
   margin-top: 16rpx;
-  border-top: 1rpx solid #e5e5ea;
+  border-top: 1rpx solid #F3F4F6;
 }
 
 .footer-text {
   font-size: 24rpx;
-  color: #007AFF;
-  background: rgba(0, 122, 255, 0.1);
+  color: #3B82F6;
+  background: rgba(59, 130, 246, 0.1);
   padding: 6rpx 16rpx;
   border-radius: 8rpx;
 }
 
 .footer-time {
   font-size: 24rpx;
-  color: #8e8e93;
+  color: #6B7280;
 }
 
 /* 底部搜索和统计 */
@@ -324,7 +363,7 @@ page {
   align-items: center;
   gap: 20rpx;
   padding: 16rpx 32rpx;
-  background: #f2f2f7;
+  background: #F3F4F6;
 }
 
 .bottom-search-section .search-bar {
@@ -333,7 +372,7 @@ page {
 
 .record-count {
   font-size: 26rpx;
-  color: #8e8e93;
+  color: #6B7280;
   white-space: nowrap;
 }
 
@@ -347,7 +386,7 @@ page {
   gap: 16rpx;
   padding: 20rpx 32rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
-  background: #f2f2f7;
+  background: #F3F4F6;
 }
 
 .bottom-bar .secondary-btn {

@@ -1,0 +1,355 @@
+/**
+ * 通用列表样式
+ * 包含列表项、状态标签、筛选排序等
+ */
+
+/* ==================== 列表容器 ==================== */
+
+.list-container {
+  padding: 32rpx;
+}
+
+.list-section {
+  background: #ffffff;
+  border-radius: 24rpx;
+  overflow: hidden;
+  box-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.05);
+}
+
+/* ==================== 列表项 ==================== */
+
+.list-item {
+  display: flex;
+  align-items: center;
+  padding: 32rpx;
+  background: #ffffff;
+  border-bottom: 2rpx solid #F3F4F6;
+  transition: background 0.2s ease;
+}
+
+.list-item:last-child {
+  border-bottom: none;
+}
+
+.list-item:active {
+  background: #F9FAFB;
+}
+
+/* 列表项左侧 */
+.list-item-left {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 列表项右侧 */
+.list-item-right {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-left: 24rpx;
+}
+
+/* ==================== 列表项标题 ==================== */
+
+.list-item-title {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: #111827;
+  margin-bottom: 8rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ==================== 列表项描述 ==================== */
+
+.list-item-desc {
+  font-size: 26rpx;
+  color: #6B7280;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ==================== 状态标签 ==================== */
+
+/* 基础标签样式 */
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6rpx 16rpx;
+  font-size: 22rpx;
+  font-weight: 500;
+  border-radius: 8rpx;
+  white-space: nowrap;
+}
+
+/* 成功状态 - 绿色 */
+.status-tag-success {
+  background: #ECFDF5;
+  color: #10B981;
+}
+
+/* 危险状态 - 红色 */
+.status-tag-danger {
+  background: #FEF2F2;
+  color: #EF4444;
+}
+
+/* 警告状态 - 橙色 */
+.status-tag-warning {
+  background: #FFFBEB;
+  color: #F59E0B;
+}
+
+/* 默认状态 - 蓝色 */
+.status-tag-primary {
+  background: #EFF6FF;
+  color: #3B82F6;
+}
+
+/* 中性状态 - 灰色 */
+.status-tag-default {
+  background: #F3F4F6;
+  color: #4B5563;
+}
+
+/* ==================== 设备状态标签 ==================== */
+
+.device-status-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 6rpx 14rpx;
+  font-size: 22rpx;
+  font-weight: 500;
+  border-radius: 8rpx;
+}
+
+/* 在用 */
+.device-status-tag.in-use {
+  background: #ECFDF5;
+  color: #10B981;
+}
+
+/* 停用 */
+.device-status-tag.stopped {
+  background: #FEF2F2;
+  color: #EF4444;
+}
+
+/* 送检 */
+.device-status-tag.inspecting {
+  background: #FFFBEB;
+  color: #F59E0B;
+}
+
+/* ==================== 有效期状态标识 ==================== */
+
+.expiry-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4rpx 12rpx;
+  font-size: 20rpx;
+  border-radius: 6rpx;
+  font-weight: 500;
+}
+
+/* 已过期 */
+.expiry-tag-expired {
+  background: #FEF2F2;
+  color: #EF4444;
+}
+
+/* 即将过期（30天内） */
+.expiry-tag-expiring {
+  background: #FFFBEB;
+  color: #F59E0B;
+}
+
+/* 正常 */
+.expiry-tag-normal {
+  background: #ECFDF5;
+  color: #10B981;
+}
+
+/* ==================== 筛选栏 ==================== */
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 32rpx;
+  background: #ffffff;
+  border-bottom: 2rpx solid #F3F4F6;
+  gap: 16rpx;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.filter-item {
+  display: inline-flex;
+  align-items: center;
+  padding: 12rpx 24rpx;
+  font-size: 26rpx;
+  color: #4B5563;
+  background: #F3F4F6;
+  border-radius: 32rpx;
+  transition: all 0.2s ease;
+}
+
+.filter-item.active {
+  background: #EFF6FF;
+  color: #3B82F6;
+  font-weight: 500;
+}
+
+.filter-item:active {
+  opacity: 0.8;
+}
+
+/* ==================== 排序栏 ==================== */
+
+.sort-bar {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 32rpx;
+  background: #F9FAFB;
+  gap: 32rpx;
+  border-bottom: 2rpx solid #F3F4F6;
+}
+
+.sort-item {
+  display: inline-flex;
+  align-items: center;
+  font-size: 26rpx;
+  color: #6B7280;
+  transition: all 0.2s ease;
+}
+
+.sort-item.active {
+  color: #3B82F6;
+  font-weight: 500;
+}
+
+.sort-arrow {
+  margin-left: 8rpx;
+  font-size: 20rpx;
+  transition: transform 0.2s ease;
+}
+
+.sort-item.desc .sort-arrow {
+  transform: rotate(180deg);
+}
+
+/* ==================== 列表统计 ==================== */
+
+.list-stats {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 32rpx;
+  background: #ffffff;
+  border-bottom: 2rpx solid #F3F4F6;
+}
+
+.list-count {
+  font-size: 26rpx;
+  color: #6B7280;
+}
+
+.list-count-num {
+  color: #3B82F6;
+  font-weight: 600;
+}
+
+/* ==================== 空列表 ==================== */
+
+.list-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 32rpx;
+}
+
+.list-empty-icon {
+  font-size: 96rpx;
+  margin-bottom: 32rpx;
+  color: #E5E7EB;
+}
+
+.list-empty-text {
+  font-size: 28rpx;
+  color: #9CA3AF;
+  margin-bottom: 40rpx;
+}
+
+/* ==================== 加载更多 ==================== */
+
+.list-loading-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40rpx;
+  font-size: 26rpx;
+  color: #9CA3AF;
+}
+
+.list-no-more {
+  text-align: center;
+  padding: 40rpx;
+  font-size: 26rpx;
+  color: #D1D5DB;
+}
+
+/* ==================== 列表箭头 ==================== */
+
+.list-arrow {
+  font-size: 32rpx;
+  color: #D1D5DB;
+}
+
+/* ==================== 滑动操作 ==================== */
+
+.swipe-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.swipe-content {
+  position: relative;
+  z-index: 1;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.swipe-content.swiped {
+  transform: translateX(-160rpx);
+}
+
+.swipe-actions {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  z-index: 0;
+}
+
+.swipe-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 160rpx;
+  color: #ffffff;
+  font-size: 26rpx;
+  font-weight: 500;
+}
+
+.swipe-action-delete {
+  background: #EF4444;
+}
+
+.swipe-action-edit {
+  background: #3B82F6;
+}

@@ -1,7 +1,6 @@
 {
-  "usingComponents": {
-    "ai-float-btn": "/components/ai-float-btn/index"
-  },
+  "usingComponents": {},
+  "navigationBarTitleText": "设备库",
   "enablePullDownRefresh": true,
   "backgroundTextStyle": "dark"
 }

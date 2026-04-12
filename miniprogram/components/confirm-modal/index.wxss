@@ -1,0 +1,118 @@
+/**
+ * 确认弹窗组件样式
+ */
+
+/* 遮罩层 */
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 弹窗容器 */
+.modal-container {
+  width: 560rpx;
+  background: #ffffff;
+  border-radius: 24rpx;
+  overflow: hidden;
+  animation: slideUp 0.25s ease;
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(40rpx);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 标题 */
+.modal-header {
+  padding: 40rpx 32rpx 24rpx;
+  text-align: center;
+}
+
+.modal-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #333333;
+}
+
+/* 内容 */
+.modal-body {
+  padding: 16rpx 32rpx 40rpx;
+  text-align: center;
+}
+
+.modal-content {
+  font-size: 28rpx;
+  color: #666666;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+/* 按钮区域 */
+.modal-footer {
+  display: flex;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.modal-btn {
+  flex: 1;
+  height: 100rpx;
+  line-height: 100rpx;
+  font-size: 32rpx;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.modal-btn::after {
+  border: none;
+}
+
+/* 取消按钮 */
+.modal-btn-cancel {
+  color: #666666;
+  border-right: 1rpx solid #f0f0f0;
+}
+
+.modal-btn-cancel:active {
+  background: #f5f5f5;
+}
+
+/* 确认按钮 */
+.modal-btn-confirm {
+  color: #1890ff;
+  font-weight: 500;
+}
+
+.modal-btn-confirm:active {
+  background: rgba(24, 144, 255, 0.1);
+}
+
+/* 危险按钮 */
+.modal-btn-danger {
+  color: #ff4d4f;
+  font-weight: 500;
+}
+
+.modal-btn-danger:active {
+  background: rgba(255, 77, 79, 0.1);
+}

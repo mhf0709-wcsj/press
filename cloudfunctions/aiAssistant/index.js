@@ -1,5 +1,6 @@
 const cloud = require('wx-server-sdk')
 const { getKnowledgeBase, getRelevantKnowledge } = require('./knowledge')
+const { buildVector, cosine, chunkText, formatDateTime } = require('./rag')
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -20,11 +21,20 @@ const _ = db.command
  * - 总管理员：可查询所有数据
  */
 exports.main = async (event, context) => {
-  const { question, userType, userInfo } = event
+  const { action, question, userType, userInfo } = event
   const wxContext = cloud.getWXContext()
   const openid = wxContext.OPENID
 
   try {
+    if (action === 'extractRecordFromImage') {
+      return await handleImageExtraction(event)
+    }
+
+    if (action === 'kbInit') {
+      await seedKbIfNeeded()
+      return { success: true, answer: '知识库初始化完成' }
+    }
+
     // 解析用户权限
     const permission = parsePermission(userType, userInfo, openid)
     
@@ -37,6 +47,8 @@ exports.main = async (event, context) => {
     if (intent.type === 'data_query') {
       // 数据查询类问题
       answer = await handleDataQuery(intent, permission)
+    } else if (intent.type === 'rag') {
+      answer = await handleRagQuery(question, permission)
     } else if (intent.type === 'knowledge') {
       // 专业知识类问题
       answer = handleKnowledgeQuery(question, intent)
@@ -56,6 +68,141 @@ exports.main = async (event, context) => {
       answer: '抱歉，处理您的问题时出现了错误，请稍后再试。'
     }
   }
+}
+
+async function handleImageExtraction(event) {
+  const rawText = String(event.ocrText || '').trim()
+  if (!rawText) {
+    return {
+      success: false,
+      error: 'No OCR text available for extraction.'
+    }
+  }
+
+  const data = extractRecordFields(rawText)
+  return {
+    success: true,
+    data: {
+      ...data,
+      ocrSource: 'ai_extract',
+      rawText,
+      confidence: estimateConfidence(data)
+    }
+  }
+}
+
+function extractRecordFields(text) {
+  const result = {
+    certNo: '',
+    factoryNo: '',
+    sendUnit: '',
+    instrumentName: '',
+    modelSpec: '',
+    manufacturer: '',
+    verificationStd: '',
+    conclusion: '',
+    verificationDate: ''
+  }
+
+  const normalized = normalizeExtractText(text)
+
+  result.certNo = firstMatch(normalized, [
+    /(?:证书编号|证书号|编号|NO|No)[:：\s]*([A-Za-z0-9\-]{5,})/i
+  ])
+
+  result.factoryNo = firstMatch(normalized, [
+    /(?:出厂编号|出厂号|器号|表号)[:：\s]*([A-Za-z0-9\-\/]{3,})/i
+  ])
+
+  result.sendUnit = cleanupLineValue(firstMatch(normalized, [
+    /(?:送检单位|委托单位|使用单位)[:：\s]*([^\n]+)/i
+  ]))
+
+  result.instrumentName = cleanupLineValue(firstMatch(normalized, [
+    /(?:器具名称|仪表名称|名称)[:：\s]*([^\n]+)/i
+  ]))
+
+  if (!result.instrumentName && /压力表/.test(normalized)) {
+    result.instrumentName = '\u538b\u529b\u8868'
+  }
+
+  result.modelSpec = cleanupLineValue(firstMatch(normalized, [
+    /(?:型号规格|规格型号|型号|规格)[:：\s]*([^\n]+)/i,
+    /([\(（]?\d+(?:\.\d+)?\s*(?:-|~|～)\s*\d+(?:\.\d+)?[)）]?\s*(?:k|M|G)?Pa)/i
+  ]))
+
+  result.manufacturer = cleanupLineValue(firstMatch(normalized, [
+    /(?:制造单位|生产厂家|制造厂|厂家)[:：\s]*([^\n]+)/i
+  ]))
+
+  result.verificationStd = normalizeStd(firstMatch(normalized, [
+    /(JJG\s*[\d\-]+)/i
+  ]))
+
+  result.conclusion = extractConclusion(normalized)
+  result.verificationDate = extractDate(normalized)
+
+  return result
+}
+
+function normalizeExtractText(text) {
+  return String(text || '')
+    .replace(/\r/g, '\n')
+    .replace(/[：]/g, ':')
+    .replace(/[（]/g, '(')
+    .replace(/[）]/g, ')')
+    .replace(/[ \t]+/g, ' ')
+}
+
+function firstMatch(text, patterns) {
+  for (const pattern of patterns) {
+    const match = text.match(pattern)
+    if (match && match[1]) return match[1].trim()
+  }
+  return ''
+}
+
+function cleanupLineValue(value) {
+  if (!value) return ''
+  return String(value)
+    .split(/\n/)[0]
+    .split(/(?:证书编号|出厂编号|型号规格|制造单位|检定依据|检定结论|检定日期)/)[0]
+    .trim()
+}
+
+function normalizeStd(value) {
+  if (!value) return ''
+  return String(value).replace(/\s+/g, '').replace(/^JJG/i, 'JJG')
+}
+
+function extractConclusion(text) {
+  if (/不合格/.test(text)) return '\u4e0d\u5408\u683c'
+  if (/合格|符合/.test(text)) return '\u5408\u683c'
+  return ''
+}
+
+function extractDate(text) {
+  const match = text.match(/(\d{4})[.\-/年]\s*(\d{1,2})[.\-/月]\s*(\d{1,2})/)
+  if (!match) return ''
+  const month = String(match[2]).padStart(2, '0')
+  const day = String(match[3]).padStart(2, '0')
+  return `${match[1]}-${month}-${day}`
+}
+
+function estimateConfidence(data) {
+  const fields = [
+    'certNo',
+    'factoryNo',
+    'sendUnit',
+    'instrumentName',
+    'modelSpec',
+    'manufacturer',
+    'verificationStd',
+    'conclusion',
+    'verificationDate'
+  ]
+  const hitCount = fields.filter((key) => data[key]).length
+  return Number((hitCount / fields.length).toFixed(2))
 }
 
 /**
@@ -123,6 +270,7 @@ function detectIntent(question) {
 
   // 知识问答意图关键词
   const knowledgeKeywords = ['周期', '规程', '标准', '要求', '规定', '怎么', '如何', '什么是', '为什么']
+  const ragKeywords = ['法规', '法律', '执法', '处罚', '依据', '条款', '计量法', 'jjg', '规程依据', '合规']
 
   // 判断意图
   let intent = { type: 'general', subType: null }
@@ -137,12 +285,79 @@ function detectIntent(question) {
 
   // 如果不是数据查询，检查是否为知识问答
   if (intent.type === 'general') {
+    if (ragKeywords.some(k => q.includes(k))) {
+      intent = { type: 'rag', subType: null }
+    }
+  }
+
+  if (intent.type === 'general') {
     if (knowledgeKeywords.some(k => q.includes(k))) {
       intent = { type: 'knowledge', subType: null }
     }
   }
 
   return intent
+}
+
+async function seedKbIfNeeded() {
+  const probe = await db.collection('kb_chunks').limit(1).get()
+  const has = probe.data && probe.data.length > 0
+  if (has) return
+
+  const kb = getKnowledgeBase()
+  const docRes = await db.collection('kb_docs').add({
+    data: {
+      title: '压力表检定专业知识库',
+      source: 'built_in',
+      createTime: formatDateTime(new Date()),
+      timestamp: Date.now()
+    }
+  })
+  const docId = docRes._id
+  const chunks = chunkText(kb, 360)
+  const writes = chunks.map((content, idx) => {
+    const vector = buildVector(content)
+    return db.collection('kb_chunks').add({
+      data: {
+        docId,
+        chunkIndex: idx,
+        content,
+        vector,
+        createTime: formatDateTime(new Date()),
+        timestamp: Date.now()
+      }
+    })
+  })
+  await Promise.all(writes)
+}
+
+async function handleRagQuery(question, permission) {
+  try {
+    await seedKbIfNeeded()
+  } catch (e) {
+    const fallback = getRelevantKnowledge(question) || ''
+    return fallback ? `参考信息：\n${fallback}\n\n提示：如需启用可溯源的知识库检索，请先在云数据库创建 kb_docs 与 kb_chunks 集合。` : '知识库暂不可用，请稍后再试。'
+  }
+
+  const qv = buildVector(question)
+  const chunkRes = await db.collection('kb_chunks').limit(500).get()
+  const chunks = chunkRes.data || []
+  const scored = chunks
+    .map(c => ({ c, score: cosine(qv, c.vector || []) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+
+  const excerpts = scored
+    .filter(s => s.score > 0.1)
+    .map((s, i) => `【参考${i + 1}】${s.c.content}`)
+    .join('\n\n')
+
+  if (!excerpts) {
+    const fallback = getRelevantKnowledge(question) || ''
+    return fallback ? `参考信息：\n${fallback}` : '未检索到足够相关的合规依据。建议补充问题关键词（如：检定周期/强制检定/不合格判定）。'
+  }
+
+  return `合规参考（可追溯引用）：\n\n${excerpts}\n\n如需我给出更精准的执法口径，请补充：场景（企业自用/强检范围/压力容器配套）、设备用途、检定结论与到期日期。`
 }
 
 /**

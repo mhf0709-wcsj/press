@@ -1,8 +1,11 @@
-const db = wx.cloud.database()
+const { CLOUD_CONFIG } = require('../../constants/index')
+let db = null
 
 Page({
   data: {
+    viewMode: 'records',
     records: [],
+    equipments: [],
     searchKeyword: '',
     enterprises: [],
     selectedEnterprise: '全部',
@@ -45,6 +48,9 @@ Page({
 
   onLoad(options) {
     // 先处理从dashboard传来的参数，再加载数据
+    if (options.view) {
+      this.setData({ viewMode: options.view })
+    }
     if (options.filter) {
       this.setData({ filterType: options.filter })
     }
@@ -60,9 +66,24 @@ Page({
     if (options.from === 'dashboard') {
       this.setData({ fromDashboard: true })
     }
+
+    if (options.deviceId) {
+      this.deviceIdFilter = options.deviceId
+      this.setData({ viewMode: 'records' })
+    }
     
-    // 然后检查登录并加载数据
-    this.checkAdminLogin()
+    this.initCloudContext()
+      .then(() => {
+        this.checkAdminLogin()
+      })
+      .catch((err) => {
+        console.error('云环境初始化失败:', err)
+        wx.showModal({
+          title: '云连接失败',
+          content: '请检查网络或云环境配置后重试',
+          showCancel: false
+        })
+      })
   },
 
   checkAdminLogin() {
@@ -88,15 +109,64 @@ Page({
       })
     }
     
-    this.loadEnterprises()
-    this.loadRecords()
-    this.loadDevices()
+    this.loadAllData()
+  },
+
+  initCloudContext() {
+    if (db) return Promise.resolve()
+    if (!wx.cloud) {
+      return Promise.reject(new Error('wx.cloud unavailable'))
+    }
+    try {
+      wx.cloud.init({
+        env: CLOUD_CONFIG.ENV,
+        traceUser: true
+      })
+      db = wx.cloud.database()
+      return Promise.resolve()
+    } catch (err) {
+      return Promise.reject(err)
+    }
+  },
+
+  loadAllData() {
+    const tasks = [
+      this.loadEnterprises(),
+      this.loadDevices()
+    ]
+
+    if (this.data.viewMode === 'equipment') {
+      tasks.push(this.loadEquipments())
+    } else {
+      tasks.push(this.loadRecords())
+    }
+
+    Promise.allSettled(tasks).then((results) => {
+      const hasFail = results.some(item => item.status === 'rejected')
+      if (hasFail) {
+        wx.showToast({
+          title: '部分数据加载失败',
+          icon: 'none'
+        })
+      }
+    })
   },
 
   // 清除结论筛选
   clearConclusionFilter() {
     this.setData({ selectedConclusion: '' })
     this.loadRecords()
+  },
+
+  switchViewMode(e) {
+    const mode = e.currentTarget.dataset.mode
+    if (mode === this.data.viewMode) return
+    this.setData({ viewMode: mode, searchKeyword: '' })
+    if (mode === 'equipment') {
+      this.loadEquipments()
+    } else {
+      this.loadRecords()
+    }
   },
 
   // 切换概览详情展开/收起（已废弃）
@@ -124,15 +194,72 @@ Page({
   },
 
   loadEnterprises() {
-    db.collection('enterprises').field({ companyName: true }).get()
+    return db.collection('enterprises').field({ companyName: true }).get()
       .then(res => {
         this.setData({
           enterprises: [{ companyName: '全部' }, ...res.data]
         })
+        return res.data
       })
       .catch(err => {
         console.error('加载企业失败:', err)
+        const msg = err?.errMsg || err?.message || ''
+        if (msg.includes('Failed to fetch')) {
+          wx.showToast({ title: '企业数据加载失败', icon: 'none' })
+        }
+        throw err
       })
+  },
+
+  loadEquipments() {
+    const { isAdmin, adminDistrict, selectedDistrict, selectedEnterprise, searchKeyword } = this.data
+
+    let whereCondition = {}
+
+    if (!isAdmin && adminDistrict) {
+      whereCondition.district = adminDistrict
+    } else if (selectedDistrict && selectedDistrict !== '全部') {
+      whereCondition.district = selectedDistrict
+    }
+
+    if (selectedEnterprise && selectedEnterprise !== '全部') {
+      whereCondition.enterpriseName = selectedEnterprise
+    }
+
+    if (searchKeyword && searchKeyword.trim()) {
+      const keyword = searchKeyword.trim()
+      whereCondition = {
+        ...whereCondition,
+        $or: [
+          { equipmentName: db.RegExp({ regexp: keyword, options: 'i' }) },
+          { equipmentNo: db.RegExp({ regexp: keyword, options: 'i' }) }
+        ]
+      }
+    }
+
+    wx.showLoading({ title: '加载中...' })
+    return db.collection('equipments')
+      .where(whereCondition)
+      .orderBy('createTime', 'desc')
+      .limit(100)
+      .get()
+      .then(res => {
+        wx.hideLoading()
+        this.setData({ equipments: res.data || [] })
+        return res.data
+      })
+      .catch(err => {
+        wx.hideLoading()
+        console.error('加载设备库失败:', err)
+        wx.showToast({ title: '加载失败', icon: 'none' })
+        throw err
+      })
+  },
+
+  viewEquipmentDetail(e) {
+    const id = e.currentTarget.dataset.id
+    if (!id) return
+    wx.navigateTo({ url: `/pages/equipment-detail/equipment-detail?id=${id}&adminView=1` })
   },
 
   // 加载设备列表
@@ -149,15 +276,21 @@ Page({
       whereCondition.district = selectedDistrict
     }
     
-    db.collection('devices').where(whereCondition)
+    return db.collection('devices').where(whereCondition)
       .orderBy('createTime', 'desc')
       .limit(100)
       .get()
       .then(res => {
         this.setData({ devices: res.data })
+        return res.data
       })
       .catch(err => {
         console.error('加载设备失败:', err)
+        const msg = err?.errMsg || err?.message || ''
+        if (msg.includes('Failed to fetch')) {
+          wx.showToast({ title: '设备数据加载失败', icon: 'none' })
+        }
+        throw err
       })
   },
 
@@ -253,6 +386,10 @@ Page({
     
     // 构建查询条件
     let whereCondition = {}
+
+    if (this.deviceIdFilter) {
+      whereCondition.deviceId = this.deviceIdFilter
+    }
     
     // 按企业筛选
     if (this.data.selectedEnterprise && this.data.selectedEnterprise !== '全部') {
@@ -301,15 +438,18 @@ Page({
       query = query.where(whereCondition)
     }
     
-    query.orderBy('createTime', 'desc').limit(100).get()
+    return query.orderBy('createTime', 'desc').limit(100).get()
       .then(res => {
         wx.hideLoading()
         this.setData({ records: res.data })
+        return res.data
       })
       .catch(err => {
         wx.hideLoading()
         console.error('加载失败:', err)
-        wx.showToast({ title: '加载失败', icon: 'none' })
+        const msg = err?.errMsg || err?.message || ''
+        wx.showToast({ title: msg.includes('Failed to fetch') ? '记录数据加载失败' : '加载失败', icon: 'none' })
+        throw err
       })
   },
 
@@ -318,7 +458,8 @@ Page({
     const index = e.detail.value
     const district = this.data.districtOptions[index]
     this.setData({ selectedDistrict: district })
-    this.loadRecords()
+    if (this.data.viewMode === 'equipment') this.loadEquipments()
+    else this.loadRecords()
   },
 
   onSearch(e) {
@@ -326,14 +467,16 @@ Page({
     this.setData({ searchKeyword: keyword })
     clearTimeout(this.searchTimer)
     this.searchTimer = setTimeout(() => {
-      this.loadRecords()
+      if (this.data.viewMode === 'equipment') this.loadEquipments()
+      else this.loadRecords()
     }, 300)
   },
 
   onEnterpriseChange(e) {
     const enterprise = this.data.enterprises[e.detail.value]
     this.setData({ selectedEnterprise: enterprise.companyName })
-    this.loadRecords()
+    if (this.data.viewMode === 'equipment') this.loadEquipments()
+    else this.loadRecords()
   },
 
   // 显示新增弹窗
@@ -383,6 +526,16 @@ Page({
       return
     }
 
+    if (!this.data.selectedDeviceId) {
+      wx.showToast({ title: '必须选择压力表（且必须关联设备）', icon: 'none' })
+      return
+    }
+    const selectedDevice = this.data.devices[this.data.deviceIndex]
+    if (!selectedDevice || !selectedDevice.equipmentId) {
+      wx.showToast({ title: '所选压力表未关联设备，请先在设备库绑定', icon: 'none' })
+      return
+    }
+
     wx.showLoading({ title: '保存中...' })
 
     const verifyDate = new Date(newRecord.verificationDate)
@@ -402,9 +555,12 @@ Page({
       hasImage: false,
       enterpriseName: newRecord.enterpriseName || '未知企业',
       // 设备关联
-      deviceId: this.data.selectedDeviceId || '',
-      deviceName: this.data.selectedDeviceName || '',
-      deviceNo: this.data.selectedDeviceId ? (this.data.devices[this.data.deviceIndex]?.deviceNo || '') : ''
+      equipmentId: selectedDevice.equipmentId || '',
+      equipmentName: selectedDevice.equipmentName || '',
+      deviceId: this.data.selectedDeviceId,
+      deviceName: selectedDevice.deviceName || this.data.selectedDeviceName || '',
+      deviceNo: selectedDevice.deviceNo || '',
+      deviceStatus: selectedDevice.status || '在用'
     }
 
     db.collection('pressure_records').add({
@@ -465,6 +621,17 @@ Page({
       return
     }
 
+    const finalDeviceId = this.data.selectedDeviceId || editingRecord.deviceId || ''
+    if (!finalDeviceId) {
+      wx.showToast({ title: '必须选择压力表（且必须关联设备）', icon: 'none' })
+      return
+    }
+    const selectedDevice = this.data.selectedDeviceId ? this.data.devices[this.data.deviceIndex] : null
+    if (selectedDevice && !selectedDevice.equipmentId) {
+      wx.showToast({ title: '所选压力表未关联设备，请先在设备库绑定', icon: 'none' })
+      return
+    }
+
     wx.showLoading({ title: '保存中...' })
 
     const verifyDate = new Date(editingRecord.verificationDate)
@@ -477,9 +644,12 @@ Page({
       expiryDate: `${expiryDate.getFullYear()}-${(expiryDate.getMonth()+1).toString().padStart(2,'0')}-${expiryDate.getDate().toString().padStart(2,'0')}`,
       updateTime: this.formatDateTime(new Date()),
       // 设备关联
-      deviceId: this.data.selectedDeviceId || editingRecord.deviceId || '',
-      deviceName: this.data.selectedDeviceName || editingRecord.deviceName || '',
-      deviceNo: this.data.selectedDeviceId ? (this.data.devices[this.data.deviceIndex]?.deviceNo || '') : (editingRecord.deviceNo || '')
+      equipmentId: selectedDevice ? (selectedDevice.equipmentId || '') : (editingRecord.equipmentId || ''),
+      equipmentName: selectedDevice ? (selectedDevice.equipmentName || '') : (editingRecord.equipmentName || ''),
+      deviceId: finalDeviceId,
+      deviceName: selectedDevice ? (selectedDevice.deviceName || '') : (editingRecord.deviceName || ''),
+      deviceNo: selectedDevice ? (selectedDevice.deviceNo || '') : (editingRecord.deviceNo || ''),
+      deviceStatus: selectedDevice ? (selectedDevice.status || '在用') : (editingRecord.deviceStatus || '在用')
     }
 
     db.collection('pressure_records').doc(editingRecord._id).update({
@@ -535,6 +705,19 @@ Page({
   goToDashboard() {
     wx.navigateBack()
   },
+
+  // 查看记录详情
+  viewRecordDetail(e) {
+    const id = e.currentTarget.dataset.id
+    if (id) {
+      wx.navigateTo({
+        url: `/pages/detail/detail?id=${id}`
+      })
+    }
+  },
+
+  // 阻止事件冒泡
+  stopPropagation() {},
 
   formatDate(date) {
     if (typeof date === 'string') date = new Date(date)

@@ -1,47 +1,44 @@
 const { CLOUD_CONFIG, ROUTES } = require('./constants/index.js')
 const { storage } = require('./utils/index.js')
+const { cache } = require('./utils/cache.js')
+const { ErrorHandler } = require('./utils/error-handler.js')
 
 App({
   globalData: {
     userInfo: null,
     isLogin: false,
-    systemInfo: null
+    systemInfo: null,
+    isConnected: true
   },
 
   onLaunch() {
-    console.log('[App] 小程序启动')
-    
-    // 初始化云开发
+    console.log('[App] launch')
     this.initCloud()
-    
-    // 获取系统信息
     this.getSystemInfo()
-    
-    // 检查登录状态
+    this.watchNetworkStatus()
+    this.preloadCriticalData()
     this.checkAuth()
   },
 
   onShow() {
-    console.log('[App] 小程序显示')
+    console.log('[App] show')
   },
 
   onHide() {
-    console.log('[App] 小程序隐藏')
+    console.log('[App] hide')
   },
 
   onError(msg) {
-    console.error('[App] 全局错误:', msg)
+    console.error('[App] error:', msg)
+    ErrorHandler.handle(msg, { showToast: false })
   },
 
-  /**
-   * 初始化云开发
-   */
   initCloud() {
     if (!wx.cloud) {
-      console.error('[Cloud] 请使用 2.2.3 或以上基础库')
+      console.error('[Cloud] unavailable')
       wx.showModal({
-        title: '版本过低',
-        content: '当前微信版本过低，请升级后使用',
+        title: 'Version Error',
+        content: 'Current WeChat version is too low. Please upgrade and try again.',
         showCancel: false
       })
       return
@@ -51,64 +48,104 @@ App({
       env: CLOUD_CONFIG.ENV,
       traceUser: CLOUD_CONFIG.TRACE_USER
     })
-    
-    console.log('[Cloud] 云开发初始化成功')
+
+    console.log('[Cloud] init success')
   },
 
-  /**
-   * 获取系统信息
-   */
   getSystemInfo() {
-    wx.getSystemInfo({
+    try {
+      const res = wx.getSystemInfoSync()
+      this.globalData.systemInfo = res
+      console.log('[App] system:', res.model, res.system)
+      cache.set('systemInfo', res, 24 * 60 * 60 * 1000)
+    } catch (error) {
+      console.error('[App] getSystemInfo failed:', error)
+    }
+  },
+
+  watchNetworkStatus() {
+    wx.onNetworkStatusChange((res) => {
+      this.globalData.isConnected = res.isConnected
+
+      if (!res.isConnected) {
+        wx.showToast({
+          title: 'Network disconnected',
+          icon: 'none',
+          duration: 2000
+        })
+      } else {
+        console.log('[Network] restored:', res.networkType)
+      }
+    })
+
+    wx.getNetworkType({
       success: (res) => {
-        this.globalData.systemInfo = res
-        console.log('[App] 系统信息:', res.model, res.system)
+        this.globalData.isConnected = res.networkType !== 'none'
       }
     })
   },
 
-  /**
-   * 检查认证状态
-   */
+  async preloadCriticalData() {
+    console.log('[App] preload config')
+
+    try {
+      const config = await this.fetchConfig()
+      cache.set('appConfig', config, 10 * 60 * 1000)
+    } catch (error) {
+      console.warn('[App] preload config failed:', error)
+    }
+  },
+
+  async fetchConfig() {
+    return new Promise((resolve) => {
+      resolve({
+        version: '1.0.0',
+        districts: ['district-a', 'district-b', 'district-c', 'district-d', 'district-e', 'district-f'],
+        maxImageSize: 10 * 1024 * 1024
+      })
+    })
+  },
+
   checkAuth() {
     const enterpriseUser = storage.getEnterpriseUser()
     const adminUser = storage.getAdminUser()
 
     if (enterpriseUser) {
-      console.log('[Auth] 企业用户已登录:', enterpriseUser.companyName)
+      console.log('[Auth] enterprise login:', enterpriseUser.companyName)
       this.globalData.userInfo = enterpriseUser
       this.globalData.isLogin = true
-      
-      // 跳转到首页
-      wx.switchTab({ url: ROUTES.CAMERA })
-    } else if (adminUser) {
-      console.log('[Auth] 管理员已登录')
+      wx.switchTab({ url: ROUTES.WORKBENCH })
+      return
+    }
+
+    if (adminUser) {
+      console.log('[Auth] admin login')
       this.globalData.userInfo = adminUser
       this.globalData.isLogin = true
-      
-      // 跳转到管理后台
       wx.redirectTo({ url: ROUTES.DASHBOARD })
-    } else {
-      console.log('[Auth] 未登录')
-      // 保持在登录页面
+      return
     }
+
+    console.log('[Auth] no login')
+    this.globalData.userInfo = null
+    this.globalData.isLogin = false
+    wx.reLaunch({ url: ROUTES.LOGIN })
   },
 
-  /**
-   * 设置全局用户信息
-   * @param {Object} userInfo 用户信息
-   */
   setUserInfo(userInfo) {
     this.globalData.userInfo = userInfo
     this.globalData.isLogin = true
   },
 
-  /**
-   * 清除登录状态
-   */
   clearAuth() {
     storage.clearAuth()
     this.globalData.userInfo = null
     this.globalData.isLogin = false
+    cache.remove('userPermissions')
+    cache.remove('userStats')
+  },
+
+  handleError(error, options = {}) {
+    return ErrorHandler.handle(error, options)
   }
 })

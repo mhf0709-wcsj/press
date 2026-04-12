@@ -292,20 +292,23 @@
 /* 底部快捷入口 */
 .quick-actions {
   display: flex;
-  justify-content: center;
-  padding: 20rpx 24rpx;
-  gap: 32rpx;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  padding: 20rpx 24rpx 32rpx;
+  gap: 20rpx;
 }
 
 .action-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 24rpx 32rpx;
+  width: calc(50% - 10rpx);
+  box-sizing: border-box;
+  padding: 24rpx 20rpx;
   background: #fff;
   border-radius: 16rpx;
   box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
-  min-width: 160rpx;
+  min-width: 0;
 }
 
 .btn-icon {
@@ -346,6 +349,7 @@
   justify-content: center;
   padding: 32rpx;
   background: linear-gradient(135deg, #ff6b6b 0%, #ffa502 100%);
+  position: relative;
 }
 
 .modal-icon {
@@ -913,4 +917,150 @@
 .ocr-footer-btn.primary {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #fff;
+}
+
+/* 企业列表弹窗 */
+.enterprise-modal {
+  width: 90%;
+  max-width: 700rpx;
+  max-height: 80vh;
+}
+
+.modal-close {
+  position: absolute;
+  right: 24rpx;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 36rpx;
+  color: #999;
+  padding: 8rpx;
+}
+
+.enterprise-list-scroll {
+  max-height: 60vh;
+}
+
+.enterprise-card {
+  background: #f9f9f9;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.enterprise-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid #eee;
+}
+
+.enterprise-name-large {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333;
+  flex: 1;
+}
+
+.enterprise-district-tag {
+  font-size: 22rpx;
+  padding: 6rpx 16rpx;
+  background: #667eea;
+  color: #fff;
+  border-radius: 20rpx;
+  margin-left: 16rpx;
+}
+
+.enterprise-info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12rpx 0;
+}
+
+.enterprise-info-row .info-label {
+  font-size: 26rpx;
+  color: #999;
+}
+
+.enterprise-info-row .info-value {
+  font-size: 26rpx;
+  color: #333;
+}
+
+.enterprise-info-row .info-value.phone {
+  color: #1890ff;
+}
+
+.empty-tip {
+  text-align: center;
+  padding: 60rpx 0;
+  color: #999;
+  font-size: 28rpx;
+}
+
+/* 辖区分布弹窗 */
+.district-modal {
+  width: 90%;
+  max-width: 700rpx;
+}
+
+.district-list-modal {
+  padding: 8rpx 0;
+}
+
+.district-item-modal {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.district-item-modal:last-child {
+  border-bottom: none;
+}
+
+.district-item-modal:active {
+  background: #f5f5f5;
+}
+
+.district-info-modal {
+  width: 180rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+.district-name-modal {
+  font-size: 28rpx;
+  color: #333;
+  font-weight: 500;
+}
+
+.district-count-modal {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 4rpx;
+}
+
+.district-bar-wrap-modal {
+  flex: 1;
+  height: 20rpx;
+  background: #f0f0f0;
+  border-radius: 10rpx;
+  margin: 0 20rpx;
+  overflow: hidden;
+}
+
+.district-bar-modal {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  border-radius: 10rpx;
+}
+
+.district-percent {
+  width: 80rpx;
+  text-align: right;
+  font-size: 26rpx;
+  color: #667eea;
+  font-weight: 600;
 }

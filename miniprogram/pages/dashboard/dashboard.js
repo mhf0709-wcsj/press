@@ -282,13 +282,15 @@ Page({
         })
         break
       case 'enterprise':
+        // 跳转到企业列表页面
         wx.navigateTo({
-          url: '/pages/admin/admin?from=dashboard'
+          url: '/pages/enterprise-list/enterprise-list'
         })
         break
       case 'district':
+        // 跳转到辖区分布页面
         wx.navigateTo({
-          url: '/pages/admin/admin?from=dashboard'
+          url: '/pages/district-list/district-list'
         })
         break
       case 'expiry':
@@ -342,6 +344,12 @@ Page({
         console.error('跳转失败:', err)
         wx.showToast({ title: '跳转失败', icon: 'none' })
       }
+    })
+  },
+
+  goToEnforcement() {
+    wx.navigateTo({
+      url: '/pages/enforcement/enforcement'
     })
   },
 
@@ -729,7 +737,9 @@ Page({
       enterprisePhone: '',
       enterpriseLegalPerson: '',
       createdBy: 'admin',
-      adminName: adminInfo ? adminInfo.username : '管理员'
+      adminName: adminInfo ? adminInfo.username : '管理员',
+      // 设备状态
+      deviceStatus: '在用'
     }
 
     if (ocrImagePath) {

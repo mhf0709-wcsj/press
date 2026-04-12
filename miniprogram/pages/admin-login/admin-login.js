@@ -1,5 +1,8 @@
 const db = wx.cloud.database()
 
+// 总管理员账号
+const MAIN_ADMIN = { username: 'admin', password: 'admin123', role: 'admin' }
+
 // 辖区管理员账号配置
 const DISTRICT_ADMINS = [
   { username: 'dawen', password: 'dawen123', district: '大峃所' },
@@ -52,7 +55,20 @@ Page({
     this.setData({ loading: true })
     wx.showLoading({ title: '登录中...', mask: true })
 
-    // 先检查是否是辖区管理员
+    // 先检查是否是总管理员
+    if (username.trim() === MAIN_ADMIN.username && password.trim() === MAIN_ADMIN.password) {
+      const adminData = {
+        username: MAIN_ADMIN.username,
+        role: 'admin'
+      }
+      wx.setStorageSync('adminUser', adminData)
+      wx.hideLoading()
+      wx.showToast({ title: '登录成功', icon: 'success' })
+      setTimeout(() => this.goToAdmin(), 1500)
+      return
+    }
+
+    // 检查是否是辖区管理员
     const districtAdmin = DISTRICT_ADMINS.find(
       a => a.username === username.trim() && a.password === password.trim()
     )
@@ -71,7 +87,7 @@ Page({
       return
     }
 
-    // 查询总管理员账号
+    // 不是预设账号，查询数据库中的管理员
     db.collection('admins').where({
       username: username.trim()
     }).get()
@@ -81,10 +97,9 @@ Page({
           const admin = res.data[0]
           // 验证密码
           if (admin.password === password.trim()) {
-            // 登录成功，设置为总管理员
             const adminData = {
               username: admin.username,
-              role: 'admin'
+              role: admin.role || 'admin'
             }
             wx.setStorageSync('adminUser', adminData)
             wx.showToast({ title: '登录成功', icon: 'success' })
@@ -93,33 +108,13 @@ Page({
             wx.showToast({ title: '密码错误', icon: 'none' })
           }
         } else {
-          // 用户名不存在，尝试初始化管理员账号
-          wx.showModal({
-            title: '提示',
-            content: '管理员账号不存在，是否初始化创建？\n\n默认账号：admin\n默认密码：admin123',
-            confirmText: '初始化',
-            success: (modalRes) => {
-              if (modalRes.confirm) {
-                this.initAdmin()
-              }
-            }
-          })
+          wx.showToast({ title: '账号不存在', icon: 'none' })
         }
       })
       .catch(err => {
         wx.hideLoading()
         console.error('登录失败:', err)
-        // 集合不存在，提示初始化
-        wx.showModal({
-          title: '提示',
-          content: '管理员数据不存在，是否初始化创建？\n\n默认账号：admin\n默认密码：admin123',
-          confirmText: '初始化',
-          success: (modalRes) => {
-            if (modalRes.confirm) {
-              this.initAdmin()
-            }
-          }
-        })
+        wx.showToast({ title: '登录失败，请重试', icon: 'none' })
       })
       .finally(() => {
         this.setData({ loading: false })
@@ -133,40 +128,11 @@ Page({
   },
 
   goToEnterprise() {
-    wx.navigateBack()
-  },
-
-  initAdmin() {
-    wx.showLoading({ title: '初始化中...', mask: true })
-    wx.cloud.callFunction({
-      name: 'initAdmin'
-    }).then(res => {
-      wx.hideLoading()
-      if (res.result && res.result.success) {
-        wx.showToast({ title: '初始化成功', icon: 'success' })
-        // 自动登录
-        const adminData = {
-          username: 'admin',
-          password: 'admin123',
-          role: 'admin'
-        }
-        wx.setStorageSync('adminUser', adminData)
-        setTimeout(() => this.goToAdmin(), 1500)
-      } else {
-        wx.showModal({
-          title: '初始化失败',
-          content: res.result.message || '请先在云开发控制台创建 admins 集合',
-          showCancel: false
-        })
-      }
-    }).catch(err => {
-      wx.hideLoading()
-      console.error('初始化失败:', err)
-      wx.showModal({
-        title: '初始化失败',
-        content: '请先上传并部署 initAdmin 云函数',
-        showCancel: false
-      })
-    })
+    const enterpriseUser = wx.getStorageSync('enterpriseUser')
+    if (enterpriseUser) {
+      wx.switchTab({ url: '/pages/workbench/workbench' })
+      return
+    }
+    wx.reLaunch({ url: '/pages/login/login' })
   }
 })

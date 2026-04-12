@@ -1,0 +1,233 @@
+/**
+ * 通用按钮样式
+ * 支持多种状态：可点击、禁用、加载中
+ */
+
+/* ==================== 基础按钮 ==================== */
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24rpx 32rpx;
+  font-size: 30rpx;
+  font-weight: 500;
+  border-radius: 16rpx;
+  border: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.btn::after {
+  border: none;
+}
+
+/* 按钮点击反馈 */
+.btn:active {
+  opacity: 0.9;
+  transform: scale(0.98);
+}
+
+/* ==================== 主要按钮（蓝色） ==================== */
+
+.btn-primary {
+  background: #3B82F6;
+  color: #ffffff;
+  box-shadow: 0 4rpx 6rpx rgba(59, 130, 246, 0.25);
+}
+
+.btn-primary:active {
+  background: #2563EB;
+  box-shadow: 0 2rpx 4rpx rgba(59, 130, 246, 0.15);
+}
+
+/* ==================== 成功按钮（绿色） ==================== */
+
+.btn-success {
+  background: #10B981;
+  color: #ffffff;
+  box-shadow: 0 4rpx 6rpx rgba(16, 185, 129, 0.25);
+}
+
+.btn-success:active {
+  background: #059669;
+  box-shadow: 0 2rpx 4rpx rgba(16, 185, 129, 0.15);
+}
+
+/* ==================== 危险按钮（红色） ==================== */
+
+.btn-danger {
+  background: #EF4444;
+  color: #ffffff;
+  box-shadow: 0 4rpx 6rpx rgba(239, 68, 68, 0.25);
+}
+
+.btn-danger:active {
+  background: #DC2626;
+  box-shadow: 0 2rpx 4rpx rgba(239, 68, 68, 0.15);
+}
+
+/* ==================== 警告按钮（橙色） ==================== */
+
+.btn-warning {
+  background: #F59E0B;
+  color: #ffffff;
+  box-shadow: 0 4rpx 6rpx rgba(245, 158, 11, 0.25);
+}
+
+.btn-warning:active {
+  background: #D97706;
+  box-shadow: 0 2rpx 4rpx rgba(245, 158, 11, 0.15);
+}
+
+/* ==================== 次要按钮（灰色边框） ==================== */
+
+.btn-secondary {
+  background: #FFFFFF;
+  color: #374151;
+  border: 2rpx solid #E5E7EB;
+  box-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.05);
+}
+
+.btn-secondary:active {
+  background: #F9FAFB;
+  border-color: #D1D5DB;
+}
+
+/* ==================== 文字按钮 ==================== */
+
+.btn-text {
+  background: transparent;
+  color: #3B82F6;
+  padding: 16rpx 24rpx;
+  box-shadow: none;
+}
+
+.btn-text:active {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.btn-text-danger {
+  background: transparent;
+  color: #EF4444;
+  padding: 16rpx 24rpx;
+  box-shadow: none;
+}
+
+.btn-text-danger:active {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* ==================== 禁用状态 ==================== */
+
+.btn-disabled,
+.btn[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+  box-shadow: none !important;
+}
+
+.btn-disabled.btn-primary,
+.btn-disabled.btn-success,
+.btn-disabled.btn-danger,
+.btn-disabled.btn-warning {
+  background: #9CA3AF;
+  color: #F3F4F6;
+}
+
+.btn-disabled.btn-secondary {
+  background: #F3F4F6;
+  color: #9CA3AF;
+  border-color: #E5E7EB;
+}
+
+/* ==================== 加载中状态 ==================== */
+
+.btn-loading {
+  cursor: wait;
+  pointer-events: none;
+}
+
+.btn-loading .loading-icon {
+  display: inline-block;
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 16rpx;
+  border: 4rpx solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: btn-spin 0.8s linear infinite;
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ==================== 按钮尺寸 ==================== */
+
+.btn-sm {
+  padding: 16rpx 24rpx;
+  font-size: 26rpx;
+  border-radius: 12rpx;
+}
+
+.btn-lg {
+  padding: 32rpx 64rpx;
+  font-size: 34rpx;
+  border-radius: 20rpx;
+}
+
+.btn-block {
+  width: 100%;
+  display: flex;
+}
+
+/* ==================== 按钮组 ==================== */
+
+.btn-group {
+  display: flex;
+  gap: 24rpx;
+  padding: 24rpx 0;
+}
+
+.btn-group .btn {
+  flex: 1;
+}
+
+.btn-group-fixed {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #ffffff;
+  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.05);
+  z-index: 100;
+  padding: 24rpx 32rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+}
+
+/* ==================== 图标按钮 ==================== */
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.btn-icon .icon {
+  font-size: 36rpx;
+}
+
+/* ==================== 圆形按钮 ==================== */
+
+.btn-circle {
+  width: 96rpx;
+  height: 96rpx;
+  padding: 0;
+  border-radius: 50%;
+}

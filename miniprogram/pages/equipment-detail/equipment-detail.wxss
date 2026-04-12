@@ -1,0 +1,278 @@
+.container {
+  padding: 24rpx;
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding-bottom: 140rpx;
+  display: block;
+}
+
+.card {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 28rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+  margin-bottom: 24rpx;
+  box-sizing: border-box;
+}
+
+.card-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 18rpx;
+}
+
+.header-card {
+  background: linear-gradient(135deg, #1D4ED8 0%, #3B82F6 100%);
+  color: #fff;
+}
+
+.header-main .title {
+  font-size: 40rpx;
+  font-weight: 800;
+  display: block;
+}
+
+.header-main .sub {
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.82);
+  margin-top: 12rpx;
+  display: block;
+}
+
+.header-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 24rpx;
+}
+
+.btn {
+  height: 80rpx;
+  line-height: 80rpx;
+  border-radius: 16rpx;
+  padding: 0 24rpx;
+  font-size: 30rpx;
+  margin: 0;
+}
+
+.btn.primary {
+  background: #fff;
+  color: #1D4ED8;
+}
+
+.btn.secondary {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.btn.full {
+  width: 100%;
+}
+
+.kv {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16rpx;
+  padding: 20rpx 0;
+  border-bottom: 2rpx solid #EEF2F7;
+}
+
+.kv:last-child {
+  border-bottom: none;
+}
+
+.k {
+  font-size: 28rpx;
+  color: #6B7280;
+  width: 160rpx;
+}
+
+.v {
+  flex: 1;
+  min-width: 0;
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  font-size: 28rpx;
+  color: #111827;
+  padding: 0;
+}
+
+.value-text {
+  font-size: 28rpx;
+  color: #111827;
+  display: block;
+  word-break: break-all;
+}
+
+.list .item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 22rpx 0;
+  border-bottom: 2rpx solid #EEF2F7;
+}
+
+.list .item.highlight {
+  padding: 22rpx 18rpx;
+  margin: 0 -18rpx;
+  border-radius: 16rpx;
+  background: #EFF6FF;
+  border-bottom: none;
+  box-shadow: 0 6rpx 18rpx rgba(29, 78, 216, 0.12);
+}
+
+.list .item:last-child {
+  border-bottom: none;
+}
+
+.item-left .name {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #111827;
+  display: block;
+}
+
+.item-left .meta {
+  font-size: 24rpx;
+  color: #94A3B8;
+  margin-top: 8rpx;
+  display: block;
+}
+
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  margin-top: 10rpx;
+  align-items: center;
+}
+
+.meta2 {
+  font-size: 24rpx;
+  color: #64748B;
+}
+
+.pill {
+  font-size: 22rpx;
+  padding: 6rpx 12rpx;
+  border-radius: 999rpx;
+  background: #F1F5F9;
+  color: #475569;
+}
+
+.pill.normal { background: #ECFDF5; color: #16A34A; }
+.pill.expiring { background: #FFFBEB; color: #D97706; }
+.pill.expired { background: #FEF2F2; color: #DC2626; }
+.pill.unknown { background: #F1F5F9; color: #64748B; }
+
+.pill.pass { background: #ECFDF5; color: #16A34A; }
+.pill.fail { background: #FEF2F2; color: #DC2626; }
+
+.item-right {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+}
+
+.mini-btn {
+  height: 52rpx;
+  line-height: 52rpx;
+  padding: 0 18rpx;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  background: #F8FAFC;
+  color: #1D4ED8;
+  margin: 0;
+}
+
+.mini-btn::after {
+  border: none;
+}
+
+.tag {
+  font-size: 24rpx;
+  color: #1D4ED8;
+  background: #EFF6FF;
+  padding: 6rpx 14rpx;
+  border-radius: 999rpx;
+}
+
+.arrow {
+  font-size: 40rpx;
+  color: #CBD5E1;
+}
+
+.stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.stat {
+  flex: 1;
+  background: #F8FAFC;
+  border-radius: 16rpx;
+  padding: 18rpx 16rpx;
+  text-align: center;
+}
+
+.stat .num {
+  display: block;
+  font-size: 40rpx;
+  font-weight: 800;
+  color: #111827;
+}
+
+.stat .label {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  color: #64748B;
+}
+
+.stat.danger { background: #FEF2F2; }
+.stat.danger .num { color: #DC2626; }
+.stat.warn { background: #FFFBEB; }
+.stat.warn .num { color: #D97706; }
+.stat.ok { background: #ECFDF5; }
+.stat.ok .num { color: #16A34A; }
+
+.empty {
+  text-align: center;
+  padding: 70rpx 24rpx;
+}
+
+.empty-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #111827;
+  display: block;
+}
+
+.empty-desc {
+  font-size: 26rpx;
+  color: #6B7280;
+  margin-top: 12rpx;
+  display: block;
+}
+
+.footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 16rpx 24rpx 24rpx;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.06);
+  box-sizing: border-box;
+}

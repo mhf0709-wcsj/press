@@ -1,0 +1,88 @@
+.container {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 100rpx 0;
+  color: #999;
+  font-size: 28rpx;
+}
+
+.enterprise-scroll {
+  height: 100vh;
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+.enterprise-card {
+  background: #fff;
+  border-radius: 20rpx;
+  margin-bottom: 24rpx;
+  overflow: hidden;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+}
+
+.enterprise-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28rpx;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.enterprise-name {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #fff;
+  flex: 1;
+}
+
+.enterprise-district {
+  font-size: 22rpx;
+  padding: 8rpx 20rpx;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border-radius: 20rpx;
+  margin-left: 16rpx;
+}
+
+.enterprise-body {
+  padding: 24rpx 28rpx;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-size: 28rpx;
+  color: #999;
+}
+
+.info-value {
+  font-size: 28rpx;
+  color: #333;
+}
+
+.info-value.phone {
+  color: #1890ff;
+}
+
+.empty {
+  text-align: center;
+  padding: 100rpx 0;
+  color: #999;
+  font-size: 28rpx;
+}

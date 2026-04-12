@@ -14,10 +14,13 @@ Page({
       verificationStd: '',
       conclusion: '',
       verificationDate: '',
-      district: ''
+      district: '',
+      deviceStatus: '在用'  // 默认在用
     },
     conclusionIndex: 0,
     districtIndex: 0,
+    deviceStatusIndex: 0,
+    deviceStatusOptions: ['在用', '停用', '送检'],
     districtOptions: ['大峃所', '珊溪所', '巨屿所', '峃口所', '黄坦所', '西坑所', '玉壶所', '南田所', '百丈漈所'],
     expiryDateText: '',
     saving: false,
@@ -64,6 +67,13 @@ Page({
             const idx = this.data.devices.findIndex(d => d._id === record.deviceId)
             if (idx > -1) deviceIndex = idx
           }
+
+          // 设置设备状态索引
+          let deviceStatusIndex = 0
+          if (record.deviceStatus) {
+            const idx = this.data.deviceStatusOptions.indexOf(record.deviceStatus)
+            if (idx > -1) deviceStatusIndex = idx
+          }
           
           this.setData({
             record: record,
@@ -77,10 +87,12 @@ Page({
               verificationStd: record.verificationStd || 'JJG52-2013',
               conclusion: record.conclusion || '合格',
               verificationDate: record.verificationDate || '',
-              district: record.district || ''
+              district: record.district || '',
+              deviceStatus: record.deviceStatus || '在用'  // 设备状态
             },
             districtIndex: districtIndex,
             deviceIndex: deviceIndex,
+            deviceStatusIndex: deviceStatusIndex,
             selectedDeviceId: record.deviceId || '',
             selectedDeviceName: record.deviceName || '',
             expiryDateText: record.expiryDate ? 
@@ -253,6 +265,15 @@ Page({
     })
   },
 
+  // 设备状态选择
+  onDeviceStatusChange(e) {
+    const index = e.detail.value
+    this.setData({
+      deviceStatusIndex: index,
+      'formData.deviceStatus': this.data.deviceStatusOptions[index]
+    })
+  },
+
   onConclusionChange(e) {
     const conclusions = ['合格', '不合格']
     const index = e.detail.value
@@ -286,6 +307,16 @@ Page({
       return
     }
 
+    if (!this.data.selectedDeviceId) {
+      wx.showToast({ title: '必须选择压力表（且必须关联设备）', icon: 'none' })
+      return
+    }
+    const selectedDevice = this.data.devices[this.data.deviceIndex]
+    if (!selectedDevice || !selectedDevice.equipmentId) {
+      wx.showToast({ title: '所选压力表未关联设备，请先在设备库绑定', icon: 'none' })
+      return
+    }
+
     this.setData({ saving: true })
     wx.showLoading({ title: '保存中...', mask: true })
 
@@ -301,9 +332,12 @@ Page({
       updateTime: this.formatDateTime(new Date()),
       ocrSource: 'manual', // 编辑后标记为手动录入
       // 设备关联
-      deviceId: this.data.selectedDeviceId || '',
-      deviceName: this.data.selectedDeviceName || '',
-      deviceNo: this.data.selectedDeviceId ? (this.data.devices[this.data.deviceIndex]?.deviceNo || '') : ''
+      equipmentId: selectedDevice.equipmentId || '',
+      equipmentName: selectedDevice.equipmentName || '',
+      deviceId: this.data.selectedDeviceId,
+      deviceName: selectedDevice.deviceName || this.data.selectedDeviceName || '',
+      deviceNo: selectedDevice.deviceNo || '',
+      deviceStatus: selectedDevice.status || '在用'
     }
 
     db.collection('pressure_records').doc(recordId).update({

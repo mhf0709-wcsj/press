@@ -34,24 +34,24 @@ exports.main = async (event) => {
     let ocrResult = null
     let apiUsed = ''
     
-    // 优先使用高精度含位置版（识别率最高）
+    // 优先使用通用高精度版（速度快，识别率高，无位置信息要求）
     try {
-      ocrResult = await callBaiduOcr(accessToken, imageBase64, 'accurate')
-      apiUsed = 'accurate'
-      console.log('高精度OCR(含位置)识别:', ocrResult.words_result_num, '行')
+      ocrResult = await callBaiduOcr(accessToken, imageBase64, 'accurate_basic')
+      apiUsed = 'accurate_basic'
+      console.log('高精度基础版识别:', ocrResult.words_result_num, '行')
     } catch (err) {
-      console.log('高精度OCR失败:', err.message)
-      // 备用：通用高精度版
+      console.log('高精度基础版失败:', err.message)
+      // 备用：通用版
       try {
-        ocrResult = await callBaiduOcr(accessToken, imageBase64, 'accurate_basic')
-        apiUsed = 'accurate_basic'
-        console.log('高精度基础版识别:', ocrResult.words_result_num, '行')
-      } catch (err2) {
-        console.log('高精度基础版失败:', err2.message)
-        // 最后尝试通用版
         ocrResult = await callBaiduOcr(accessToken, imageBase64, 'general_basic')
         apiUsed = 'general_basic'
         console.log('通用版识别:', ocrResult.words_result_num, '行')
+      } catch (err2) {
+        console.log('通用版失败:', err2.message)
+        // 最后尝试带位置高精度版
+        ocrResult = await callBaiduOcr(accessToken, imageBase64, 'accurate')
+        apiUsed = 'accurate'
+        console.log('高精度(含位置)识别:', ocrResult.words_result_num, '行')
       }
     }
     
@@ -126,7 +126,7 @@ async function getAccessToken() {
   return cachedToken
 }
 
-// 调用百度OCR（优化参数提升中文识别率）
+// 调用百度OCR
 async function callBaiduOcr(accessToken, imageBase64, apiType) {
   const apiUrl = `https://aip.baidubce.com/rest/2.0/ocr/v1/${apiType}`
   
@@ -134,15 +134,20 @@ async function callBaiduOcr(accessToken, imageBase64, apiType) {
   params.append('image', imageBase64)
   params.append('access_token', accessToken)
   
-  // ===== 关键优化参数 =====
-  // 指定识别语言为中英文混合（提升中文识别率）
-  params.append('language_type', 'CHN_ENG')
   // 检测图片方向（防止倒置图片识别错误）
   params.append('detect_direction', 'true')
   // 返回置信度（用于过滤低质量结果）
   params.append('probability', 'true')
-  // 开启段落检测（提升整段文字识别）
-  params.append('paragraph', 'true')
+  
+  if (apiType === 'general_basic' || apiType === 'general') {
+    // 只有标准版支持 language_type
+    params.append('language_type', 'CHN_ENG')
+  }
+  
+  if (apiType === 'general_basic' || apiType === 'accurate_basic') {
+    // 开启段落检测（提升整段文字识别）
+    params.append('paragraph', 'true')
+  }
   
   const response = await axios.post(apiUrl, params.toString(), {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -150,7 +155,7 @@ async function callBaiduOcr(accessToken, imageBase64, apiType) {
   })
   
   if (response.data.error_code) {
-    throw new Error(response.data.error_msg)
+    throw new Error(response.data.error_msg || `API Error: ${response.data.error_code}`)
   }
   
   return response.data

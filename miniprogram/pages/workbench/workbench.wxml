@@ -1,0 +1,154 @@
+<view class="page-shell workbench-page">
+  <view class="content-wrapper workbench-wrapper">
+    <view class="hero-card panel">
+      <view class="panel-section hero-section">
+        <view class="hero-kicker">Enterprise Console</view>
+        <view class="hero-title">工作台</view>
+        <view class="hero-desc">把拍照录入、设备管理、到期提醒和账号入口集中到一个首页里。</view>
+
+        <view class="identity-row">
+          <view class="identity-main">
+            <view class="identity-name">{{enterpriseUser.companyName || '未登录企业'}}</view>
+            <view class="identity-sub">今天优先处理临期设备和新增台账。</view>
+          </view>
+          <view class="identity-badge">企业端</view>
+        </view>
+
+        <view class="summary-grid">
+          <view class="summary-card">
+            <text class="summary-label">设备总数</text>
+            <text class="summary-value">{{summary.equipmentCount}}</text>
+          </view>
+          <view class="summary-card">
+            <text class="summary-label">压力表</text>
+            <text class="summary-value">{{summary.gaugeCount}}</text>
+          </view>
+          <view class="summary-card warn">
+            <text class="summary-label">30天内到期</text>
+            <text class="summary-value">{{summary.expiringSoon}}</text>
+          </view>
+          <view class="summary-card danger">
+            <text class="summary-label">已过期</text>
+            <text class="summary-value">{{summary.expired}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="module-card panel">
+      <view class="panel-section">
+        <view class="module-head">
+          <view>
+            <view class="section-title">快捷操作</view>
+            <view class="section-desc">优先保留高频操作，让企业用户一进来就能动手。</view>
+          </view>
+        </view>
+
+        <view class="action-list">
+          <view
+            class="action-item {{item.accent}}"
+            wx:for="{{quickActions}}"
+            wx:key="key"
+            data-key="{{item.key}}"
+            bindtap="handleQuickAction"
+          >
+            <view class="action-copy">
+              <view class="action-title">{{item.title}}</view>
+              <view class="action-desc">{{item.desc}}</view>
+            </view>
+            <view class="action-arrow">›</view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="module-card panel">
+      <view class="panel-section">
+        <view class="module-head">
+          <view>
+            <view class="section-title">常用入口</view>
+            <view class="section-desc">把设备、提醒和账户入口统一收在首页。</view>
+          </view>
+        </view>
+
+        <view class="shortcut-grid">
+          <view
+            class="shortcut-item"
+            wx:for="{{shortcuts}}"
+            wx:key="key"
+            data-key="{{item.key}}"
+            bindtap="handleShortcut"
+          >
+            <view class="shortcut-label">{{item.label}}</view>
+            <view class="shortcut-value">{{item.value}}</view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="module-card panel">
+      <view class="panel-section">
+        <view class="module-head">
+          <view>
+            <view class="section-title">最近设备</view>
+            <view class="section-desc">最近新增或最近查看的设备台账。</view>
+          </view>
+          <view class="module-link" bindtap="handleShortcut" data-key="archive">查看全部</view>
+        </view>
+
+        <view wx:if="{{recentEquipments.length > 0}}" class="record-list">
+          <view
+            class="record-item"
+            wx:for="{{recentEquipments}}"
+            wx:key="_id"
+            data-id="{{item._id}}"
+            bindtap="openEquipment"
+          >
+            <view class="record-main">
+              <view class="record-title">{{item.title}}</view>
+              <view class="record-subtitle">{{item.subtitle}}</view>
+            </view>
+            <view class="record-meta">{{item.meta}}</view>
+          </view>
+        </view>
+
+        <view wx:else class="empty-inline">
+          <view class="empty-inline-title">还没有设备台账</view>
+          <view class="empty-inline-desc">先从“新建设备”开始，把设备和压力表关系建起来。</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="module-card panel">
+      <view class="panel-section">
+        <view class="module-head">
+          <view>
+            <view class="section-title">最近录入</view>
+            <view class="section-desc">最近新增的检定记录，便于继续跟进。</view>
+          </view>
+        </view>
+
+        <view wx:if="{{recentRecords.length > 0}}" class="record-list">
+          <view
+            class="record-item"
+            wx:for="{{recentRecords}}"
+            wx:key="_id"
+            data-id="{{item._id}}"
+            bindtap="openRecord"
+          >
+            <view class="record-main">
+              <view class="record-title">{{item.title}}</view>
+              <view class="record-subtitle">{{item.subtitle}}</view>
+            </view>
+            <view class="record-meta">{{item.meta}}</view>
+          </view>
+        </view>
+
+        <view wx:else class="empty-inline">
+          <view class="empty-inline-title">还没有录入记录</view>
+          <view class="empty-inline-desc">可以直接从上面的“拍照识别”开始建立第一条记录。</view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

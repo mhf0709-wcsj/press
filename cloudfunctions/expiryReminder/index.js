@@ -9,6 +9,7 @@ cloud.init({
 
 const db = cloud.database()
 const _ = db.command
+const DEVICE_EXPIRY_TEMPLATE_ID = process.env.DEVICE_EXPIRY_TEMPLATE_ID || ''
 
 exports.main = async (event, context) => {
   const { action, enterpriseName, days = 30, district, openid, templateId, data } = event
@@ -42,6 +43,10 @@ exports.main = async (event, context) => {
     case 'batchSendReminder':
       // 批量发送提醒（微信+短信）
       return await batchSendReminder(event)
+      
+    case 'autoScanAndAlert':
+      // 定时任务：自动扫描全量台账并推送逾期/临期预警
+      return await autoScanAndAlert()
     
     default:
       return { success: false, error: '未知操作' }
@@ -310,10 +315,9 @@ async function sendWxSubscribeMessage(event) {
       templateId: templateId || 'TEMPLATE_ID_PLACEHOLDER', // 需要在微信公众平台申请
       page: page || 'pages/archive/archive',
       data: data || {
-        thing1: { value: '压力表到期提醒' },
-        thing2: { value: '您有压力表即将到期' },
-        date3: { value: formatDate(new Date()) },
-        thing4: { value: '请及时处理' }
+        thing1: { value: '智能压力表' },
+        date2: { value: formatDate(new Date()) },
+        thing8: { value: '您的设备即将到期，请及时安排检定' }
       },
       miniprogramState: 'formal' // formal: 正式版, developer: 开发版, trial: 体验版
     })
@@ -354,18 +358,17 @@ async function batchSendReminder(event) {
   
   for (const user of (users || [])) {
     // 发送微信订阅消息
-    if (user.openid) {
-      const wxResult = await sendWxSubscribeMessage({
-        touser: user.openid,
-        templateId: templateId,
-        page: 'pages/archive/archive',
-        data: {
-          thing1: { value: '压力表到期提醒' },
-          thing2: { value: user.message || message || '您有压力表即将到期' },
-          date3: { value: formatDate(new Date()) },
-          thing4: { value: '请及时处理' }
-        }
-      })
+  if (user.openid) {
+    const wxResult = await sendWxSubscribeMessage({
+      touser: user.openid,
+      templateId: templateId,
+      page: 'pages/archive/archive',
+      data: {
+        thing1: { value: '智能压力表' },
+        date2: { value: formatDate(new Date()) },
+        thing8: { value: user.message || message || '您的设备即将到期，请及时安排检定' }
+      }
+    })
       
       if (wxResult.success) {
         results.wxSuccess++
@@ -398,6 +401,88 @@ async function batchSendReminder(event) {
     success: true,
     message: '批量发送完成',
     data: results
+  }
+}
+
+/**
+ * 自动扫描并推送告警 (定时任务核心入口)
+ * 业务逻辑：
+ * 1. 查询30天内即将过期和已经过期的设备。
+ * 2. 关联企业管理员的 openid。
+ * 3. 自动发送微信订阅消息。
+ */
+async function autoScanAndAlert() {
+  console.log('=== 开始执行自动逾期扫描与预警任务 ===')
+  try {
+    const now = new Date()
+    const expiryThreshold = new Date()
+    expiryThreshold.setDate(now.getDate() + 30) // 提前30天预警
+    
+    const nowStr = formatDate(now)
+    const thresholdStr = formatDate(expiryThreshold)
+
+    // 查询即将在30天内到期的设备
+    const expiringResult = await db.collection('pressure_records')
+      .where({
+        expiryDate: _.gte(nowStr).and(_.lte(thresholdStr)),
+        status: 'valid' // 必须是有效在用的状态
+      }).get()
+
+    // 查询已经过期的设备（需要紧急催检）
+    const expiredResult = await db.collection('pressure_records')
+      .where({
+        expiryDate: _.lt(nowStr),
+        status: 'valid'
+      }).get()
+
+    const allAlertRecords = [...expiringResult.data, ...expiredResult.data]
+    console.log(`扫描完成，发现 ${expiringResult.data.length} 条临期，${expiredResult.data.length} 条逾期。`)
+
+    if (allAlertRecords.length === 0) {
+      return { success: true, message: '当前无预警设备' }
+    }
+
+    // 按企业归类，以便合并发送或者找到对应的管理员
+    const alertTasks = []
+    
+    for (const record of allAlertRecords) {
+      const isExpired = record.expiryDate < nowStr
+      
+      // 找到该企业对应的注册管理员(或负责人)的openid
+      const entRes = await db.collection('enterprises').where({
+        companyName: record.enterpriseName
+      }).get()
+
+      if (entRes.data.length > 0 && entRes.data[0]._openid) {
+        const adminOpenId = entRes.data[0]._openid
+        
+        // 组装订阅消息内容
+        if (!DEVICE_EXPIRY_TEMPLATE_ID) {
+          continue
+        }
+        const wxTask = sendWxSubscribeMessage({
+          touser: adminOpenId,
+          templateId: DEVICE_EXPIRY_TEMPLATE_ID,
+          page: `/pages/device-detail/device-detail?id=${record.deviceId || record._id}`,
+          data: {
+            thing1: { value: (record.deviceName || '压力表').substring(0, 20) }, // 物品名称
+            date2: { value: record.expiryDate }, // 到期日期
+            thing8: { value: isExpired ? '设备已逾期，请立即停用送检' : '设备即将到期，请及时安排检定' } // 温馨提醒
+          }
+        })
+        alertTasks.push(wxTask)
+      }
+    }
+
+    const results = await Promise.allSettled(alertTasks)
+    const successCount = results.filter(r => r.status === 'fulfilled' && r.value.success).length
+
+    console.log(`预警推送完成，共触发 ${alertTasks.length} 次，成功 ${successCount} 次。`)
+    return { success: true, total: alertTasks.length, successCount }
+
+  } catch (err) {
+    console.error('自动扫描任务异常:', err)
+    return { success: false, error: err.message }
   }
 }
 

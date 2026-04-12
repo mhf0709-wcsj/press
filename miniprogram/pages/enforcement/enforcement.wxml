@@ -1,0 +1,69 @@
+<view class="container">
+  <view class="card header-card">
+    <view class="header-top">
+      <text class="title">现场核验取证</text>
+      <text class="sub">扫码核验 · 拍照取证 · 哈希链留痕</text>
+    </view>
+    <view class="header-actions">
+      <button class="btn primary" bindtap="scanDevice">扫码核验</button>
+      <button class="btn secondary" bindtap="takeEvidence" disabled="{{!deviceId}}">现场取证</button>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{verifyResult}}">
+    <view class="card-title">核验结果</view>
+    <view class="kv">
+      <text class="k">状态</text>
+      <text class="v status {{statusClass}}">{{verifyResult.verify.status}}</text>
+    </view>
+    <view class="kv">
+      <text class="k">设备名称</text>
+      <text class="v">{{verifyResult.device.deviceName}}</text>
+    </view>
+    <view class="kv">
+      <text class="k">出厂编号</text>
+      <text class="v">{{verifyResult.device.factoryNo}}</text>
+    </view>
+    <view class="kv">
+      <text class="k">到期日期</text>
+      <text class="v">{{verifyResult.lastRecord.expiryDate || '-'}}</text>
+    </view>
+    <view class="kv">
+      <text class="k">检定结论</text>
+      <text class="v">{{verifyResult.lastRecord.conclusion || '-'}}</text>
+    </view>
+    <view class="kv" wx:if="{{verifyResult.verify.daysToExpiry !== null}}">
+      <text class="k">剩余天数</text>
+      <text class="v">{{verifyResult.verify.daysToExpiry}}</text>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{evidenceImages.length > 0}}">
+    <view class="card-title">本次取证</view>
+    <view class="thumbs">
+      <view class="thumb" wx:for="{{evidenceImages}}" wx:key="fileID">
+        <image class="img" src="{{item.path}}" mode="aspectFill" bindtap="previewEvidence" data-index="{{index}}" />
+      </view>
+    </view>
+    <view class="form">
+      <textarea class="remark" placeholder="填写现场备注（可选）" value="{{remark}}" bindinput="onRemarkInput"></textarea>
+    </view>
+    <button class="btn primary" bindtap="submitEvidence" loading="{{submitting}}">提交取证并留痕</button>
+    <view class="hash" wx:if="{{lastCaseHash}}">
+      <text>本次哈希：{{lastCaseHash}}</text>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{cases.length > 0}}">
+    <view class="card-title">历史取证</view>
+    <view class="case-item" wx:for="{{cases}}" wx:key="_id">
+      <view class="case-top">
+        <text class="case-status">{{item.verifyStatus || '-'}}</text>
+        <text class="case-time">{{item.createTime}}</text>
+      </view>
+      <view class="case-hash">
+        <text class="mono">{{item.caseHash}}</text>
+      </view>
+    </view>
+  </view>
+</view>

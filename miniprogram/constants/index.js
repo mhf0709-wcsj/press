@@ -22,6 +22,7 @@ const ROUTES = {
   LOGIN: '/pages/login/login',
   REGISTER: '/pages/register/register',
   ADMIN_LOGIN: '/pages/admin-login/admin-login',
+  WORKBENCH: '/pages/workbench/workbench',
   CAMERA: '/pages/camera/camera',
   ARCHIVE: '/pages/archive/archive',
   USER: '/pages/user/user',
@@ -65,6 +66,10 @@ const REGEX = {
   DATE: /^\d{4}-\d{2}-\d{2}$/
 }
 
+const SUBSCRIBE_TEMPLATE_IDS = {
+  DEVICE_EXPIRY: ''
+}
+
 module.exports = {
   CLOUD_CONFIG,
   STORAGE_KEYS,
@@ -75,5 +80,6 @@ module.exports = {
   QUALITY_THRESHOLD,
   EXPIRY_DAYS,
   PAGINATION,
-  REGEX
+  REGEX,
+  SUBSCRIBE_TEMPLATE_IDS
 }

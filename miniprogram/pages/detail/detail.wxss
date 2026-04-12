@@ -1,11 +1,16 @@
 /* iOS 26 Style - Detail Page */
 page {
-  background: #f2f2f7;
+  background: #F3F4F6;
 }
 
 .container {
   min-height: 100vh;
   padding-bottom: 140rpx;
+  width: 100%;
+  box-sizing: border-box;
+  display: block;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 /* 导航栏 */
@@ -14,7 +19,8 @@ page {
   align-items: center;
   justify-content: space-between;
   padding: 20rpx 32rpx;
-  background: #f2f2f7;
+  background: #ffffff;
+  border-bottom: 2rpx solid #F3F4F6;
 }
 
 .nav-left {
@@ -24,50 +30,55 @@ page {
 
 .nav-back {
   font-size: 48rpx;
-  color: #007AFF;
+  color: #3B82F6;
   margin-right: 4rpx;
 }
 
 .nav-back-text {
   font-size: 28rpx;
-  color: #007AFF;
+  color: #3B82F6;
 }
 
 .nav-title {
   font-size: 34rpx;
   font-weight: 600;
-  color: #000;
+  color: #111827;
 }
 
 .nav-right {
   width: 100rpx;
 }
 
-/* 状态标签 */
+/* 状态标签 - 优化版 */
 .status-header {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 20rpx;
-  margin: 0 32rpx 16rpx;
-  border-radius: 16rpx;
+  padding: 12rpx 40rpx;
+  margin: 32rpx auto 40rpx;
+  border-radius: 100rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
 }
 
 .status-header.pass {
-  background: #d1fae5;
+  background: #ECFDF5;
+  border: 2rpx solid #A7F3D0;
 }
 
 .status-header.fail {
-  background: #fee2e2;
+  background: #FEF2F2;
+  border: 2rpx solid #FECACA;
 }
 
 .status-header.conditional {
-  background: #fef3c7;
+  background: #FFFBEB;
+  border: 2rpx solid #FDE68A;
 }
 
 .status-icon {
-  font-size: 32rpx;
-  margin-right: 8rpx;
+  font-size: 28rpx;
+  margin-right: 12rpx;
+  font-weight: bold;
 }
 
 .status-header.pass .status-icon {
@@ -75,15 +86,15 @@ page {
 }
 
 .status-header.fail .status-icon {
-  color: #dc2626;
+  color: #DC2626;
 }
 
 .status-header.conditional .status-icon {
-  color: #d97706;
+  color: #D97706;
 }
 
 .status-text {
-  font-size: 30rpx;
+  font-size: 28rpx;
   font-weight: 600;
 }
 
@@ -92,52 +103,52 @@ page {
 }
 
 .status-header.fail .status-text {
-  color: #dc2626;
+  color: #DC2626;
 }
 
 .status-header.conditional .status-text {
-  color: #d97706;
+  color: #D97706;
 }
 
 /* 卡片 */
 .card {
   background: #fff;
   border-radius: 24rpx;
-  margin: 0 32rpx 16rpx;
+  margin: 0 32rpx 24rpx;
   overflow: hidden;
+  box-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.05);
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24rpx 28rpx 0;
+  padding: 24rpx 32rpx 0;
 }
 
 .card-title {
-  font-size: 26rpx;
+  font-size: 28rpx;
   font-weight: 600;
-  color: #8e8e93;
-  text-transform: uppercase;
-  letter-spacing: 1rpx;
+  color: #374151;
 }
 
 .card-action {
   font-size: 26rpx;
-  color: #007AFF;
+  color: #3B82F6;
 }
 
 .card-content {
-  padding: 20rpx 28rpx 24rpx;
+  padding: 24rpx 32rpx 32rpx;
 }
 
 /* 表单 */
 .form-row {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
-  padding: 20rpx 0;
-  border-bottom: 1rpx solid #e5e5ea;
+  gap: 16rpx;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #F3F4F6;
 }
 
 .form-row.last {
@@ -145,19 +156,61 @@ page {
 }
 
 .form-label {
-  font-size: 30rpx;
-  color: #000;
+  font-size: 28rpx;
+  color: #4B5563;
+  width: 160rpx;
+  flex-shrink: 0;
 }
 
-.form-input {
+.form-value {
   flex: 1;
+  min-width: 0;
+}
+
+.detail-input {
+  width: 100%;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+.form-input-wrap {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.display-value {
+  flex: 1;
+  font-size: 28rpx;
+  color: #111827;
   text-align: right;
-  font-size: 30rpx;
-  color: #000;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  word-break: break-all;
+  display: block;
+}
+
+.display-placeholder {
+  color: #9CA3AF;
+}
+
+.display-placeholder.required {
+  color: #EF4444;
+  opacity: 0.6;
+}
+
+/* Textarea 行布局（兼容旧样式占位） */
+.form-row.textarea-row {
+  align-items: center;
 }
 
 .placeholder-required {
-  color: #FF3B30;
+  color: #EF4444;
+  opacity: 0.6;
 }
 
 .form-picker {
@@ -166,33 +219,72 @@ page {
 }
 
 .picker-value {
-  font-size: 30rpx;
-  color: #000;
+  font-size: 28rpx;
+  color: #111827;
 }
 
 .picker-arrow {
   font-size: 32rpx;
-  color: #c7c7cc;
+  color: #9CA3AF;
   margin-left: 8rpx;
 }
 
 .form-readonly {
-  font-size: 30rpx;
-  color: #8e8e93;
+  font-size: 28rpx;
+  color: #6B7280;
 }
 
 .form-readonly.ocr {
-  color: #007AFF;
+  color: #3B82F6;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
 }
 
 .form-readonly.manual {
-  color: #FF9500;
+  color: #F59E0B;
+  background: rgba(245, 158, 11, 0.1);
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
 }
 
-/* 图片 */
-.cert-image {
+/* 缩略图样式 */
+.thumbnail-box {
+  width: 160rpx;
+  height: 160rpx;
+  position: relative;
+  border-radius: 12rpx;
+  overflow: hidden;
+  background: #F3F4F6;
+  border: 1rpx solid #E5E7EB;
+}
+
+.thumbnail-image {
   width: 100%;
-  border-radius: 16rpx;
+  height: 100%;
+}
+
+.thumbnail-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.thumbnail-box:active .thumbnail-mask {
+  opacity: 1;
+}
+
+.mask-icon {
+  color: #fff;
+  font-size: 32rpx;
 }
 
 /* 底部操作栏 */
@@ -202,21 +294,26 @@ page {
   left: 0;
   right: 0;
   display: flex;
-  gap: 16rpx;
-  padding: 20rpx 32rpx;
-  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
-  background: #f2f2f7;
+  gap: 24rpx;
+  padding: 24rpx 32rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  box-shadow: 0 -2rpx 20rpx rgba(0, 0, 0, 0.05);
+  z-index: 100;
 }
 
 .delete-btn {
-  width: 140rpx;
-  height: 104rpx;
-  background: #e5e5ea;
-  color: #FF3B30;
-  font-size: 30rpx;
+  width: 160rpx;
+  height: 96rpx;
+  background: #FEF2F2;
+  color: #EF4444;
+  font-size: 28rpx;
   font-weight: 600;
-  border-radius: 24rpx;
+  border-radius: 16rpx;
   border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .delete-btn::after {
@@ -225,13 +322,17 @@ page {
 
 .save-btn {
   flex: 1;
-  height: 104rpx;
-  background: #007AFF;
+  height: 96rpx;
+  background: #3B82F6;
   color: #fff;
-  font-size: 34rpx;
+  font-size: 30rpx;
   font-weight: 600;
-  border-radius: 24rpx;
+  border-radius: 16rpx;
   border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 12rpx rgba(59, 130, 246, 0.3);
 }
 
 .save-btn::after {
@@ -241,7 +342,7 @@ page {
 /* 链接按钮 */
 .link-btn {
   background: transparent;
-  color: #007AFF;
+  color: #3B82F6;
   font-size: 28rpx;
   padding: 0;
   margin: 0;

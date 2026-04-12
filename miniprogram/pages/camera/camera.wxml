@@ -1,6 +1,5 @@
-<view class="container">
-  <!-- 顶部导航栏 - 表单显示时显示 -->
-  <view class="nav-bar" hidden="{{!showEditForm}}">
+<view class="page-shell camera-page">
+  <view class="nav-bar" hidden="{{!showEditForm && activeTab !== 'manual'}}">
     <view class="nav-left" bindtap="goBack">
       <text class="nav-back">‹</text>
       <text class="nav-back-text">返回</text>
@@ -9,41 +8,77 @@
     <view class="nav-right"></view>
   </view>
 
-  <!-- 大标题区域 - 仅在非表单状态显示 -->
-  <view class="header-section" hidden="{{showEditForm}}">
-    <view class="header-content">
-      <text class="large-title">数据填报</text>
+  <view class="content-wrapper camera-wrapper">
+    <view class="hero-board" hidden="{{showEditForm || activeTab === 'manual'}}">
+      <view class="hero-topline">AI Steward Workflow</view>
+      <view class="hero-main-title">AI管家识图建档</view>
+      <view class="hero-main-desc">把检定证书发给 AI 管家，它会读取图片信息、识别字段，并自动给出设备分类和归档建议。</view>
+      <view class="hero-main-title">拍照识别与建档</view>
+      <view class="hero-main-desc">用一张检定证书照片完成识别、校对、设备绑定和台账入库。</view>
+      <view class="stat-chip-row hero-chip-row">
+        <view class="stat-chip">
+          <text class="stat-chip__label">当前模式</text>
+          <text class="stat-chip__value">AI管家接管</text>
+        </view>
+        <view class="stat-chip">
+          <text class="stat-chip__label">适合场景</text>
+          <text class="stat-chip__value">证书识别与自动分类</text>
+        </view>
+        <view class="stat-chip">
+          <text class="stat-chip__label">当前模式</text>
+          <text class="stat-chip__value">拍照识别</text>
+        </view>
+        <view class="stat-chip">
+          <text class="stat-chip__label">适合场景</text>
+          <text class="stat-chip__value">证书快速录入</text>
+        </view>
+      </view>
     </view>
-  </view>
 
-  <!-- 拍照识别模式 -->
-  <view class="content-section" wx:if="{{activeTab === 'ocr'}}">
-    <!-- 拍摄指南 - 简化样式 -->
-    <view class="guide-simple" wx:if="{{!imagePath && !showEditForm}}">
-      <text class="guide-title-simple">拍摄检定证书</text>
-      <text class="guide-desc-simple">请确保证书完整、清晰入镜</text>
-    </view>
-    
-    <!-- 开始拍摄按钮 -->
-    <view class="photo-action-area" wx:if="{{!imagePath && !showEditForm}}">
-      <button class="primary-btn-large" bindtap="takePhoto">
-        <text class="btn-icon-large">📷</text>
-        <text class="btn-text-large">开始识别</text>
-      </button>
-    </view>
-    
-    <!-- 拍摄提示 -->
-    <view class="tips-simple" wx:if="{{!imagePath && !showEditForm}}">
-      <text class="tips-text">拍摄提示：证书平铺 · 光线充足 · 垂直拍摄 · 文字清晰</text>
-    </view>
+    <view class="content-section" wx:if="{{activeTab === 'ocr'}}">
+      <view class="capture-panel panel" wx:if="{{!imagePath && !showEditForm}}">
+        <view class="panel-section capture-section">
+          <view class="capture-copy">
+            <view class="capture-kicker">AI 管家入口</view>
+            <view class="capture-title">上传检定证书图片</view>
+            <view class="capture-desc">AI 管家会先看图，再读取证书信息，最后自动判断设备类型并推荐归属设备。</view>
+            <view class="capture-kicker">识别入口</view>
+            <view class="capture-title">拍摄检定证书</view>
+            <view class="capture-desc">请保持证书完整、文字清晰，尽量正对画面拍摄。</view>
+          </view>
 
-    <!-- 预览区域 -->
-    <view class="card-group" wx:if="{{imagePath && !showEditForm}}">
-      <view class="card">
-        <view class="card-content">
-          <text class="section-label">证书预览</text>
-          <image src="{{imagePath}}" mode="widthFix" class="preview-img" bindtap="previewImage" />
-          
+          <view class="capture-stage">
+            <button class="capture-trigger" bindtap="takePhoto">
+              <text class="capture-icon">拍</text>
+              <text class="capture-text">开始识别</text>
+            </button>
+          </view>
+
+          <view class="capture-tips">
+            <view class="tip-pill">平铺证书</view>
+            <view class="tip-pill">光线充足</view>
+            <view class="tip-pill">避免反光</view>
+            <view class="tip-pill">文字完整</view>
+          </view>
+        </view>
+      </view>
+
+      <view class="panel preview-panel" wx:if="{{imagePath && !showEditForm}}">
+        <view class="panel-section preview-panel-section">
+          <view class="preview-head">
+            <view>
+              <view class="section-title">AI 待分析图片</view>
+              <view class="section-desc">确认图片清晰后，交给 AI 管家分析证书内容和设备归类。</view>
+              <view class="section-title">识别预览</view>
+              <view class="section-desc">确认图片质量后再进入 OCR 识别。</view>
+            </view>
+            <view class="preview-tag">待识别</view>
+          </view>
+
+          <view class="preview-image-wrap">
+            <image src="{{imagePath}}" mode="widthFix" class="preview-img" bindtap="previewImage" />
+          </view>
+
           <view wx:if="{{qualityScore > 0}}" class="quality-section">
             <view class="quality-row">
               <text class="quality-label">图片质量</text>
@@ -55,25 +90,193 @@
               <view class="progress-fill {{qualityScore >= 0.7 ? 'good' : qualityScore >= 0.5 ? 'ok' : 'poor'}}" style="width: {{qualityScore * 100}}%"></view>
             </view>
           </view>
+
+          <view class="section-desc">优先使用“交给AI管家分析”，基础识别仅保留给手动校对场景。</view>
+          <view class="btn-group preview-actions">
+            <button class="secondary-btn" bindtap="startAIExtract" loading="{{aiExtractLoading}}">
+              <text class="btn-text">{{aiExtractLoading ? 'AI 分析中...' : '交给AI管家分析'}}</text>
+            </button>
+            <button class="secondary-btn" bindtap="retakePhoto">
+              <text class="btn-text">重新拍摄</text>
+            </button>
+            <button class="secondary-btn" bindtap="startAIExtract" loading="{{aiExtractLoading}}">
+              <text class="btn-text">{{aiExtractLoading ? 'AI 提取中...' : 'AI 智能提取'}}</text>
+            </button>
+            <button class="primary-btn" bindtap="startOCR" loading="{{ocrLoading}}">
+              <text class="btn-text">{{ocrLoading ? '识别中' : '开始识别'}}</text>
+            </button>
+          </view>
+        </view>
+      </view>
+
+      <view class="form-section" wx:if="{{showEditForm}}">
+        <view class="card-group">
+          <view class="card ai-insight-card" wx:if="{{aiInsight}}">
+            <view class="card-header">
+              <text class="card-title">AI管家分析结果</text>
+              <text class="card-action">{{aiInsight.confidenceLabel}}置信度</text>
+            </view>
+            <view class="card-content">
+              <view class="ai-summary">{{aiInsight.summary}}</view>
+              <view class="ai-tag-list">
+                <text class="ai-tag">{{aiInsight.categoryLabel}}</text>
+                <text class="ai-tag" wx:for="{{aiInsight.tags}}" wx:key="index">{{item}}</text>
+              </view>
+              <view class="ai-reason">{{aiInsight.categoryReason}}</view>
+              <view class="ai-match" wx:if="{{aiInsight.match}}">
+                <text class="ai-match__label">设备归类建议</text>
+                <text class="ai-match__value">{{aiInsight.match.statusText}}</text>
+              </view>
+            </view>
+          </view>
+          <view class="card">
+            <view class="card-header">
+              <text class="card-title">基本信息</text>
+            </view>
+            <view class="card-content">
+              <view class="form-row">
+                <text class="form-label">证书编号</text>
+                <input class="form-input" value="{{formData.certNo}}" bindinput="onInput" data-field="certNo" placeholder="必填" placeholder-class="placeholder-required" />
+              </view>
+              <view class="form-row">
+                <text class="form-label">出厂编号</text>
+                <input class="form-input" value="{{formData.factoryNo}}" bindinput="onInput" data-field="factoryNo" placeholder="必填" placeholder-class="placeholder-required" />
+              </view>
+              <view class="form-row">
+                <text class="form-label">送检单位</text>
+                <input class="form-input" value="{{formData.sendUnit}}" bindinput="onInput" data-field="sendUnit" placeholder="选填" />
+              </view>
+              <view class="form-row">
+                <text class="form-label">器具名称</text>
+                <input class="form-input" value="{{formData.instrumentName}}" bindinput="onInput" data-field="instrumentName" placeholder="压力表" />
+              </view>
+              <view class="form-row">
+                <text class="form-label">型号规格</text>
+                <input class="form-input" value="{{formData.modelSpec}}" bindinput="onInput" data-field="modelSpec" placeholder="选填" />
+              </view>
+              <view class="form-row last">
+                <text class="form-label">制造单位</text>
+                <input class="form-input" value="{{formData.manufacturer}}" bindinput="onInput" data-field="manufacturer" placeholder="选填" />
+              </view>
+            </view>
+          </view>
+
+          <view class="card">
+            <view class="card-header">
+              <text class="card-title">检定信息</text>
+            </view>
+            <view class="card-content">
+              <view class="form-row">
+                <text class="form-label">检定依据</text>
+                <input class="form-input" value="{{formData.verificationStd}}" bindinput="onInput" data-field="verificationStd" placeholder="JJG52-2013" />
+              </view>
+              <view class="form-row">
+                <text class="form-label">检定结论</text>
+                <picker mode="selector" range="{{['合格', '不合格']}}" value="{{conclusionIndex}}" bindchange="onConclusionChange">
+                  <view class="form-picker">
+                    <text class="picker-value">{{formData.conclusion}}</text>
+                    <text class="picker-arrow">›</text>
+                  </view>
+                </picker>
+              </view>
+              <view class="form-row">
+                <text class="form-label">检定日期</text>
+                <picker mode="date" value="{{formData.verificationDate}}" bindchange="onDateChange">
+                  <view class="form-picker">
+                    <text class="picker-value">{{formData.verificationDate || '请选择'}}</text>
+                    <text class="picker-arrow">›</text>
+                  </view>
+                </picker>
+              </view>
+              <view class="form-row last">
+                <text class="form-label">到期日期</text>
+                <text class="form-readonly">{{expiryDateText || '自动计算'}}</text>
+              </view>
+            </view>
+          </view>
+
+          <view class="card">
+            <view class="card-header">
+              <text class="card-title">所在辖区</text>
+            </view>
+            <view class="card-content">
+              <picker mode="selector" range="{{districtOptions}}" value="{{districtIndex}}" bindchange="onDistrictChange">
+                <view class="form-row last">
+                  <text class="form-label">辖区</text>
+                  <view class="form-picker">
+                    <text class="picker-value">{{formData.district || '请选择'}}</text>
+                    <text class="picker-arrow">›</text>
+                  </view>
+                </view>
+              </picker>
+            </view>
+          </view>
+
+          <view class="card">
+            <view class="card-header">
+              <text class="card-title">选择设备</text>
+            </view>
+            <view class="card-content">
+              <picker mode="selector" range="{{equipments}}" range-key="equipmentName" value="{{equipmentIndex}}" bindchange="onEquipmentChange">
+                <view class="form-row">
+                  <text class="form-label">所属设备</text>
+                  <view class="form-picker">
+                    <text class="picker-value">{{selectedEquipmentName || '请选择（必选）'}}</text>
+                    <text class="picker-arrow">›</text>
+                  </view>
+                </view>
+              </picker>
+              <picker mode="selector" range="{{gaugeStatusOptions}}" value="{{gaugeStatusIndex}}" bindchange="onGaugeStatusChange">
+                <view class="form-row">
+                  <text class="form-label">压力表状态</text>
+                  <view class="form-picker">
+                    <text class="picker-value">{{gaugeStatus}}</text>
+                    <text class="picker-arrow">›</text>
+                  </view>
+                </view>
+              </picker>
+              <view class="form-row last" wx:if="{{!selectedEquipmentId}}">
+                <button class="link-btn" bindtap="goToEquipmentLibrary">去设备库新建</button>
+              </view>
+            </view>
+          </view>
+
+          <view class="card" wx:if="{{imagePath}}">
+            <view class="card-header">
+              <text class="card-title">证书图片</text>
+              <text class="card-action" bindtap="previewImage">查看原图</text>
+            </view>
+            <view class="card-content">
+              <image src="{{imagePath}}" mode="aspectFill" class="thumb-img" bindtap="previewImage" />
+            </view>
+          </view>
+
+          <view class="card">
+            <view class="card-header">
+              <text class="card-title">安装照片</text>
+              <text class="card-required">{{gaugeStatus === '在用' ? '必传' : '选填'}}</text>
+            </view>
+            <view class="card-content">
+              <view class="upload-area" bindtap="uploadInstallPhoto" wx:if="{{!installPhotoPath}}">
+                <text class="upload-icon">图</text>
+                <text class="upload-text">点击上传安装照片</text>
+                <text class="upload-hint">{{gaugeStatus === '在用' ? '在用压力表需上传安装现场照片' : '非在用设备可按需上传'}}</text>
+              </view>
+              <view class="image-preview" wx:else>
+                <image src="{{installPhotoPath}}" mode="aspectFill" class="preview-thumb" bindtap="previewInstallPhoto" />
+                <view class="image-actions">
+                  <text class="action-text" bindtap="previewInstallPhoto">查看</text>
+                  <text class="action-text" bindtap="deleteInstallPhoto">删除</text>
+                </view>
+              </view>
+            </view>
+          </view>
         </view>
       </view>
     </view>
-    
-    <view class="btn-group" wx:if="{{imagePath && !showEditForm}}">
-      <button class="secondary-btn" bindtap="retakePhoto">
-        <text class="btn-icon">↺</text>
-        <text class="btn-text">重拍</text>
-      </button>
-      <button class="primary-btn" bindtap="startOCR" loading="{{ocrLoading}}">
-        <text class="btn-icon">🔍</text>
-        <text class="btn-text">{{ocrLoading ? '识别中' : '开始识别'}}</text>
-      </button>
-    </view>
 
-    <!-- OCR识别后的表单 -->
-    <view class="form-section" wx:if="{{showEditForm}}">
+    <view class="content-section form-page" wx:if="{{activeTab === 'manual'}}">
       <view class="card-group">
-        <!-- 基本信息 -->
         <view class="card">
           <view class="card-header">
             <text class="card-title">基本信息</text>
@@ -105,8 +308,7 @@
             </view>
           </view>
         </view>
-        
-        <!-- 检定信息 -->
+
         <view class="card">
           <view class="card-header">
             <text class="card-title">检定信息</text>
@@ -141,90 +343,83 @@
           </view>
         </view>
 
-        <!-- 所在辖区 -->
         <view class="card">
           <view class="card-header">
             <text class="card-title">所在辖区</text>
           </view>
           <view class="card-content">
             <picker mode="selector" range="{{districtOptions}}" value="{{districtIndex}}" bindchange="onDistrictChange">
-            <view class="form-row last">
-              <text class="form-label">辖区</text>
-              <view class="form-picker">
-                <text class="picker-value">{{formData.district || '请选择'}}</text>
-                <text class="picker-arrow">›</text>
-              </view>
-            </view>
-          </picker>
-          </view>
-        </view>
-
-        <!-- 关联设备 -->
-        <view class="card">
-          <view class="card-header">
-            <text class="card-title">关联设备</text>
-          </view>
-          <view class="card-content">
-            <picker mode="selector" range="{{devices}}" range-key="deviceName" value="{{deviceIndex}}" bindchange="onDeviceChange">
-              <view class="form-row">
-                <text class="form-label">选择设备</text>
+              <view class="form-row last">
+                <text class="form-label">辖区</text>
                 <view class="form-picker">
-                  <text class="picker-value">{{selectedDeviceName || '请选择（可选）'}}</text>
+                  <text class="picker-value">{{formData.district || '请选择'}}</text>
                   <text class="picker-arrow">›</text>
                 </view>
               </view>
             </picker>
-            <view class="form-row last" wx:if="{{!selectedDeviceId}}">
-              <button class="link-btn" bindtap="showNewDeviceForm">+ 新建设备</button>
-            </view>
           </view>
         </view>
 
-        <!-- 新建设备表单 -->
-        <view class="card" wx:if="{{showNewDevice}}">
-          <view class="card-header">
-            <text class="card-title">新建设备</text>
-            <text class="card-action" bindtap="hideNewDeviceForm">取消</text>
-          </view>
-          <view class="card-content">
-            <view class="form-row">
-              <text class="form-label">设备编号</text>
-              <input class="form-input" value="{{newDevice.deviceNo}}" bindinput="onNewDeviceInput" data-field="deviceNo" placeholder="选填" />
-            </view>
-            <view class="form-row">
-              <text class="form-label">设备名称</text>
-              <input class="form-input" value="{{newDevice.deviceName}}" bindinput="onNewDeviceInput" data-field="deviceName" placeholder="必填" placeholder-class="placeholder-required" />
-            </view>
-            <view class="form-row last">
-              <text class="form-label">设备类型</text>
-              <input class="form-input" value="{{newDevice.deviceType}}" bindinput="onNewDeviceInput" data-field="deviceType" placeholder="如：压力表" />
-            </view>
-            <button class="primary-btn" bindtap="saveNewDevice" style="margin-top: 16rpx;">创建设备</button>
-          </view>
-        </view>
-
-        <!-- 证书图片 -->
-        <view class="card" wx:if="{{imagePath}}">
-          <view class="card-header">
-            <text class="card-title">证书图片</text>
-            <text class="card-action" bindtap="previewImage">查看原图</text>
-          </view>
-          <view class="card-content">
-            <image src="{{imagePath}}" mode="aspectFill" class="thumb-img" bindtap="previewImage" />
-          </view>
-        </view>
-
-        <!-- 安装照片（必填） -->
         <view class="card">
           <view class="card-header">
-            <text class="card-title">安装照片</text>
+            <text class="card-title">选择设备</text>
+          </view>
+          <view class="card-content">
+            <picker mode="selector" range="{{equipments}}" range-key="equipmentName" value="{{equipmentIndex}}" bindchange="onEquipmentChange">
+              <view class="form-row">
+                <text class="form-label">所属设备</text>
+                <view class="form-picker">
+                  <text class="picker-value">{{selectedEquipmentName || '请选择（必选）'}}</text>
+                  <text class="picker-arrow">›</text>
+                </view>
+              </view>
+            </picker>
+            <picker mode="selector" range="{{gaugeStatusOptions}}" value="{{gaugeStatusIndex}}" bindchange="onGaugeStatusChange">
+              <view class="form-row">
+                <text class="form-label">压力表状态</text>
+                <view class="form-picker">
+                  <text class="picker-value">{{gaugeStatus}}</text>
+                  <text class="picker-arrow">›</text>
+                </view>
+              </view>
+            </picker>
+            <view class="form-row last" wx:if="{{!selectedEquipmentId}}">
+              <button class="link-btn" bindtap="goToEquipmentLibrary">去设备库新建</button>
+            </view>
+          </view>
+        </view>
+
+        <view class="card">
+          <view class="card-header">
+            <text class="card-title">检定表图片</text>
             <text class="card-required">必传</text>
           </view>
           <view class="card-content">
+            <view class="upload-area" bindtap="uploadImage" wx:if="{{!imagePath}}">
+              <text class="upload-icon">拍</text>
+              <text class="upload-text">点击上传检定表</text>
+              <text class="upload-hint">作为备查材料保存</text>
+            </view>
+            <view class="image-preview" wx:else>
+              <image src="{{imagePath}}" mode="aspectFill" class="preview-thumb" bindtap="previewImage" />
+              <view class="image-actions">
+                <text class="action-text" bindtap="previewImage">查看</text>
+                <text class="action-text" bindtap="deleteImage">删除</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <view class="card">
+          <view class="card-header">
+            <text class="card-title">安装照片</text>
+            <text class="card-required">{{gaugeStatus === '在用' ? '必传' : '选填'}}</text>
+          </view>
+          <view class="card-content">
             <view class="upload-area" bindtap="uploadInstallPhoto" wx:if="{{!installPhotoPath}}">
-              <text class="upload-icon">🔧</text>
+              <text class="upload-icon">图</text>
               <text class="upload-text">点击上传安装照片</text>
-              <text class="upload-hint">压力表安装现场照片</text>
+              <text class="upload-hint">{{gaugeStatus === '在用' ? '在用压力表需上传安装现场照片' : '非在用设备可按需上传'}}</text>
             </view>
             <view class="image-preview" wx:else>
               <image src="{{installPhotoPath}}" mode="aspectFill" class="preview-thumb" bindtap="previewInstallPhoto" />
@@ -239,186 +434,6 @@
     </view>
   </view>
 
-  <!-- 手动填报模式 -->
-  <view class="content-section form-page" wx:if="{{activeTab === 'manual'}}">
-    <view class="card-group">
-      <!-- 基本信息 -->
-      <view class="card">
-        <view class="card-header">
-          <text class="card-title">基本信息</text>
-        </view>
-        <view class="card-content">
-          <view class="form-row">
-            <text class="form-label">证书编号</text>
-            <input class="form-input" value="{{formData.certNo}}" bindinput="onInput" data-field="certNo" placeholder="必填" placeholder-class="placeholder-required" />
-          </view>
-          <view class="form-row">
-            <text class="form-label">出厂编号</text>
-            <input class="form-input" value="{{formData.factoryNo}}" bindinput="onInput" data-field="factoryNo" placeholder="必填" placeholder-class="placeholder-required" />
-          </view>
-          <view class="form-row">
-            <text class="form-label">送检单位</text>
-            <input class="form-input" value="{{formData.sendUnit}}" bindinput="onInput" data-field="sendUnit" placeholder="选填" />
-          </view>
-          <view class="form-row">
-            <text class="form-label">器具名称</text>
-            <input class="form-input" value="{{formData.instrumentName}}" bindinput="onInput" data-field="instrumentName" placeholder="压力表" />
-          </view>
-          <view class="form-row">
-            <text class="form-label">型号规格</text>
-            <input class="form-input" value="{{formData.modelSpec}}" bindinput="onInput" data-field="modelSpec" placeholder="选填" />
-          </view>
-          <view class="form-row last">
-            <text class="form-label">制造单位</text>
-            <input class="form-input" value="{{formData.manufacturer}}" bindinput="onInput" data-field="manufacturer" placeholder="选填" />
-          </view>
-        </view>
-      </view>
-      
-      <!-- 检定信息 -->
-      <view class="card">
-        <view class="card-header">
-          <text class="card-title">检定信息</text>
-        </view>
-        <view class="card-content">
-          <view class="form-row">
-            <text class="form-label">检定依据</text>
-            <input class="form-input" value="{{formData.verificationStd}}" bindinput="onInput" data-field="verificationStd" placeholder="JJG52-2013" />
-          </view>
-          <view class="form-row">
-            <text class="form-label">检定结论</text>
-            <picker mode="selector" range="{{['合格', '不合格']}}" value="{{conclusionIndex}}" bindchange="onConclusionChange">
-              <view class="form-picker">
-                <text class="picker-value">{{formData.conclusion}}</text>
-                <text class="picker-arrow">›</text>
-              </view>
-            </picker>
-          </view>
-          <view class="form-row">
-            <text class="form-label">检定日期</text>
-            <picker mode="date" value="{{formData.verificationDate}}" bindchange="onDateChange">
-              <view class="form-picker">
-                <text class="picker-value">{{formData.verificationDate || '请选择'}}</text>
-                <text class="picker-arrow">›</text>
-              </view>
-            </picker>
-          </view>
-          <view class="form-row last">
-            <text class="form-label">到期日期</text>
-            <text class="form-readonly">{{expiryDateText || '自动计算'}}</text>
-          </view>
-        </view>
-      </view>
-
-      <!-- 所在辖区 -->
-      <view class="card">
-        <view class="card-header">
-          <text class="card-title">所在辖区</text>
-        </view>
-        <view class="card-content">
-          <picker mode="selector" range="{{districtOptions}}" value="{{districtIndex}}" bindchange="onDistrictChange">
-            <view class="form-row last">
-              <text class="form-label">辖区</text>
-              <view class="form-picker">
-                <text class="picker-value">{{formData.district || '请选择'}}</text>
-                <text class="picker-arrow">›</text>
-              </view>
-            </view>
-          </picker>
-        </view>
-      </view>
-
-      <!-- 关联设备 -->
-      <view class="card">
-        <view class="card-header">
-          <text class="card-title">关联设备</text>
-        </view>
-        <view class="card-content">
-          <picker mode="selector" range="{{devices}}" range-key="deviceName" value="{{deviceIndex}}" bindchange="onDeviceChange">
-            <view class="form-row">
-              <text class="form-label">选择设备</text>
-              <view class="form-picker">
-                <text class="picker-value">{{selectedDeviceName || '请选择（可选）'}}</text>
-                <text class="picker-arrow">›</text>
-              </view>
-            </view>
-          </picker>
-          <view class="form-row last" wx:if="{{!selectedDeviceId}}">
-            <button class="link-btn" bindtap="showNewDeviceForm">+ 新建设备</button>
-          </view>
-        </view>
-      </view>
-
-      <!-- 新建设备表单 -->
-      <view class="card" wx:if="{{showNewDevice}}">
-        <view class="card-header">
-          <text class="card-title">新建设备</text>
-          <text class="card-action" bindtap="hideNewDeviceForm">取消</text>
-        </view>
-        <view class="card-content">
-          <view class="form-row">
-            <text class="form-label">设备编号</text>
-            <input class="form-input" value="{{newDevice.deviceNo}}" bindinput="onNewDeviceInput" data-field="deviceNo" placeholder="选填" />
-          </view>
-          <view class="form-row">
-            <text class="form-label">设备名称</text>
-            <input class="form-input" value="{{newDevice.deviceName}}" bindinput="onNewDeviceInput" data-field="deviceName" placeholder="必填" placeholder-class="placeholder-required" />
-          </view>
-          <view class="form-row last">
-            <text class="form-label">设备类型</text>
-            <input class="form-input" value="{{newDevice.deviceType}}" bindinput="onNewDeviceInput" data-field="deviceType" placeholder="如：压力表" />
-          </view>
-          <button class="primary-btn" bindtap="saveNewDevice" style="margin-top: 16rpx;">创建设备</button>
-        </view>
-      </view>
-
-      <!-- 图片上传（必填） -->
-      <view class="card">
-        <view class="card-header">
-          <text class="card-title">检定表图片</text>
-          <text class="card-required">必传</text>
-        </view>
-        <view class="card-content">
-          <view class="upload-area" bindtap="uploadImage" wx:if="{{!imagePath}}">
-            <text class="upload-icon">📷</text>
-            <text class="upload-text">点击上传检定表</text>
-            <text class="upload-hint">作为备查材料</text>
-          </view>
-          <view class="image-preview" wx:else>
-            <image src="{{imagePath}}" mode="aspectFill" class="preview-thumb" bindtap="previewImage" />
-            <view class="image-actions">
-              <text class="action-text" bindtap="previewImage">查看</text>
-              <text class="action-text" bindtap="deleteImage">删除</text>
-            </view>
-          </view>
-        </view>
-      </view>
-
-      <!-- 安装照片（必填） -->
-      <view class="card">
-        <view class="card-header">
-          <text class="card-title">安装照片</text>
-          <text class="card-required">必传</text>
-        </view>
-        <view class="card-content">
-          <view class="upload-area" bindtap="uploadInstallPhoto" wx:if="{{!installPhotoPath}}">
-            <text class="upload-icon">🔧</text>
-            <text class="upload-text">点击上传安装照片</text>
-            <text class="upload-hint">压力表安装现场照片</text>
-          </view>
-          <view class="image-preview" wx:else>
-            <image src="{{installPhotoPath}}" mode="aspectFill" class="preview-thumb" bindtap="previewInstallPhoto" />
-            <view class="image-actions">
-              <text class="action-text" bindtap="previewInstallPhoto">查看</text>
-              <text class="action-text" bindtap="deleteInstallPhoto">删除</text>
-            </view>
-          </view>
-        </view>
-      </view>
-    </view>
-  </view>
-
-  <!-- 底部操作栏 -->
   <view class="bottom-bar" wx:if="{{showEditForm || activeTab === 'manual'}}">
     <button class="secondary-btn" bindtap="resetForm">重置</button>
     <button class="primary-btn" bindtap="saveRecord" loading="{{saving}}">
@@ -426,26 +441,24 @@
     </button>
   </view>
 
-  <!-- 底部Tab切换 - 拍照识别初始状态时显示 -->
   <view class="bottom-tab-bar" wx:if="{{!showEditForm && !imagePath && activeTab === 'ocr'}}">
     <view class="bottom-tab-item active" bindtap="switchTab" data-tab="ocr">
-      <text class="bottom-tab-icon">📷</text>
+      <text class="bottom-tab-icon">拍</text>
       <text class="bottom-tab-text">拍照识别</text>
     </view>
     <view class="bottom-tab-item" bindtap="switchTab" data-tab="manual">
-      <text class="bottom-tab-icon">✏️</text>
+      <text class="bottom-tab-icon">填</text>
       <text class="bottom-tab-text">手动填报</text>
     </view>
   </view>
 
-  <!-- 到期提醒弹窗 -->
   <view class="modal-overlay" wx:if="{{showExpiryModal}}" bindtap="closeExpiryModal">
     <view class="modal-content" catchtap>
       <view class="modal-header">
-        <text class="modal-icon">⚠️</text>
-        <text class="modal-title">到期提醒</text>
+        <text class="modal-icon">!</text>
+        <text class="modal-title">设备到期提醒</text>
       </view>
-      
+
       <view class="modal-body">
         <view class="reminder-summary">
           <view class="summary-item expired" wx:if="{{expiryReminder.expiredCount > 0}}">
@@ -457,7 +470,7 @@
             <text class="summary-label">即将到期</text>
           </view>
         </view>
-        
+
         <view class="record-list" wx:if="{{expiryReminder.expiredList.length > 0}}">
           <text class="list-title">已过期设备</text>
           <view class="record-item" wx:for="{{expiryReminder.expiredList}}" wx:key="_id">
@@ -465,7 +478,7 @@
             <text class="record-date expired">{{item.expiryDate}}</text>
           </view>
         </view>
-        
+
         <view class="record-list" wx:if="{{expiryReminder.expiringList.length > 0}}">
           <text class="list-title">即将到期设备</text>
           <view class="record-item" wx:for="{{expiryReminder.expiringList}}" wx:key="_id">
@@ -474,7 +487,7 @@
           </view>
         </view>
       </view>
-      
+
       <view class="modal-footer">
         <button class="modal-btn secondary" bindtap="closeExpiryModal">稍后处理</button>
         <button class="modal-btn primary" bindtap="viewExpiryRecords">查看详情</button>
@@ -483,8 +496,4 @@
   </view>
 </view>
 
-<!-- 隐私弹窗 -->
 <privacy />
-
-<!-- AI悬浮按钮 -->
-<ai-float-btn />

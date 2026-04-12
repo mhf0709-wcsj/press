@@ -141,9 +141,9 @@
     </view>
   </view>
 
-  <!-- 近期存档卡片 -->
+  <!-- 压力表库（近期记录）卡片 -->
   <view class="card" wx:if="{{records.length > 0 && !showEditForm}}">
-    <view class="card-title">📦 近期存档 ({{records.length}})</view>
+    <view class="card-title">📦 压力表库 ({{records.length}})</view>
     
     <view class="history-list">
       <block wx:for="{{records}}" wx:key="_id">
@@ -163,9 +163,9 @@
       </block>
     </view>
   </view>
-  <!-- 近期存档卡片 -->
+  <!-- 压力表库（近期记录）卡片 -->
 <view class="card" wx:if="{{records.length > 0 && !showEditForm}}">
-  <view class="card-title">📦 近期存档 ({{records.length}})</view>
+  <view class="card-title">📦 压力表库 ({{records.length}})</view>
   
   <view class="history-list">
     <block wx:for="{{records}}" wx:key="_id">

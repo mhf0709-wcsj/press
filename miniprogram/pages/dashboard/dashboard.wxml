@@ -41,10 +41,10 @@
     </view>
   </view>
 
-  <!-- 到期提醒区域 -->
+  <!-- 设备到期提醒区域 -->
   <view class="expiry-section">
     <view class="section-header">
-      <text class="section-title">⚠️ 到期提醒</text>
+      <text class="section-title">⚠️ 设备到期提醒</text>
       <text class="section-action" bindtap="goToDetail" data-type="expiry">查看详情 ›</text>
     </view>
     <view class="expiry-cards">
@@ -76,29 +76,15 @@
     </view>
   </view>
 
-  <!-- 辖区分布 -->
-  <view class="district-section">
-    <view class="section-header">
-      <text class="section-title">📍 辖区分布</text>
-    </view>
-    <view class="district-list">
-      <view class="district-item" wx:for="{{overviewData.districtStats}}" wx:key="district" bindtap="goToDetail" data-type="districtDetail" data-district="{{item.district}}">
-        <view class="district-info">
-          <text class="district-name">{{item.district}}</text>
-          <text class="district-count">{{item.count}}条</text>
-        </view>
-        <view class="district-bar-wrap">
-          <view class="district-bar" style="width: {{item.percent}}%"></view>
-        </view>
-      </view>
-    </view>
-  </view>
-
   <!-- 底部快捷入口 -->
   <view class="quick-actions">
     <view class="action-btn" bindtap="goToAdmin">
       <text class="btn-icon">📋</text>
       <text class="btn-text">管理端</text>
+    </view>
+    <view class="action-btn" bindtap="goToEnforcement">
+      <text class="btn-icon">🛡️</text>
+      <text class="btn-text">现场核验</text>
     </view>
     <view class="action-btn" bindtap="goToOCR">
       <text class="btn-icon">📷</text>
@@ -111,12 +97,12 @@
   </view>
 </view>
 
-<!-- 到期提醒弹窗 -->
+<!-- 设备到期提醒弹窗 -->
 <view class="modal-overlay" wx:if="{{showExpiryModal}}" bindtap="closeExpiryModal">
   <view class="modal-content" catchtap="stopPropagation">
     <view class="modal-header">
       <text class="modal-icon">⚠️</text>
-      <text class="modal-title">到期提醒</text>
+      <text class="modal-title">设备到期提醒</text>
     </view>
     
     <view class="modal-body">
@@ -301,4 +287,6 @@
 </view>
 
 <!-- AI悬浮按钮 -->
-<ai-float-btn />
+
+<!-- 隐私授权弹窗 -->
+<privacy />

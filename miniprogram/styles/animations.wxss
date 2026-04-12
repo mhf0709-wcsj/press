@@ -1,0 +1,566 @@
+/**
+ * 压力表检定智能体 - 全局动画系统
+ * Animations System v1.0
+ */
+
+/* ==================== 页面过渡动画 ==================== */
+
+/* 页面进入 - 从下方滑入 */
+@keyframes page-enter-up {
+  from {
+    opacity: 0;
+    transform: translateY(40rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 页面进入 - 淡入 */
+@keyframes page-enter-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 页面退出 - 向下滑出 */
+@keyframes page-exit-down {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(40rpx);
+  }
+}
+
+/* 页面退出 - 淡出 */
+@keyframes page-exit-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* 页面动画类 */
+.animate-page-enter {
+  animation: page-enter-up 0.3s ease-out;
+}
+
+.animate-page-fade {
+  animation: page-enter-fade 0.25s ease-out;
+}
+
+/* ==================== 元素进入动画 ==================== */
+
+/* 从下方滑入 */
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(30rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 从上方滑入 */
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-30rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 从左侧滑入 */
+@keyframes slide-left {
+  from {
+    opacity: 0;
+    transform: translateX(-30rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 从右侧滑入 */
+@keyframes slide-right {
+  from {
+    opacity: 0;
+    transform: translateX(30rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 缩放进入 */
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 缩放弹出 */
+@keyframes scale-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  70% {
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 元素动画类 */
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out forwards;
+}
+
+.animate-slide-down {
+  animation: slide-down 0.3s ease-out forwards;
+}
+
+.animate-slide-left {
+  animation: slide-left 0.3s ease-out forwards;
+}
+
+.animate-slide-right {
+  animation: slide-right 0.3s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.25s ease-out forwards;
+}
+
+.animate-scale-pop {
+  animation: scale-pop 0.35s ease-out forwards;
+}
+
+/* ==================== 列表项依次动画 ==================== */
+
+/* 列表项依次滑入 - 基础 */
+@keyframes list-item-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-20rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 列表项依次动画 - 带延迟 */
+.list-item-animate {
+  opacity: 0;
+  animation: list-item-enter 0.3s ease-out forwards;
+}
+
+.list-item-animate:nth-child(1) { animation-delay: 0ms; }
+.list-item-animate:nth-child(2) { animation-delay: 50ms; }
+.list-item-animate:nth-child(3) { animation-delay: 100ms; }
+.list-item-animate:nth-child(4) { animation-delay: 150ms; }
+.list-item-animate:nth-child(5) { animation-delay: 200ms; }
+.list-item-animate:nth-child(6) { animation-delay: 250ms; }
+.list-item-animate:nth-child(7) { animation-delay: 300ms; }
+.list-item-animate:nth-child(8) { animation-delay: 350ms; }
+.list-item-animate:nth-child(9) { animation-delay: 400ms; }
+.list-item-animate:nth-child(10) { animation-delay: 450ms; }
+
+/* ==================== 按钮交互动画 ==================== */
+
+/* 按钮点击缩放 */
+.btn-animate {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-animate:active {
+  transform: scale(0.96);
+}
+
+/* 按钮涟漪效果 */
+@keyframes ripple {
+  from {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+.btn-ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-ripple::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100rpx;
+  height: 100rpx;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+}
+
+.btn-ripple:active::after {
+  animation: ripple 0.4s ease-out;
+}
+
+/* ==================== 脉冲动画 ==================== */
+
+/* 脉冲效果 - 用于引导 */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(24, 144, 255, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 20rpx rgba(24, 144, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(24, 144, 255, 0);
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s infinite;
+}
+
+/* 脉冲效果 - 强调 */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.pulse-ring {
+  position: relative;
+}
+
+.pulse-ring::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: inherit;
+  border: 2rpx solid currentColor;
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+
+/* ==================== 加载动画 ==================== */
+
+/* 旋转加载 */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* 弹跳加载 */
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-20rpx);
+  }
+}
+
+.animate-bounce {
+  animation: bounce 0.6s ease-in-out infinite;
+}
+
+/* 闪烁加载 */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 25%,
+    #e0e0e0 50%,
+    #f0f0f0 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ==================== 状态反馈动画 ==================== */
+
+/* 抖动 - 用于错误提示 */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-8rpx);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(8rpx);
+  }
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out;
+}
+
+/* 对勾动画 - 用于成功 */
+@keyframes checkmark {
+  0% {
+    stroke-dashoffset: 100;
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.checkmark-animate {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: checkmark 0.4s ease-out forwards;
+}
+
+/* 心跳 - 用于强调 */
+@keyframes heartbeat {
+  0%, 100% {
+    transform: scale(1);
+  }
+  14% {
+    transform: scale(1.1);
+  }
+  28% {
+    transform: scale(1);
+  }
+  42% {
+    transform: scale(1.1);
+  }
+  70% {
+    transform: scale(1);
+  }
+}
+
+.animate-heartbeat {
+  animation: heartbeat 1.3s ease-in-out;
+}
+
+/* ==================== 悬浮/悬停效果 ==================== */
+
+/* 卡片悬浮 */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:active {
+  transform: translateY(-4rpx);
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.12);
+}
+
+/* 透明度变化 */
+.hover-fade {
+  transition: opacity 0.2s ease;
+}
+
+.hover-fade:active {
+  opacity: 0.7;
+}
+
+/* 背景色变化 */
+.hover-bg {
+  transition: background-color 0.2s ease;
+}
+
+/* ==================== 模态框/弹窗动画 ==================== */
+
+/* 遮罩层淡入 */
+@keyframes overlay-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 模态框从底部滑入 */
+@keyframes modal-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 模态框缩放进入 */
+@keyframes modal-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-overlay {
+  animation: overlay-fade-in 0.2s ease-out;
+}
+
+.animate-modal-up {
+  animation: modal-slide-up 0.3s ease-out;
+}
+
+.animate-modal-scale {
+  animation: modal-scale-in 0.25s ease-out;
+}
+
+/* ==================== 图片加载动画 ==================== */
+
+/* 图片淡入 */
+@keyframes image-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.image-fade-in {
+  animation: image-fade-in 0.3s ease-out;
+}
+
+/* 图片占位符闪烁 */
+.image-placeholder {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 25%,
+    #e8e8e8 50%,
+    #f0f0f0 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ==================== 特殊效果 ==================== */
+
+/* 呼吸效果 */
+@keyframes breathe {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-breathe {
+  animation: breathe 2s ease-in-out infinite;
+}
+
+/* 闪烁效果 */
+@keyframes flash {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-flash {
+  animation: flash 1s ease-in-out infinite;
+}
+
+/* 摇摆效果 */
+@keyframes swing {
+  20% {
+    transform: rotate(15deg);
+  }
+  40% {
+    transform: rotate(-10deg);
+  }
+  60% {
+    transform: rotate(5deg);
+  }
+  80% {
+    transform: rotate(-5deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.animate-swing {
+  animation: swing 1s ease-in-out;
+}
+
+/* ==================== 性能优化 ==================== */
+
+/* 启用GPU加速 */
+.gpu-accelerated {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* 减少动画类 - 用于禁用动画 */
+.reduce-motion {
+  animation: none !important;
+  transition: none !important;
+}

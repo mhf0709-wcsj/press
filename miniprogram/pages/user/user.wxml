@@ -1,88 +1,96 @@
 <view class="container">
-  <!-- 大标题区域 -->
-  <view class="header-section">
-    <view class="header-content">
-      <text class="large-title">我的</text>
+  <!-- 用户信息卡片 -->
+  <view class="card user-card">
+    <view class="user-row" wx:if="{{enterpriseUser}}">
+      <view class="avatar-box">
+        <text class="avatar-icon">🏢</text>
+      </view>
+      <view class="user-info">
+        <text class="user-name">{{enterpriseUser.companyName}}</text>
+        <text class="user-desc">法人: {{enterpriseUser.legalPerson}}</text>
+      </view>
+    </view>
+    <view class="user-row" wx:else bindtap="goToLogin">
+      <view class="avatar-box">
+        <text class="avatar-icon">👤</text>
+      </view>
+      <view class="user-info">
+        <text class="user-name">未登录</text>
+        <text class="user-desc">点击登录企业账号</text>
+      </view>
+      <text class="arrow-icon">›</text>
     </view>
   </view>
 
-  <!-- 用户信息卡片 -->
-  <view class="card">
-    <view class="card-content">
-      <view class="user-row" wx:if="{{enterpriseUser}}">
-        <view class="avatar-box">
-          <text class="avatar-icon">🏢</text>
-        </view>
-        <view class="user-info">
-          <text class="user-name">{{enterpriseUser.companyName}}</text>
-          <text class="user-desc">法人: {{enterpriseUser.legalPerson}}</text>
-        </view>
-      </view>
-      <view class="user-row" wx:else>
-        <view class="avatar-box">
-          <text class="avatar-icon">👤</text>
-        </view>
-        <view class="user-info">
-          <text class="user-name">未登录</text>
-          <text class="user-desc">请登录企业账号</text>
-        </view>
-      </view>
+  <!-- 统计信息 -->
+  <view class="stats-grid" wx:if="{{enterpriseUser}}">
+    <view class="card stat-card">
+      <text class="stat-value">{{recordCount || 0}}</text>
+      <text class="stat-label">存档数量</text>
+    </view>
+    <view class="card stat-card">
+      <text class="stat-value">{{passCount || 0}}</text>
+      <text class="stat-label">合格数量</text>
+    </view>
+    <view class="card stat-card">
+      <text class="stat-value">{{storageUsage || '0KB'}}</text>
+      <text class="stat-label">存储占用</text>
     </view>
   </view>
 
   <!-- 企业信息 -->
-  <view class="card" wx:if="{{enterpriseUser}}">
-    <view class="card-header">
-      <text class="card-title">企业信息</text>
-    </view>
-    <view class="card-content">
-      <view class="info-row">
+  <view class="card menu-card" wx:if="{{enterpriseUser}}">
+    <view class="card-title">企业信息</view>
+    <view class="info-list">
+      <view class="info-item">
         <text class="info-label">企业名称</text>
         <text class="info-value">{{enterpriseUser.companyName}}</text>
       </view>
-      <view class="info-row">
+      <view class="divider"></view>
+      <view class="info-item">
         <text class="info-label">信用代码</text>
         <text class="info-value code">{{enterpriseUser.creditCode}}</text>
       </view>
-      <view class="info-row">
+      <view class="divider"></view>
+      <view class="info-item">
         <text class="info-label">联系电话</text>
         <text class="info-value">{{enterpriseUser.phone}}</text>
       </view>
     </view>
   </view>
 
-  <!-- 统计信息 -->
-  <view class="card" wx:if="{{enterpriseUser}}">
-    <view class="card-header">
-      <text class="card-title">数据统计</text>
-    </view>
-    <view class="card-content">
-      <view class="stats-grid">
-        <view class="stat-item">
-          <text class="stat-value">{{recordCount || 0}}</text>
-          <text class="stat-label">存档数量</text>
-        </view>
-        <view class="stat-item">
-          <text class="stat-value">{{passCount || 0}}</text>
-          <text class="stat-label">合格数量</text>
-        </view>
-        <view class="stat-item">
-          <text class="stat-value">{{storageUsage || '0KB'}}</text>
-          <text class="stat-label">存储占用</text>
-        </view>
-      </view>
-    </view>
-  </view>
-
   <!-- 功能菜单 -->
-  <view class="card">
-    <view class="card-content">
-      <view class="menu-item" bindtap="clearCache">
-        <text class="menu-label">清理缓存</text>
+  <view class="card menu-card">
+    <view class="menu-list">
+      <view class="menu-item" bindtap="subscribeAlert" wx:if="{{enterpriseUser}}">
+        <view class="menu-left">
+          <text class="menu-icon">🔔</text>
+          <text class="menu-label">订阅逾期预警通知</text>
+        </view>
         <text class="menu-arrow">›</text>
       </view>
-      <view class="menu-item last" bindtap="logout">
-        <text class="menu-label danger">退出登录</text>
+      <view class="divider" wx:if="{{enterpriseUser}}"></view>
+      <view class="menu-item" bindtap="goToEquipmentLibrary" wx:if="{{enterpriseUser}}">
+        <view class="menu-left">
+          <text class="menu-icon">🏭</text>
+          <text class="menu-label">设备库（绑定压力表）</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="divider" wx:if="{{enterpriseUser}}"></view>
+      <view class="menu-item" bindtap="clearCache">
+        <view class="menu-left">
+          <text class="menu-icon">🧹</text>
+          <text class="menu-label">清理缓存</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="divider" wx:if="{{enterpriseUser}}"></view>
+      <view class="menu-item" bindtap="logout" wx:if="{{enterpriseUser}}">
+        <view class="menu-left">
+          <text class="menu-icon">🚪</text>
+          <text class="menu-label text-danger">退出登录</text>
+        </view>
         <text class="menu-arrow">›</text>
       </view>
     </view>
@@ -95,4 +103,3 @@
 </view>
 
 <!-- AI悬浮按钮 -->
-<ai-float-btn />

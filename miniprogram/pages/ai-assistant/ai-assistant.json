@@ -1,6 +1,10 @@
 {
-  "navigationBarTitleText": "AI智能管家",
-  "navigationBarBackgroundColor": "#667eea",
+  "navigationBarTitleText": "\u0041\u0049\u667a\u80fd\u7ba1\u5bb6",
+  "navigationBarBackgroundColor": "#143A7B",
   "navigationBarTextStyle": "white",
-  "backgroundColor": "#f5f5f5"
+  "backgroundColor": "#EEF4FF",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "privacy": "/components/privacy/privacy"
+  }
 }

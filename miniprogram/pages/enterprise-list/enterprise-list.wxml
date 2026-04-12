@@ -1,0 +1,35 @@
+<view class="container">
+  <!-- 加载状态 -->
+  <view class="loading" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+
+  <!-- 企业列表 -->
+  <scroll-view class="enterprise-scroll" scroll-y wx:if="{{!loading}}">
+    <view wx:if="{{enterpriseList.length > 0}}">
+      <view class="enterprise-card" wx:for="{{enterpriseList}}" wx:key="_id" bindtap="previewEnterprise" data-name="{{item.companyName}}">
+        <view class="enterprise-header">
+          <text class="enterprise-name">{{item.companyName}}</text>
+          <text class="enterprise-district">{{item.district || '未设置辖区'}}</text>
+        </view>
+        <view class="enterprise-body">
+          <view class="info-row">
+            <text class="info-label">法人代表</text>
+            <text class="info-value">{{item.legalPerson || '-'}}</text>
+          </view>
+          <view class="info-row">
+            <text class="info-label">联系电话</text>
+            <text class="info-value phone">{{item.phone || '-'}}</text>
+          </view>
+          <view class="info-row">
+            <text class="info-label">注册时间</text>
+            <text class="info-value">{{item.createTimeStr || '-'}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    <view wx:else class="empty">
+      <text>暂无注册企业</text>
+    </view>
+  </scroll-view>
+</view>

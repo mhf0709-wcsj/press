@@ -1,46 +1,54 @@
 {
   "pages": [
+    "pages/ai-assistant/ai-assistant",
+    "pages/workbench/workbench",
+    "pages/archive/archive",
+    "pages/user/user",
+    "pages/camera/camera",
+    "pages/detail/detail",
+    "pages/device-list/device-list",
+    "pages/device-detail/device-detail",
+    "pages/equipment-detail/equipment-detail",
     "pages/login/login",
     "pages/register/register",
     "pages/admin-login/admin-login",
     "pages/dashboard/dashboard",
     "pages/admin/admin",
     "pages/account-settings/account-settings",
-    "pages/ai-assistant/ai-assistant",
-    "pages/camera/camera",
-    "pages/archive/archive", 
-    "pages/user/user",
-    "pages/detail/detail"
+    "pages/enforcement/enforcement",
+    "pages/enterprise-list/enterprise-list",
+    "pages/district-list/district-list",
+    "pages/index/index"
   ],
   "window": {
     "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#fff",
-    "navigationBarTitleText": "压力表检定智能体",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTitleText": "\u538b\u529b\u8868\u68c0\u5b9a\u667a\u80fd\u4f53",
     "navigationBarTextStyle": "black"
   },
   "tabBar": {
-    "color": "#666",
-    "selectedColor": "#1890ff",
+    "color": "#6f7d95",
+    "selectedColor": "#1f6feb",
     "backgroundColor": "#ffffff",
-    "borderStyle": "black",
+    "borderStyle": "white",
     "list": [
       {
-        "pagePath": "pages/camera/camera",
-        "text": "拍摄识别",
-        "iconPath": "images/tabbar_camera.png",
-        "selectedIconPath": "images/tabbar_camera_active.png"
+        "pagePath": "pages/workbench/workbench",
+        "text": "\u5de5\u4f5c\u53f0",
+        "iconPath": "images/icons/home.png",
+        "selectedIconPath": "images/icons/home-active.png"
       },
       {
         "pagePath": "pages/archive/archive",
-        "text": "近期存档", 
-        "iconPath": "images/tabbar_archive.png",
-        "selectedIconPath": "images/tabbar_archive_active.png"
+        "text": "\u8bbe\u5907",
+        "iconPath": "images/icons/goods.png",
+        "selectedIconPath": "images/icons/goods-active.png"
       },
       {
         "pagePath": "pages/user/user",
-        "text": "用户管理",
-        "iconPath": "images/tabbar_user.png", 
-        "selectedIconPath": "images/tabbar_user_active.png"
+        "text": "\u6211\u7684",
+        "iconPath": "images/icons/usercenter.png",
+        "selectedIconPath": "images/icons/usercenter-active.png"
       }
     ]
   },

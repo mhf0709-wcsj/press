@@ -1,0 +1,55 @@
+<!-- 设备台账列表页 -->
+<view class="container">
+  <!-- 搜索栏 -->
+  <view class="search-bar">
+    <view class="scan-btn" bindtap="scanQrCode">
+      <image src="../../images/tabbar_camera.png" class="scan-icon"></image>
+    </view>
+    <input 
+      class="search-input" 
+      placeholder="搜索或扫码识别" 
+      bindinput="onSearchInput"
+      bindconfirm="onSearch"
+      value="{{searchKeyword}}"
+    />
+    <button class="search-btn" bindtap="onSearch">搜索</button>
+  </view>
+
+  <!-- 设备列表 -->
+  <scroll-view class="device-list" scroll-y bindscrolltolower="loadMore">
+    <block wx:if="{{devices.length > 0}}">
+      <view class="device-card" wx:for="{{devices}}" wx:key="_id" bindtap="goToDetail" data-id="{{item._id}}">
+        <view class="device-header">
+          <text class="device-name">{{item.deviceName}}</text>
+          <text class="status-badge status-{{item.status === '在用' ? 'active' : (item.status === '报废' ? 'scrap' : 'other')}}">{{item.status || '在用'}}</text>
+        </view>
+        <view class="device-body">
+          <view class="info-row">
+            <text class="label">设备编号：</text>
+            <text class="value">{{item.deviceNo}}</text>
+          </view>
+          <view class="info-row">
+            <text class="label">出厂编号：</text>
+            <text class="value">{{item.factoryNo || '未录入'}}</text>
+          </view>
+          <view class="info-row">
+            <text class="label">建档时间：</text>
+            <text class="value">{{item.createTime}}</text>
+          </view>
+        </view>
+        <view class="device-footer">
+          <text class="qr-text">识别码: {{item.qrCode}}</text>
+          <image class="qr-icon" src="../../images/icons/copy.png" catchtap="copyQr" data-qr="{{item.qrCode}}" />
+        </view>
+      </view>
+    </block>
+    <view wx:else class="empty-state">
+      <text>暂无设备台账，请先新建或录入设备</text>
+    </view>
+  </scroll-view>
+
+  <!-- 悬浮新建按钮 -->
+  <view class="fab-btn" bindtap="createNewDevice">
+    <text>+</text>
+  </view>
+</view>

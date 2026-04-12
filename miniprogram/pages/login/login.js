@@ -91,8 +91,8 @@ Page({
   },
 
   goToHome() {
-    wx.switchTab({
-      url: '/pages/camera/camera'
+    wx.reLaunch({
+      url: '/pages/ai-assistant/ai-assistant'
     })
   }
 })

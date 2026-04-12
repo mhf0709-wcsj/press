@@ -1,6 +1,5 @@
 {
   "usingComponents": {
-    "privacy": "/components/privacy/privacy",
-    "ai-float-btn": "/components/ai-float-btn/index"
+    "privacy": "/components/privacy/privacy"
   }
 }

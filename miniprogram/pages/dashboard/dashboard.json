@@ -6,6 +6,6 @@
   "enablePullDownRefresh": true,
   "backgroundTextStyle": "dark",
   "usingComponents": {
-    "ai-float-btn": "/components/ai-float-btn/index"
+    "privacy": "/components/privacy/privacy"
   }
 }

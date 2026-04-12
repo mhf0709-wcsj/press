@@ -135,6 +135,33 @@
   padding: 4rpx 16rpx;
 }
 
+.view-toggle {
+  margin: 16rpx 24rpx 0;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 8rpx;
+  display: flex;
+  gap: 8rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+}
+
+.toggle-btn {
+  flex: 1;
+  text-align: center;
+  height: 72rpx;
+  line-height: 72rpx;
+  font-size: 28rpx;
+  border-radius: 12rpx;
+  color: #64748B;
+  background: #F8FAFC;
+}
+
+.toggle-btn.active {
+  background: #667eea;
+  color: #fff;
+  font-weight: 600;
+}
+
 /* 旧的概览卡片样式 - 已废弃 */
 .overview-card {
   display: none;
@@ -559,6 +586,32 @@
   font-size: 24rpx;
 }
 
+.record-tags {
+  display: flex;
+  gap: 12rpx;
+}
+
+.device-status {
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+  font-size: 22rpx;
+}
+
+.device-status.in-use {
+  background: #f6ffed;
+  color: #52c41a;
+}
+
+.device-status.stopped {
+  background: #fff2f0;
+  color: #ff4d4f;
+}
+
+.device-status.inspecting {
+  background: #fff7e6;
+  color: #fa8c16;
+}
+
 .pass {
   background: #f6ffed;
   color: #52c41a;
@@ -625,6 +678,32 @@
 .action-btn.delete {
   background: #ff4d4f;
   color: #fff;
+}
+
+.action-btn.view {
+  background: #1890ff;
+  color: #fff;
+}
+
+/* 有图片指示 */
+.record-row .value.has-image {
+  color: #52c41a;
+  font-weight: 500;
+}
+
+/* 记录卡片点击状态 */
+.record-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.record-card:active {
+  background: #f5f5f5;
+  transform: scale(0.99);
 }
 
 .empty {

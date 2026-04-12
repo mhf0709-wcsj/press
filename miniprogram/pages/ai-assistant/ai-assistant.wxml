@@ -1,101 +1,192 @@
-<view class="container">
-  <!-- 聊天消息列表 -->
-  <scroll-view 
-    scroll-y 
-    class="chat-list" 
+<view class="page">
+  <scroll-view
+    scroll-y
+    class="page-scroll"
     scroll-into-view="{{scrollToView}}"
     scroll-with-animation="{{true}}"
   >
-    <!-- 欢迎消息 -->
-    <view class="welcome-section" wx:if="{{messages.length === 0}}">
-      <view class="ai-avatar-large">
-        <text class="avatar-icon">🤖</text>
-      </view>
-      <text class="welcome-title">AI智能管家</text>
-      <text class="welcome-desc">我是您的压力表检定助手，可以回答专业问题和查询您的检定数据</text>
-      
-      <!-- 用户身份标识 -->
-      <view class="user-scope-tag" wx:if="{{userScope}}">
-        <text class="scope-icon">👤</text>
-        <text class="scope-text">当前身份：{{userScope}}</text>
-      </view>
-      
-      <!-- 快捷问题 -->
-      <view class="quick-questions">
-        <view class="quick-title">常用问题</view>
-        <view class="quick-list">
-          <view class="quick-item" wx:for="{{quickQuestions}}" wx:key="index" bindtap="onQuickQuestion" data-question="{{item}}">
-            {{item}}
-          </view>
-        </view>
+    <view class="hero">
+      <view class="hero-topline">{{text.heroTopline}}</view>
+      <view class="hero-title">{{text.heroTitle}}</view>
+      <view class="hero-desc">{{text.heroDesc}}</view>
+      <view class="identity-pill">
+        <text class="identity-label">{{text.currentIdentity}}</text>
+        <text class="identity-value">{{userScope}}</text>
       </view>
     </view>
 
-    <!-- 消息列表 -->
-    <view class="message-list">
-      <view 
-        class="message-item {{item.role === 'user' ? 'user' : 'assistant'}}" 
-        wx:for="{{messages}}" 
-        wx:key="id"
-        id="msg-{{item.id}}"
+    <view class="summary-grid">
+      <view
+        class="summary-card {{item.className}}"
+        wx:for="{{summaryCards}}"
+        wx:key="key"
       >
-        <!-- AI消息 -->
-        <view class="message-row" wx:if="{{item.role === 'assistant'}}">
-          <view class="avatar ai-avatar">
-            <text class="avatar-icon">🤖</text>
+        <text class="summary-value">{{item.value}}</text>
+        <text class="summary-label">{{item.label}}</text>
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section-head">
+        <text class="section-title">{{text.sectionPrimaryTitle}}</text>
+        <text class="section-subtitle">{{text.sectionPrimarySubtitle}}</text>
+      </view>
+      <view class="action-list">
+        <view
+          class="action-card {{item.key === 'vision' ? 'primary' : ''}}"
+          wx:for="{{actionCards}}"
+          wx:key="key"
+          data-key="{{item.key}}"
+          bindtap="handleActionCard"
+        >
+          <view class="action-copy">
+            <text class="action-badge">{{item.badge}}</text>
+            <text class="action-title">{{item.title}}</text>
+            <text class="action-desc">{{item.desc}}</text>
           </view>
-          <view class="message-content">
-            <view class="message-bubble ai-bubble">
-              <text class="message-text" user-select>{{item.content}}</text>
+          <text class="action-arrow">></text>
+        </view>
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section-head">
+        <text class="section-title">{{text.sectionQuestionTitle}}</text>
+        <text class="section-subtitle">{{text.sectionQuestionSubtitle}}</text>
+      </view>
+      <view class="question-list">
+        <view
+          class="question-chip"
+          wx:for="{{quickQuestions}}"
+          wx:key="index"
+          data-question="{{item}}"
+          bindtap="onQuickQuestion"
+        >
+          {{item}}
+        </view>
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section-head">
+        <text class="section-title">{{text.sectionChatTitle}}</text>
+        <text class="section-subtitle">{{text.sectionChatSubtitle}}</text>
+      </view>
+
+      <view class="chat-actions">
+        <view class="chat-upload-btn" bindtap="onUploadVisionImage">
+          <text class="chat-upload-btn-text">{{visionDraft ? text.uploadAgain : text.uploadCta}}</text>
+        </view>
+        <view class="chat-confirm-btn {{visionDraft ? 'active' : ''}}" bindtap="goToDraftConfirm">
+          <text class="chat-confirm-btn-text">{{text.confirmDraft}}</text>
+        </view>
+      </view>
+
+      <view class="message-list" wx:if="{{messages.length > 0 || isLoading || isVisionLoading}}">
+        <view
+          class="message-item"
+          wx:for="{{messages}}"
+          wx:key="id"
+          id="msg-{{item.id}}"
+        >
+          <view class="message-row" wx:if="{{item.role === 'assistant'}}">
+            <view class="message-avatar assistant-avatar">AI</view>
+            <view class="message-content">
+              <view class="message-bubble assistant-bubble" wx:if="{{item.kind === 'text'}}">
+                <text class="message-text" user-select>{{item.content}}</text>
+              </view>
+
+              <view class="message-bubble assistant-bubble result-bubble" wx:if="{{item.kind === 'result'}}">
+                <text class="result-title">{{item.title}}</text>
+                <text class="result-summary">{{item.summary}}</text>
+                <image
+                  wx:if="{{item.imagePath}}"
+                  class="result-image"
+                  src="{{item.imagePath}}"
+                  mode="aspectFill"
+                  data-image-path="{{item.imagePath}}"
+                  bindtap="previewChatImage"
+                />
+                <view class="result-field-list">
+                  <view class="result-field" wx:for="{{item.fields}}" wx:key="key">
+                    <text class="result-field-label">{{item.label}}</text>
+                    <text class="result-field-value">{{item.value}}</text>
+                  </view>
+                </view>
+                <view class="result-action" bindtap="goToDraftConfirm">
+                  <text class="result-action-text">{{text.confirmDraft}}</text>
+                </view>
+              </view>
+
+              <text class="message-time">{{item.time}}</text>
             </view>
-            <text class="message-time">{{item.time}}</text>
+          </view>
+
+          <view class="message-row user-row" wx:if="{{item.role === 'user'}}">
+            <view class="message-content user-content">
+              <view class="message-bubble user-bubble" wx:if="{{item.kind === 'text'}}">
+                <text class="message-text">{{item.content}}</text>
+              </view>
+
+              <view class="message-bubble user-bubble image-bubble" wx:if="{{item.kind === 'image'}}">
+                <image
+                  class="chat-image"
+                  src="{{item.imagePath}}"
+                  mode="aspectFill"
+                  data-image-path="{{item.imagePath}}"
+                  bindtap="previewChatImage"
+                />
+                <text class="image-caption">{{item.content}}</text>
+              </view>
+
+              <text class="message-time">{{item.time}}</text>
+            </view>
+            <view class="message-avatar user-avatar">{{text.me}}</view>
           </view>
         </view>
-        
-        <!-- 用户消息 -->
-        <view class="message-row user-row" wx:if="{{item.role === 'user'}}">
-          <view class="message-content">
-            <view class="message-bubble user-bubble">
-              <text class="message-text">{{item.content}}</text>
+
+        <view class="message-item" wx:if="{{isVisionLoading}}" id="msg-vision-loading">
+          <view class="message-row">
+            <view class="message-avatar assistant-avatar">AI</view>
+            <view class="message-content">
+              <view class="message-bubble assistant-bubble loading-bubble">
+                <text class="loading-text">{{text.uploadReceived}}</text>
+              </view>
             </view>
-            <text class="message-time">{{item.time}}</text>
           </view>
-          <view class="avatar user-avatar">
-            <text class="avatar-icon">👤</text>
+        </view>
+
+        <view class="message-item" wx:if="{{isLoading}}" id="msg-loading">
+          <view class="message-row">
+            <view class="message-avatar assistant-avatar">AI</view>
+            <view class="message-content">
+              <view class="message-bubble assistant-bubble loading-bubble">
+                <text class="loading-text">{{text.loadingAnswer}}</text>
+              </view>
+            </view>
           </view>
         </view>
       </view>
 
-      <!-- 加载中状态 -->
-      <view class="message-item assistant" wx:if="{{isLoading}}" id="msg-loading">
-        <view class="message-row">
-          <view class="avatar ai-avatar">
-            <text class="avatar-icon">🤖</text>
-          </view>
-          <view class="message-content">
-            <view class="message-bubble ai-bubble loading-bubble">
-              <view class="loading-dots">
-                <text class="dot">●</text>
-                <text class="dot">●</text>
-                <text class="dot">●</text>
-              </view>
-              <text class="loading-text">正在思考...</text>
-            </view>
-          </view>
-        </view>
+      <view class="empty-chat" wx:else>
+        <text class="empty-chat-title">{{text.emptyChatTitle}}</text>
+        <text class="empty-chat-desc">{{text.emptyChatDesc}}</text>
       </view>
     </view>
-    
-    <!-- 底部占位 -->
-    <view class="bottom-placeholder"></view>
+
+    <view class="page-spacer" id="msg-tail"></view>
   </scroll-view>
 
-  <!-- 输入区域 -->
-  <view class="input-area">
-    <view class="input-wrapper">
-      <textarea 
-        class="input-field" 
-        placeholder="输入您的问题..." 
+  <view class="composer">
+    <view class="composer-tools">
+      <view class="composer-upload" bindtap="onUploadVisionImage">
+        <text class="composer-upload-text">{{text.uploadCta}}</text>
+      </view>
+    </view>
+    <view class="composer-inner">
+      <textarea
+        class="composer-input"
+        placeholder="{{text.inputPlaceholder}}"
         value="{{inputValue}}"
         bindinput="onInput"
         bindconfirm="onSend"
@@ -106,12 +197,14 @@
         adjust-position="{{true}}"
         cursor-spacing="20"
       />
-      <view class="send-btn {{inputValue.trim() ? 'active' : ''}}" bindtap="onSend">
-        <text class="send-icon">➤</text>
+      <view class="composer-send {{inputValue.trim() ? 'active' : ''}}" bindtap="onSend">
+        <text class="composer-send-text">{{text.send}}</text>
       </view>
     </view>
-    <view class="disclaimer">
-      <text>AI回答仅供参考，具体请以官方检定规程为准</text>
+    <view class="composer-tip">
+      <text>{{text.composerTip}}</text>
     </view>
   </view>
+
+  <privacy />
 </view>
