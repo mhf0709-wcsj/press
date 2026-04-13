@@ -1,41 +1,22 @@
 <view class="page-shell login-page">
-  <view class="content-wrapper login-wrapper">
-    <view class="login-hero">
-      <view class="hero-badge">压力表智能助手</view>
-      <view class="hero-mark">
-        <text class="hero-mark-text">P</text>
+  <view class="login-shell">
+    <view class="login-card">
+      <view class="login-brand">
+        <view class="brand-mark">P</view>
+        <view class="brand-name">{{text.brandName}}</view>
       </view>
-      <view class="hero-copy">
-        <view class="hero-title">鍘嬪姏琛ㄦ瀹氭櫤鑳戒綋</view>
-        <view class="hero-desc">浼佷笟绔揩閫熺櫥褰曪紝杩涘叆鎷嶇収璇嗗埆銆佽澶囧瓨妗ｄ笌鍒版湡鎻愰啋娴佺▼銆?/view>
-      </view>
-      <view class="hero-meta">
-        <view class="meta-chip">
-          <text class="meta-label">瀹氫綅</text>
-          <text class="meta-value">浼佷笟鍏ュ彛</text>
-        </view>
-        <view class="meta-chip">
-          <text class="meta-label">鑳藉姏</text>
-          <text class="meta-value">璇嗗埆 / 寤烘。 / 绠＄悊</text>
-        </view>
-      </view>
-    </view>
 
-    <view class="panel login-panel">
-      <view class="panel-section">
-        <view class="panel-title-row">
-          <view>
-            <view class="section-title">浼佷笟鐧诲綍</view>
-            <view class="section-desc">浣跨敤浼佷笟鍚嶇О鍜岃仈绯讳汉鎵嬫満鍙疯繘鍏ヤ笟鍔″彴銆?/view>
-          </view>
-          <view class="panel-tag">蹇嵎鍏ュ彛</view>
-        </view>
+      <view class="login-copy">
+        <view class="login-title">{{text.title}}</view>
+        <view class="login-desc">{{text.desc}}</view>
+      </view>
 
+      <view class="login-form">
         <view class="field-block">
-          <view class="field-label">浼佷笟鍚嶇О</view>
+          <view class="field-label">{{text.companyLabel}}</view>
           <input
             class="field-input"
-            placeholder="璇疯緭鍏ヤ紒涓氬悕绉?
+            placeholder="{{text.companyPlaceholder}}"
             value="{{companyName}}"
             bindinput="onInputCompanyName"
             placeholder-class="input-placeholder"
@@ -43,37 +24,37 @@
         </view>
 
         <view class="field-block">
-          <view class="field-label">鎵嬫満鍙风爜</view>
+          <view class="field-label">{{text.phoneLabel}}</view>
           <input
             class="field-input"
             type="number"
             maxlength="11"
-            placeholder="璇疯緭鍏ヨ仈绯讳汉鎵嬫満鍙?
+            placeholder="{{text.phonePlaceholder}}"
             value="{{phone}}"
             bindinput="onInputPhone"
             placeholder-class="input-placeholder"
           />
         </view>
+      </view>
 
-        <button
-          class="btn-primary-solid login-submit {{loading ? 'is-loading' : ''}}"
-          bindtap="handleLogin"
-          disabled="{{loading}}"
-        >
-          <text>{{loading ? '鐧诲綍涓?..' : '杩涘叆宸ヤ綔鍙?}}</text>
-        </button>
+      <button
+        class="btn-primary-solid login-submit {{loading ? 'is-loading' : ''}}"
+        bindtap="handleLogin"
+        disabled="{{loading}}"
+      >
+        <text>{{loading ? text.submitting : text.submit}}</text>
+      </button>
 
+      <view class="login-actions">
         <view class="assist-row">
-          <view class="assist-text">杩樻病鏈変紒涓氳处鍙凤紵</view>
-          <view class="assist-link" bindtap="goToRegister">绔嬪嵆娉ㄥ唽</view>
+          <text class="assist-text">{{text.assistText}}</text>
+          <text class="assist-link" bindtap="goToRegister">{{text.register}}</text>
         </view>
+        <button class="btn-ghost-link admin-entry" bindtap="goToAdminLogin">{{text.adminLogin}}</button>
       </view>
     </view>
 
-    <view class="login-footer">
-      <button class="btn-ghost-link admin-entry" bindtap="goToAdminLogin">鍒囨崲鍒扮鐞嗙鐧诲綍</button>
-      <view class="version-text">Version 1.2.0</view>
-    </view>
+    <view class="version-text">Version 1.2.0</view>
   </view>
 </view>
 

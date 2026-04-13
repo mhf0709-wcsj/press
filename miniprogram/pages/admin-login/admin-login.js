@@ -1,30 +1,48 @@
 const db = wx.cloud.database()
 
-// 总管理员账号
 const MAIN_ADMIN = { username: 'admin', password: 'admin123', role: 'admin' }
 
-// 辖区管理员账号配置
 const DISTRICT_ADMINS = [
-  { username: 'dawen', password: 'dawen123', district: '大峃所' },
-  { username: 'shanwen', password: 'shanwen123', district: '珊溪所' },
-  { username: 'juyu', password: 'juyu123', district: '巨屿所' },
-  { username: 'xuekou', password: 'xuekou123', district: '峃口所' },
-  { username: 'huangtan', password: 'huangtan123', district: '黄坦所' },
-  { username: 'xikeng', password: 'xikeng123', district: '西坑所' },
-  { username: 'yuhu', password: 'yuhu123', district: '玉壶所' },
-  { username: 'nantian', password: 'nantian123', district: '南田所' },
-  { username: 'baizhangji', password: 'baizhangji123', district: '百丈漈所' }
+  { username: 'dawen', password: 'dawen123', district: '\u5927\u5cf3\u6240' },
+  { username: 'shanwen', password: 'shanwen123', district: '\u73ca\u6eaa\u6240' },
+  { username: 'juyu', password: 'juyu123', district: '\u5de8\u5c7f\u6240' },
+  { username: 'xuekou', password: 'xuekou123', district: '\u5cf3\u53e3\u6240' },
+  { username: 'huangtan', password: 'huangtan123', district: '\u9ec4\u5766\u6240' },
+  { username: 'xikeng', password: 'xikeng123', district: '\u897f\u5751\u6240' },
+  { username: 'yuhu', password: 'yuhu123', district: '\u7389\u58f6\u6240' },
+  { username: 'nantian', password: 'nantian123', district: '\u5357\u7530\u6240' },
+  { username: 'baizhangji', password: 'baizhangji123', district: '\u767e\u4e08\u9645\u6240' }
 ]
+
+const TEXT = {
+  brandName: '\u7ba1\u7406\u63a7\u5236\u53f0',
+  title: '\u7ba1\u7406\u7aef\u767b\u5f55',
+  desc: '\u7ee7\u7eed\u8fdb\u5165\u540e\u53f0\u5de5\u4f5c\u53f0',
+  usernameLabel: '\u7528\u6237\u540d',
+  usernamePlaceholder: '\u8bf7\u8f93\u5165\u7528\u6237\u540d',
+  passwordLabel: '\u5bc6\u7801',
+  passwordPlaceholder: '\u8bf7\u8f93\u5165\u5bc6\u7801',
+  submit: '\u8fdb\u5165\u540e\u53f0',
+  submitting: '\u767b\u5f55\u4e2d...',
+  backToEnterprise: '\u8fd4\u56de\u4f01\u4e1a\u7aef',
+  requireUsername: '\u8bf7\u8f93\u5165\u7528\u6237\u540d',
+  requirePassword: '\u8bf7\u8f93\u5165\u5bc6\u7801',
+  loading: '\u767b\u5f55\u4e2d...',
+  loginSuccess: '\u767b\u5f55\u6210\u529f',
+  wrongPassword: '\u5bc6\u7801\u9519\u8bef',
+  accountMissing: '\u8d26\u53f7\u4e0d\u5b58\u5728',
+  loginFailed: '\u767b\u5f55\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5'
+}
 
 Page({
   data: {
+    text: TEXT,
     username: '',
     password: '',
     loading: false
   },
 
   onLoad() {
-    // 检查是否已登录
     const adminInfo = wx.getStorageSync('adminUser')
     if (adminInfo) {
       this.goToAdmin()
@@ -43,78 +61,72 @@ Page({
     const { username, password } = this.data
 
     if (!username.trim()) {
-      wx.showToast({ title: '请输入用户名', icon: 'none' })
+      wx.showToast({ title: TEXT.requireUsername, icon: 'none' })
       return
     }
 
     if (!password.trim()) {
-      wx.showToast({ title: '请输入密码', icon: 'none' })
+      wx.showToast({ title: TEXT.requirePassword, icon: 'none' })
       return
     }
 
     this.setData({ loading: true })
-    wx.showLoading({ title: '登录中...', mask: true })
+    wx.showLoading({ title: TEXT.loading, mask: true })
 
-    // 先检查是否是总管理员
     if (username.trim() === MAIN_ADMIN.username && password.trim() === MAIN_ADMIN.password) {
-      const adminData = {
+      wx.setStorageSync('adminUser', {
         username: MAIN_ADMIN.username,
-        role: 'admin'
-      }
-      wx.setStorageSync('adminUser', adminData)
+        role: MAIN_ADMIN.role
+      })
       wx.hideLoading()
-      wx.showToast({ title: '登录成功', icon: 'success' })
+      wx.showToast({ title: TEXT.loginSuccess, icon: 'success' })
       setTimeout(() => this.goToAdmin(), 1500)
       return
     }
 
-    // 检查是否是辖区管理员
     const districtAdmin = DISTRICT_ADMINS.find(
-      a => a.username === username.trim() && a.password === password.trim()
+      (item) => item.username === username.trim() && item.password === password.trim()
     )
-    
+
     if (districtAdmin) {
-      // 辖区管理员登录成功
-      const adminData = {
+      wx.setStorageSync('adminUser', {
         username: districtAdmin.username,
         role: 'district',
         district: districtAdmin.district
-      }
-      wx.setStorageSync('adminUser', adminData)
+      })
       wx.hideLoading()
-      wx.showToast({ title: '登录成功', icon: 'success' })
+      wx.showToast({ title: TEXT.loginSuccess, icon: 'success' })
       setTimeout(() => this.goToAdmin(), 1500)
       return
     }
 
-    // 不是预设账号，查询数据库中的管理员
     db.collection('admins').where({
       username: username.trim()
     }).get()
-      .then(res => {
+      .then((res) => {
         wx.hideLoading()
         if (res.data && res.data.length > 0) {
           const admin = res.data[0]
-          // 验证密码
           if (admin.password === password.trim()) {
-            const adminData = {
+            wx.setStorageSync('adminUser', {
               username: admin.username,
               role: admin.role || 'admin'
-            }
-            wx.setStorageSync('adminUser', adminData)
-            wx.showToast({ title: '登录成功', icon: 'success' })
+            })
+            wx.showToast({ title: TEXT.loginSuccess, icon: 'success' })
             setTimeout(() => this.goToAdmin(), 1500)
-          } else {
-            wx.showToast({ title: '密码错误', icon: 'none' })
+            return
           }
-        } else {
-          wx.showToast({ title: '账号不存在', icon: 'none' })
+
+          wx.showToast({ title: TEXT.wrongPassword, icon: 'none' })
+          return
         }
+
+        wx.showToast({ title: TEXT.accountMissing, icon: 'none' })
       })
-      .catch(err => {
+      .catch((err) => {
         wx.hideLoading()
-        console.error('登录失败:', err)
-        wx.showToast({ title: '登录失败，请重试', icon: 'none' })
+        console.error('管理端登录失败:', err)
+        wx.showToast({ title: TEXT.loginFailed, icon: 'none' })
       })
       .finally(() => {
         this.setData({ loading: false })

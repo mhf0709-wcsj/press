@@ -1,231 +1,159 @@
-/* iOS 16 Style - Register Page */
-page {
-  background: linear-gradient(180deg, #f0fff4 0%, #e6ffed 50%, #f5f7fa 100%);
-}
-
-.container {
+.register-page {
   min-height: 100vh;
-  padding: 0 32rpx;
-  box-sizing: border-box;
-  position: relative;
-  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(210, 225, 255, 0.82), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(235, 242, 255, 0.92), transparent 36%),
+    #f7f9fc;
 }
 
-/* 背景装饰 */
-.bg-decoration {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 600rpx;
-  overflow: hidden;
-}
-
-.circle {
-  position: absolute;
-  border-radius: 50%;
-  opacity: 0.5;
-}
-
-.circle-1 {
-  width: 400rpx;
-  height: 400rpx;
-  background: linear-gradient(135deg, #52c41a 0%, #73d13d 100%);
-  top: -150rpx;
-  left: -100rpx;
-  filter: blur(60rpx);
-}
-
-.circle-2 {
-  width: 300rpx;
-  height: 300rpx;
-  background: linear-gradient(135deg, #36cfc9 0%, #13c2c2 100%);
-  top: 100rpx;
-  right: -80rpx;
-  filter: blur(50rpx);
-}
-
-/* 导航栏 */
-.nav-bar {
-  padding-top: 100rpx;
-  padding-bottom: 20rpx;
-  position: relative;
-  z-index: 10;
-}
-
-.back-btn {
-  display: inline-flex;
+.register-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  padding: 16rpx 24rpx;
-  background: rgba(255, 255, 255, 0.8);
-  border-radius: 40rpx;
-  backdrop-filter: blur(10px);
+  justify-content: center;
+  padding: 72rpx 40rpx 48rpx;
 }
 
-.back-icon {
-  font-size: 40rpx;
-  color: #1a1a1a;
-  margin-right: 8rpx;
-}
-
-.back-text {
-  font-size: 28rpx;
-  color: #1a1a1a;
-}
-
-/* 标题区域 */
-.header-section {
-  margin-bottom: 40rpx;
-  position: relative;
-  z-index: 10;
-}
-
-.page-title {
-  font-size: 48rpx;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 12rpx;
-}
-
-.page-desc {
-  font-size: 28rpx;
-  color: #8e8e93;
-}
-
-/* 注册卡片 */
 .register-card {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 32rpx;
-  padding: 40rpx;
-  box-shadow: 0 8rpx 40rpx rgba(0, 0, 0, 0.08);
-  position: relative;
-  z-index: 10;
+  width: 100%;
+  max-width: 680rpx;
+  padding: 52rpx 42rpx 38rpx;
+  border-radius: 36rpx;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1rpx solid rgba(214, 222, 235, 0.9);
+  box-shadow: 0 22rpx 70rpx rgba(28, 48, 86, 0.08);
 }
 
-/* 表单区域 */
-.input-item {
-  margin-bottom: 32rpx;
-}
-
-.input-label {
+.register-brand {
   display: flex;
   align-items: center;
-  margin-bottom: 16rpx;
+  gap: 18rpx;
 }
 
-.label-text {
+.brand-mark {
+  width: 76rpx;
+  height: 76rpx;
+  border-radius: 22rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #1a73e8 0%, #1358bf 100%);
+  color: #ffffff;
+  font-size: 38rpx;
+  font-weight: 700;
+  box-shadow: 0 12rpx 28rpx rgba(26, 115, 232, 0.2);
+}
+
+.brand-name {
+  font-size: 24rpx;
+  line-height: 1;
+  color: #5f6368;
+}
+
+.register-copy {
+  margin-top: 34rpx;
+}
+
+.register-title {
+  font-size: 58rpx;
+  line-height: 1.12;
+  font-weight: 700;
+  color: #202124;
+}
+
+.register-desc {
+  margin-top: 14rpx;
   font-size: 28rpx;
-  color: #1a1a1a;
+  color: #5f6368;
+}
+
+.register-form {
+  margin-top: 36rpx;
+}
+
+.field-block + .field-block {
+  margin-top: 22rpx;
+}
+
+.field-label {
+  margin-bottom: 12rpx;
+  font-size: 24rpx;
+  color: #3c4043;
   font-weight: 500;
 }
 
-.required {
-  color: #ff4d4f;
-  margin-left: 6rpx;
+.field-input {
+  width: 100%;
+  min-height: 96rpx;
+  padding: 0 26rpx;
+  border-radius: 22rpx;
+  border: 2rpx solid #dadce0;
+  background: #ffffff;
   font-size: 28rpx;
+  color: #202124;
+  box-sizing: border-box;
 }
 
-.input-wrapper {
+.input-placeholder {
+  color: #9aa0a6;
+}
+
+.picker-input {
   display: flex;
   align-items: center;
-  background: #f5f5f7;
-  border-radius: 20rpx;
-  padding: 0 24rpx;
-  height: 100rpx;
-  transition: all 0.3s ease;
-}
-
-.input-wrapper:focus-within {
-  background: #fff;
-  box-shadow: 0 0 0 4rpx rgba(82, 196, 26, 0.15);
-}
-
-.input-icon {
-  font-size: 32rpx;
-  margin-right: 16rpx;
-}
-
-.input-field {
-  flex: 1;
-  height: 100rpx;
-  font-size: 30rpx;
-  color: #1a1a1a;
-}
-
-.placeholder-style {
-  color: #c7c7cc;
-  font-size: 30rpx;
-}
-
-/* 注册按钮 */
-.register-btn {
-  width: 100%;
-  height: 100rpx;
-  background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%);
-  color: #fff;
-  font-size: 34rpx;
-  font-weight: 600;
-  border-radius: 24rpx;
-  border: none;
-  margin-top: 24rpx;
-  box-shadow: 0 12rpx 32rpx rgba(82, 196, 26, 0.25);
-}
-
-.register-btn:active {
-  transform: scale(0.98);
-}
-
-.register-btn.disabled {
-  background: linear-gradient(135deg, #b7eb8f 0%, #95de64 100%);
-  box-shadow: none;
-}
-
-/* 协议 */
-.agreement {
-  text-align: center;
-  margin-top: 32rpx;
-}
-
-.agreement-text {
-  font-size: 24rpx;
-  color: #8e8e93;
-}
-
-.agreement-link {
-  font-size: 24rpx;
-  color: #52c41a;
-}
-
-/* 辖区选择器 */
-.picker-wrapper {
-  padding-right: 0 !important;
-}
-
-.picker-field {
-  flex: 1;
-}
-
-.picker-content {
-  display: flex;
   justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  height: 100rpx;
 }
 
 .picker-value {
-  font-size: 30rpx;
-  color: #1a1a1a;
+  font-size: 28rpx;
+  color: #202124;
 }
 
 .picker-placeholder {
-  font-size: 30rpx;
-  color: #c7c7cc;
+  font-size: 28rpx;
+  color: #9aa0a6;
 }
 
 .picker-arrow {
-  font-size: 36rpx;
-  color: #c7c7cc;
-  margin-right: 24rpx;
+  font-size: 28rpx;
+  color: #9aa0a6;
+}
+
+.register-submit {
+  width: 100%;
+  margin-top: 32rpx;
+  border-radius: 999rpx;
+}
+
+.register-submit.is-loading {
+  opacity: 0.82;
+}
+
+.register-actions {
+  margin-top: 30rpx;
+}
+
+.assist-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.assist-text {
+  font-size: 24rpx;
+  color: #5f6368;
+}
+
+.assist-link {
+  font-size: 24rpx;
+  color: #1a73e8;
+  font-weight: 600;
+}
+
+.version-text {
+  margin-top: 28rpx;
+  font-size: 22rpx;
+  color: #9aa0a6;
 }

@@ -1,144 +1,93 @@
-<view class="container">
-  <!-- 顶部装饰 -->
-  <view class="bg-decoration">
-    <view class="circle circle-1"></view>
-    <view class="circle circle-2"></view>
-  </view>
+<view class="page-shell register-page">
+  <view class="register-shell">
+    <view class="register-card">
+      <view class="register-brand">
+        <view class="brand-mark">P</view>
+        <view class="brand-name">{{text.brandName}}</view>
+      </view>
 
-  <!-- 返回按钮 -->
-  <view class="nav-bar">
-    <view class="back-btn" bindtap="goBack">
-      <text class="back-icon">‹</text>
-      <text class="back-text">返回</text>
-    </view>
-  </view>
+      <view class="register-copy">
+        <view class="register-title">{{text.title}}</view>
+        <view class="register-desc">{{text.desc}}</view>
+      </view>
 
-  <!-- 标题区域 -->
-  <view class="header-section">
-    <view class="page-title">企业注册</view>
-    <view class="page-desc">请填写以下企业信息完成注册</view>
-  </view>
-
-  <!-- 注册卡片 -->
-  <view class="register-card">
-    <view class="form-section">
-      <!-- 企业名称 -->
-      <view class="input-item">
-        <view class="input-label">
-          <text class="label-text">企业名称</text>
-          <text class="required">*</text>
-        </view>
-        <view class="input-wrapper">
-          <text class="input-icon">🏢</text>
-          <input 
-            class="input-field" 
-            placeholder="请输入企业全称" 
+      <view class="register-form">
+        <view class="field-block">
+          <view class="field-label">{{text.companyLabel}}</view>
+          <input
+            class="field-input"
+            placeholder="{{text.companyPlaceholder}}"
             value="{{companyName}}"
             bindinput="onInputCompanyName"
-            placeholder-class="placeholder-style"
+            placeholder-class="input-placeholder"
           />
         </view>
-      </view>
 
-      <!-- 企业信用代码 -->
-      <view class="input-item">
-        <view class="input-label">
-          <text class="label-text">统一社会信用代码</text>
-          <text class="required">*</text>
-        </view>
-        <view class="input-wrapper">
-          <text class="input-icon">📋</text>
-          <input 
-            class="input-field" 
-            placeholder="请输入18位信用代码" 
-            value="{{creditCode}}"
+        <view class="field-block">
+          <view class="field-label">{{text.creditCodeLabel}}</view>
+          <input
+            class="field-input"
             maxlength="18"
+            placeholder="{{text.creditCodePlaceholder}}"
+            value="{{creditCode}}"
             bindinput="onInputCreditCode"
-            placeholder-class="placeholder-style"
+            placeholder-class="input-placeholder"
           />
         </view>
-      </view>
 
-      <!-- 企业法人 -->
-      <view class="input-item">
-        <view class="input-label">
-          <text class="label-text">企业法人</text>
-          <text class="required">*</text>
-        </view>
-        <view class="input-wrapper">
-          <text class="input-icon">👤</text>
-          <input 
-            class="input-field" 
-            placeholder="请输入法人姓名" 
+        <view class="field-block">
+          <view class="field-label">{{text.legalPersonLabel}}</view>
+          <input
+            class="field-input"
+            placeholder="{{text.legalPersonPlaceholder}}"
             value="{{legalPerson}}"
             bindinput="onInputLegalPerson"
-            placeholder-class="placeholder-style"
+            placeholder-class="input-placeholder"
           />
         </view>
-      </view>
 
-      <!-- 手机号 -->
-      <view class="input-item">
-        <view class="input-label">
-          <text class="label-text">法人手机号</text>
-          <text class="required">*</text>
-        </view>
-        <view class="input-wrapper">
-          <text class="input-icon">📱</text>
-          <input 
-            class="input-field" 
+        <view class="field-block">
+          <view class="field-label">{{text.phoneLabel}}</view>
+          <input
+            class="field-input"
             type="number"
             maxlength="11"
-            placeholder="请输入手机号" 
+            placeholder="{{text.phonePlaceholder}}"
             value="{{phone}}"
             bindinput="onInputPhone"
-            placeholder-class="placeholder-style"
+            placeholder-class="input-placeholder"
           />
         </view>
-      </view>
 
-      <!-- 所在辖区 -->
-      <view class="input-item">
-        <view class="input-label">
-          <text class="label-text">所在辖区</text>
-          <text class="required">*</text>
-        </view>
-        <view class="input-wrapper picker-wrapper">
-          <text class="input-icon">📍</text>
-          <picker 
-            mode="selector" 
-            range="{{districtOptions}}" 
-            value="{{districtIndex}}"
-            bindchange="onDistrictChange"
-            class="picker-field"
-          >
-            <view class="picker-content">
-              <text class="{{district ? 'picker-value' : 'picker-placeholder'}}">
-                {{district || '请选择所在辖区'}}
-              </text>
-              <text class="picker-arrow">›</text>
+        <view class="field-block">
+          <view class="field-label">{{text.districtLabel}}</view>
+          <picker mode="selector" range="{{districtOptions}}" value="{{districtIndex}}" bindchange="onDistrictChange">
+            <view class="field-input picker-input">
+              <text class="{{district ? 'picker-value' : 'picker-placeholder'}}">{{district || text.districtPlaceholder}}</text>
+              <text class="picker-arrow">></text>
             </view>
           </picker>
         </view>
       </view>
+
+      <button
+        class="btn-primary-solid register-submit {{loading ? 'is-loading' : ''}}"
+        bindtap="handleRegister"
+        disabled="{{loading}}"
+      >
+        <text>{{loading ? text.submitting : text.submit}}</text>
+      </button>
+
+      <view class="register-actions">
+        <view class="assist-row">
+          <text class="assist-text">{{text.assistText}}</text>
+          <text class="assist-link" bindtap="goBack">{{text.goLogin}}</text>
+        </view>
+      </view>
     </view>
 
-    <!-- 注册按钮 -->
-    <button 
-      class="register-btn {{loading ? 'disabled' : ''}}" 
-      bindtap="handleRegister"
-      disabled="{{loading}}"
-    >
-      <text wx:if="{{!loading}}">立即注册</text>
-      <text wx:else>注册中...</text>
-    </button>
-
-    <view class="agreement">
-      <text class="agreement-text">注册即表示同意</text>
-      <text class="agreement-link">《用户服务协议》</text>
-    </view>
+    <view class="version-text">Version 1.2.0</view>
   </view>
 </view>
 
-<!-- 隐私弹窗 -->
 <privacy />

@@ -1,108 +1,123 @@
 .admin-page {
   min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(221, 227, 240, 0.84), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(236, 240, 247, 0.94), transparent 36%),
+    #f7f9fc;
 }
 
-.admin-wrapper {
+.admin-shell {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  min-height: 100vh;
-  padding-top: 56rpx;
-  padding-bottom: 56rpx;
-}
-
-.admin-hero {
-  margin-bottom: 26rpx;
-  padding: 12rpx 8rpx 0;
-}
-
-.admin-badge {
-  display: inline-flex;
   align-items: center;
-  padding: 10rpx 20rpx;
-  border-radius: 999rpx;
-  background: rgba(15, 26, 46, 0.9);
-  color: var(--color-text-white);
-  font-size: var(--font-size-xs);
-  letter-spacing: 1rpx;
+  justify-content: center;
+  padding: 72rpx 40rpx 48rpx;
+}
+
+.admin-card {
+  width: 100%;
+  max-width: 680rpx;
+  padding: 52rpx 42rpx 38rpx;
+  border-radius: 36rpx;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1rpx solid rgba(214, 222, 235, 0.9);
+  box-shadow: 0 22rpx 70rpx rgba(28, 48, 86, 0.08);
+}
+
+.admin-brand {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+}
+
+.brand-mark {
+  width: 76rpx;
+  height: 76rpx;
+  border-radius: 22rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #22324f 0%, #111c2f 100%);
+  color: #ffffff;
+  font-size: 38rpx;
+  font-weight: 700;
+  box-shadow: 0 12rpx 28rpx rgba(17, 28, 47, 0.2);
+}
+
+.brand-name {
+  font-size: 24rpx;
+  line-height: 1;
+  color: #5f6368;
+}
+
+.admin-copy {
+  margin-top: 34rpx;
 }
 
 .admin-title {
-  margin-top: 24rpx;
-  font-size: 52rpx;
-  line-height: 1.14;
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-main);
+  font-size: 58rpx;
+  line-height: 1.12;
+  font-weight: 700;
+  color: #202124;
 }
 
 .admin-desc {
-  margin-top: 16rpx;
-  font-size: var(--font-size-base);
-  line-height: 1.7;
-  color: var(--color-text-secondary);
+  margin-top: 14rpx;
+  font-size: 28rpx;
+  color: #5f6368;
 }
 
-.admin-panel {
+.admin-form {
+  margin-top: 36rpx;
+}
+
+.field-block + .field-block {
+  margin-top: 22rpx;
+}
+
+.field-label {
+  margin-bottom: 12rpx;
+  font-size: 24rpx;
+  color: #3c4043;
+  font-weight: 500;
+}
+
+.field-input {
   width: 100%;
-}
-
-.panel-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24rpx;
-  margin-bottom: 32rpx;
-}
-
-.admin-pill {
-  flex-shrink: 0;
-  padding: 10rpx 18rpx;
-  border-radius: 999rpx;
-  background: rgba(15, 26, 46, 0.08);
-  color: #22324f;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
+  min-height: 96rpx;
+  padding: 0 26rpx;
+  border-radius: 22rpx;
+  border: 2rpx solid #dadce0;
+  background: #ffffff;
+  font-size: 28rpx;
+  color: #202124;
+  box-sizing: border-box;
 }
 
 .input-placeholder {
-  color: var(--color-text-muted);
+  color: #9aa0a6;
 }
 
 .admin-submit {
   width: 100%;
-  margin-top: 20rpx;
+  margin-top: 32rpx;
+  border-radius: 999rpx;
 }
 
 .admin-submit.is-loading {
-  opacity: 0.78;
+  opacity: 0.82;
 }
 
-.admin-tips {
+.admin-actions {
   margin-top: 28rpx;
-}
-
-.tip-card {
-  padding: 20rpx 22rpx;
-  border-radius: 20rpx;
-  background: var(--color-bg-subtle);
-}
-
-.tip-label {
-  display: block;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-
-.tip-value {
-  display: block;
-  margin-top: 8rpx;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-main);
-  font-weight: var(--font-weight-medium);
-}
-
-.admin-footer {
   display: flex;
   justify-content: center;
-  margin-top: 24rpx;
+}
+
+.admin-entry {
+  min-height: auto;
+  padding: 0;
+  color: #3c4043;
+  font-size: 24rpx;
 }
