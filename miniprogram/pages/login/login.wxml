@@ -1,22 +1,22 @@
 <view class="page-shell login-page">
   <view class="content-wrapper login-wrapper">
     <view class="login-hero">
-      <view class="hero-badge">Pressure Gauge AI</view>
+      <view class="hero-badge">压力表智能助手</view>
       <view class="hero-mark">
         <text class="hero-mark-text">P</text>
       </view>
       <view class="hero-copy">
-        <view class="hero-title">压力表检定智能体</view>
-        <view class="hero-desc">企业端快速登录，进入拍照识别、设备存档与到期提醒流程。</view>
+        <view class="hero-title">鍘嬪姏琛ㄦ瀹氭櫤鑳戒綋</view>
+        <view class="hero-desc">浼佷笟绔揩閫熺櫥褰曪紝杩涘叆鎷嶇収璇嗗埆銆佽澶囧瓨妗ｄ笌鍒版湡鎻愰啋娴佺▼銆?/view>
       </view>
       <view class="hero-meta">
         <view class="meta-chip">
-          <text class="meta-label">定位</text>
-          <text class="meta-value">企业入口</text>
+          <text class="meta-label">瀹氫綅</text>
+          <text class="meta-value">浼佷笟鍏ュ彛</text>
         </view>
         <view class="meta-chip">
-          <text class="meta-label">能力</text>
-          <text class="meta-value">识别 / 建档 / 管理</text>
+          <text class="meta-label">鑳藉姏</text>
+          <text class="meta-value">璇嗗埆 / 寤烘。 / 绠＄悊</text>
         </view>
       </view>
     </view>
@@ -25,17 +25,17 @@
       <view class="panel-section">
         <view class="panel-title-row">
           <view>
-            <view class="section-title">企业登录</view>
-            <view class="section-desc">使用企业名称和联系人手机号进入业务台。</view>
+            <view class="section-title">浼佷笟鐧诲綍</view>
+            <view class="section-desc">浣跨敤浼佷笟鍚嶇О鍜岃仈绯讳汉鎵嬫満鍙疯繘鍏ヤ笟鍔″彴銆?/view>
           </view>
-          <view class="panel-tag">快捷入口</view>
+          <view class="panel-tag">蹇嵎鍏ュ彛</view>
         </view>
 
         <view class="field-block">
-          <view class="field-label">企业名称</view>
+          <view class="field-label">浼佷笟鍚嶇О</view>
           <input
             class="field-input"
-            placeholder="请输入企业名称"
+            placeholder="璇疯緭鍏ヤ紒涓氬悕绉?
             value="{{companyName}}"
             bindinput="onInputCompanyName"
             placeholder-class="input-placeholder"
@@ -43,12 +43,12 @@
         </view>
 
         <view class="field-block">
-          <view class="field-label">手机号码</view>
+          <view class="field-label">鎵嬫満鍙风爜</view>
           <input
             class="field-input"
             type="number"
             maxlength="11"
-            placeholder="请输入联系人手机号"
+            placeholder="璇疯緭鍏ヨ仈绯讳汉鎵嬫満鍙?
             value="{{phone}}"
             bindinput="onInputPhone"
             placeholder-class="input-placeholder"
@@ -60,18 +60,18 @@
           bindtap="handleLogin"
           disabled="{{loading}}"
         >
-          <text>{{loading ? '登录中...' : '进入工作台'}}</text>
+          <text>{{loading ? '鐧诲綍涓?..' : '杩涘叆宸ヤ綔鍙?}}</text>
         </button>
 
         <view class="assist-row">
-          <view class="assist-text">还没有企业账号？</view>
-          <view class="assist-link" bindtap="goToRegister">立即注册</view>
+          <view class="assist-text">杩樻病鏈変紒涓氳处鍙凤紵</view>
+          <view class="assist-link" bindtap="goToRegister">绔嬪嵆娉ㄥ唽</view>
         </view>
       </view>
     </view>
 
     <view class="login-footer">
-      <button class="btn-ghost-link admin-entry" bindtap="goToAdminLogin">切换到管理端登录</button>
+      <button class="btn-ghost-link admin-entry" bindtap="goToAdminLogin">鍒囨崲鍒扮鐞嗙鐧诲綍</button>
       <view class="version-text">Version 1.2.0</view>
     </view>
   </view>

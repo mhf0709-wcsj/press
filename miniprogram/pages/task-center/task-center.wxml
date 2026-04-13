@@ -1,0 +1,53 @@
+<view class="page-shell task-page">
+  <view class="content-wrapper task-wrapper">
+    <view class="task-hero panel">
+      <view class="panel-section">
+        <view class="eyebrow">{{text.eyebrow}}</view>
+        <view class="page-title task-title">{{text.title}}</view>
+        <view class="task-identity glass-card">
+          <view class="task-company">{{enterpriseUser.companyName || text.companyFallback}}</view>
+          <view class="task-tag">{{text.tag}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="task-section panel">
+      <view class="panel-section">
+        <view class="section-title">{{text.actionsTitle}}</view>
+        <view class="task-action-list">
+          <view
+            class="task-action-card {{item.accent}}"
+            wx:for="{{quickActions}}"
+            wx:key="key"
+            data-key="{{item.key}}"
+            bindtap="handleQuickAction"
+          >
+            <view class="task-action-copy">
+              <view class="cell-title">{{item.title}}</view>
+              <view class="cell-subtitle">{{item.desc}}</view>
+            </view>
+            <view class="task-action-arrow">></view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="task-section panel">
+      <view class="panel-section">
+        <view class="section-title">{{text.shortcutsTitle}}</view>
+        <view class="task-shortcut-grid">
+          <view
+            class="task-shortcut-card"
+            wx:for="{{shortcuts}}"
+            wx:key="key"
+            data-key="{{item.key}}"
+            bindtap="handleShortcut"
+          >
+            <view class="cell-title">{{item.label}}</view>
+            <view class="cell-subtitle">{{item.value}}</view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

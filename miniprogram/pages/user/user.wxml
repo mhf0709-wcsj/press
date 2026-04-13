@@ -1,105 +1,74 @@
-<view class="container">
-  <!-- 用户信息卡片 -->
-  <view class="card user-card">
-    <view class="user-row" wx:if="{{enterpriseUser}}">
-      <view class="avatar-box">
-        <text class="avatar-icon">🏢</text>
-      </view>
-      <view class="user-info">
-        <text class="user-name">{{enterpriseUser.companyName}}</text>
-        <text class="user-desc">法人: {{enterpriseUser.legalPerson}}</text>
-      </view>
-    </view>
-    <view class="user-row" wx:else bindtap="goToLogin">
-      <view class="avatar-box">
-        <text class="avatar-icon">👤</text>
-      </view>
-      <view class="user-info">
-        <text class="user-name">未登录</text>
-        <text class="user-desc">点击登录企业账号</text>
-      </view>
-      <text class="arrow-icon">›</text>
-    </view>
-  </view>
-
-  <!-- 统计信息 -->
-  <view class="stats-grid" wx:if="{{enterpriseUser}}">
-    <view class="card stat-card">
-      <text class="stat-value">{{recordCount || 0}}</text>
-      <text class="stat-label">存档数量</text>
-    </view>
-    <view class="card stat-card">
-      <text class="stat-value">{{passCount || 0}}</text>
-      <text class="stat-label">合格数量</text>
-    </view>
-    <view class="card stat-card">
-      <text class="stat-value">{{storageUsage || '0KB'}}</text>
-      <text class="stat-label">存储占用</text>
-    </view>
-  </view>
-
-  <!-- 企业信息 -->
-  <view class="card menu-card" wx:if="{{enterpriseUser}}">
-    <view class="card-title">企业信息</view>
-    <view class="info-list">
-      <view class="info-item">
-        <text class="info-label">企业名称</text>
-        <text class="info-value">{{enterpriseUser.companyName}}</text>
-      </view>
-      <view class="divider"></view>
-      <view class="info-item">
-        <text class="info-label">信用代码</text>
-        <text class="info-value code">{{enterpriseUser.creditCode}}</text>
-      </view>
-      <view class="divider"></view>
-      <view class="info-item">
-        <text class="info-label">联系电话</text>
-        <text class="info-value">{{enterpriseUser.phone}}</text>
-      </view>
-    </view>
-  </view>
-
-  <!-- 功能菜单 -->
-  <view class="card menu-card">
-    <view class="menu-list">
-      <view class="menu-item" bindtap="subscribeAlert" wx:if="{{enterpriseUser}}">
-        <view class="menu-left">
-          <text class="menu-icon">🔔</text>
-          <text class="menu-label">订阅逾期预警通知</text>
+<view class="page-shell profile-page">
+  <view class="content-wrapper profile-wrapper">
+    <view class="profile-card panel">
+      <view class="panel-section">
+        <view class="profile-head" wx:if="{{enterpriseUser}}">
+          <view class="profile-avatar">{{enterpriseUser.companyName.slice(0, 1)}}</view>
+          <view class="profile-copy">
+            <view class="page-title profile-title">{{enterpriseUser.companyName}}</view>
+            <view class="page-subtitle">{{text.legalPerson}}: {{enterpriseUser.legalPerson}}</view>
+          </view>
         </view>
-        <text class="menu-arrow">›</text>
-      </view>
-      <view class="divider" wx:if="{{enterpriseUser}}"></view>
-      <view class="menu-item" bindtap="goToEquipmentLibrary" wx:if="{{enterpriseUser}}">
-        <view class="menu-left">
-          <text class="menu-icon">🏭</text>
-          <text class="menu-label">设备库（绑定压力表）</text>
+
+        <view class="profile-head profile-guest" wx:else bindtap="goToLogin">
+          <view class="profile-avatar">ID</view>
+          <view class="profile-copy">
+            <view class="page-title profile-title">{{text.signedOut}}</view>
+            <view class="page-subtitle">{{text.tapToLogin}}</view>
+          </view>
         </view>
-        <text class="menu-arrow">›</text>
-      </view>
-      <view class="divider" wx:if="{{enterpriseUser}}"></view>
-      <view class="menu-item" bindtap="clearCache">
-        <view class="menu-left">
-          <text class="menu-icon">🧹</text>
-          <text class="menu-label">清理缓存</text>
-        </view>
-        <text class="menu-arrow">›</text>
-      </view>
-      <view class="divider" wx:if="{{enterpriseUser}}"></view>
-      <view class="menu-item" bindtap="logout" wx:if="{{enterpriseUser}}">
-        <view class="menu-left">
-          <text class="menu-icon">🚪</text>
-          <text class="menu-label text-danger">退出登录</text>
-        </view>
-        <text class="menu-arrow">›</text>
       </view>
     </view>
-  </view>
 
-  <!-- 关于 -->
-  <view class="about-section">
-    <text class="about-text">压力表检定智能体 v1.2.0</text>
+    <view class="profile-section panel" wx:if="{{enterpriseUser}}">
+      <view class="panel-section">
+        <view class="section-title">{{text.companyInfo}}</view>
+        <view class="profile-info-list">
+          <view class="list-cell">
+            <view class="profile-info-copy">
+              <view class="cell-subtitle">{{text.companyName}}</view>
+              <view class="cell-title">{{enterpriseUser.companyName}}</view>
+            </view>
+          </view>
+          <view class="list-cell">
+            <view class="profile-info-copy">
+              <view class="cell-subtitle">{{text.creditCode}}</view>
+              <view class="cell-title profile-code">{{enterpriseUser.creditCode}}</view>
+            </view>
+          </view>
+          <view class="list-cell">
+            <view class="profile-info-copy">
+              <view class="cell-subtitle">{{text.phone}}</view>
+              <view class="cell-title">{{enterpriseUser.phone}}</view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="profile-section panel">
+      <view class="panel-section">
+        <view class="profile-menu-list">
+          <view class="list-cell" bindtap="subscribeAlert" wx:if="{{enterpriseUser}}">
+            <view class="cell-title">{{text.subscribe}}</view>
+            <view class="cell-meta">></view>
+          </view>
+          <view class="list-cell" bindtap="goToEquipmentLibrary" wx:if="{{enterpriseUser}}">
+            <view class="cell-title">{{text.archive}}</view>
+            <view class="cell-meta">></view>
+          </view>
+          <view class="list-cell" bindtap="clearCache">
+            <view class="cell-title">{{text.clearCache}}</view>
+            <view class="cell-meta">></view>
+          </view>
+          <view class="list-cell" bindtap="logout" wx:if="{{enterpriseUser}}">
+            <view class="cell-title profile-danger">{{text.logout}}</view>
+            <view class="cell-meta">></view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="profile-version">{{text.version}}</view>
   </view>
 </view>
-
-<!-- AI悬浮按钮 -->

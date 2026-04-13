@@ -1,7 +1,4 @@
-/**
- * 压力表检定数据填报页面（重构版）
- * 采用模块化架构，职责清晰，易于维护
- */
+
 
 const ocrService = require('../../services/ocr-service')
 const aiExtractService = require('../../services/ai-extract-service')
@@ -68,144 +65,7 @@ Page({
     this.loadEquipments().then(() => this.restoreSelectedEquipment())
   },
 
-  /*
-  refreshAiInsight(extractedData = null) {
-    const sourceData = extractedData || this.data.formData || {}
-    const insight = this.buildAiInsight(sourceData)
-    const nextData = { aiInsight: insight }
-
-    if (insight.match && insight.match.autoSelected) {
-      nextData.equipmentIndex = insight.match.index
-      nextData.selectedEquipmentId = insight.match.id
-      nextData.selectedEquipmentName = insight.match.name
-    }
-
-    this.setData(nextData)
-  },
-
-  buildAiInsight(sourceData = {}) {
-    const category = this.inferDeviceCategory(sourceData)
-    const match = this.findBestEquipmentMatch(sourceData)
-    const confidence = Number(sourceData.confidence || 0)
-    const confidenceLabel = confidence >= 0.8 ? '高' : confidence >= 0.55 ? '中' : '待确认'
-
-    return {
-      summary: this.buildAiSummary(sourceData, category, match),
-      confidence,
-      confidenceLabel,
-      categoryLabel: category.label,
-      categoryReason: category.reason,
-      match,
-      tags: [
-        sourceData.instrumentName || '未识别仪表名称',
-        sourceData.modelSpec || '型号待补充',
-        sourceData.conclusion ? `检定${sourceData.conclusion}` : '结论待确认'
-      ].filter(Boolean)
-    }
-  },
-
-  inferDeviceCategory(sourceData = {}) {
-    const instrumentName = String(sourceData.instrumentName || '')
-    const modelSpec = String(sourceData.modelSpec || '')
-    const combined = `${instrumentName} ${modelSpec}`.toLowerCase()
-
-    if (combined.includes('压力') || combined.includes('压') || combined.includes('mpa') || combined.includes('kpa')) {
-      return {
-        label: '压力表',
-        reason: 'AI 根据仪表名称和量程信息判断为压力表类设备'
-      }
-    }
-
-    return {
-      label: '通用仪表',
-      reason: 'AI 已读取证书字段，但设备类型还需要人工确认'
-    }
-  },
-
-  buildAiSummary(sourceData = {}, category = {}, match = null) {
-    const certNo = sourceData.certNo ? `证书号 ${sourceData.certNo}` : '已读取证书文本'
-    const factoryNo = sourceData.factoryNo ? `出厂编号 ${sourceData.factoryNo}` : '出厂编号待确认'
-    const categoryText = category?.label ? `识别为${category.label}` : '已完成设备识别'
-
-    if (match && match.name) {
-      return `${certNo}，${factoryNo}，${categoryText}，并建议归档到“${match.name}”。`
-    }
-
-    return `${certNo}，${factoryNo}，${categoryText}，暂未找到明确的设备归属。`
-  },
-
-  findBestEquipmentMatch(sourceData = {}) {
-    const equipments = this.data.equipments || []
-    if (!equipments.length) {
-      return {
-        status: 'empty',
-        statusText: '当前设备库为空，AI 暂时无法自动归类',
-        score: 0
-      }
-    }
-
-    const tokens = this.collectMatchTokens(sourceData)
-    let best = null
-
-    equipments.forEach((equipment, index) => {
-      const haystack = [
-        equipment.equipmentName,
-        equipment.equipmentNo,
-        equipment.location,
-        equipment.enterpriseName
-      ].filter(Boolean).join(' ').toLowerCase()
-
-      let score = 0
-      tokens.forEach((token) => {
-        if (token && haystack.includes(token)) score += token.length >= 4 ? 3 : 1
-      })
-
-      if (!best || score > best.score) {
-        best = {
-          id: equipment._id,
-          name: equipment.equipmentName,
-          index,
-          score
-        }
-      }
-    })
-
-    if (!best || best.score <= 0) {
-      return {
-        status: 'unmatched',
-        statusText: 'AI 已完成字段识别，但需要你确认所属设备',
-        score: 0
-      }
-    }
-
-    const autoSelected = best.score >= 3
-    return {
-      ...best,
-      status: autoSelected ? 'matched' : 'suggested',
-      autoSelected,
-      statusText: autoSelected
-        ? `AI 已自动匹配到设备“${best.name}”`
-        : `AI 推荐设备“${best.name}”，请确认是否正确`
-    }
-  },
-
-  collectMatchTokens(sourceData = {}) {
-    const rawTokens = [
-      sourceData.sendUnit,
-      sourceData.instrumentName,
-      sourceData.modelSpec,
-      sourceData.manufacturer
-    ]
-
-    return rawTokens
-      .filter(Boolean)
-      .map((item) => String(item).trim().toLowerCase())
-      .reduce((result, item) => result.concat(item.split(/[\s/(),，。_-]+/)), [])
-      .filter((item) => item && item.length >= 2)
-      .slice(0, 12)
-  },
-
-  */
+  
 
   refreshAiInsight(extractedData = null) {
     const sourceData = extractedData || this.data.formData || {}
@@ -351,9 +211,7 @@ Page({
       .slice(0, 12)
   },
 
-  /**
-   * 初始化页面
-   */
+  
   async initPage(options) {
     this.checkFromAdmin()
     await ocrService.init()
@@ -363,9 +221,7 @@ Page({
     this.applyAssistantDraft()
   },
 
-  /**
-   * 检查是否从管理端跳转
-   */
+  
   checkFromAdmin() {
     const cameraFrom = wx.getStorageSync('cameraFrom')
     if (cameraFrom === 'admin') {
@@ -377,17 +233,13 @@ Page({
     }
   },
 
-  /**
-   * 加载企业信息
-   */
+  
   loadEnterpriseInfo() {
     const enterpriseUser = wx.getStorageSync('enterpriseUser')
     this.setData({ enterpriseUser })
   },
 
-  /**
-   * 加载管理员信息
-   */
+  
   loadAdminInfo() {
     const adminUser = wx.getStorageSync('adminUser')
     if (adminUser) {
@@ -412,9 +264,7 @@ Page({
     }
   },
 
-  /**
-   * 加载设备列表
-   */
+  
   async loadEquipments() {
     const { enterpriseUser, fromAdmin } = this.data
     if (!enterpriseUser) return
@@ -436,9 +286,7 @@ Page({
     }
   },
 
-  /**
-   * 检查到期提醒
-   */
+  
   async checkExpiryReminder() {
     const enterpriseUser = wx.getStorageSync('enterpriseUser')
     if (!enterpriseUser || !enterpriseUser.companyName) return
@@ -454,9 +302,7 @@ Page({
     }
   },
 
-  /**
-   * Tab切换
-   */
+  
   switchTab(e) {
     const tab = e.currentTarget.dataset.tab
     this.setData({ activeTab: tab })
@@ -531,9 +377,7 @@ Page({
     })
   },
 
-  /**
-   * 初始化手动填报表单
-   */
+  
   initManualForm() {
     if (!this.data.formData.verificationDate) {
       const today = formatDate(new Date())
@@ -547,9 +391,7 @@ Page({
     }
   },
 
-  /**
-   * 拍照/选择图片
-   */
+  
   async takePhoto() {
     try {
       const imagePath = await ocrService.chooseImage()
@@ -559,9 +401,7 @@ Page({
     }
   },
 
-  /**
-   * 重新拍照
-   */
+  
   retakePhoto() {
     this.setData({
       imagePath: '',
@@ -572,9 +412,7 @@ Page({
     })
   },
 
-  /**
-   * 开始OCR识别
-   */
+  
   async startOCR() {
     return this.startAIExtract()
   },
@@ -612,9 +450,7 @@ Page({
     }
   },
 
-  /**
-   * 用OCR结果填充表单
-   */
+  
   fillFormWithAI(ocrData) {
     const formData = { ...this.data.formData }
 
@@ -644,9 +480,7 @@ Page({
     })
   },
 
-  /**
-   * 上传图片（手动模式）
-   */
+  
   async uploadImage() {
     try {
       const imagePath = await ocrService.chooseImage()
@@ -656,9 +490,7 @@ Page({
     }
   },
 
-  /**
-   * 上传安装照片
-   */
+  
   async uploadInstallPhoto() {
     try {
       const installPhotoPath = await ocrService.chooseImage()
@@ -668,41 +500,31 @@ Page({
     }
   },
 
-  /**
-   * 预览图片
-   */
+  
   previewImage() {
     if (this.data.imagePath) {
       wx.previewImage({ urls: [this.data.imagePath] })
     }
   },
 
-  /**
-   * 删除图片
-   */
+  
   deleteImage() {
     this.setData({ imagePath: '' })
   },
 
-  /**
-   * 预览安装照片
-   */
+  
   previewInstallPhoto() {
     if (this.data.installPhotoPath) {
       wx.previewImage({ urls: [this.data.installPhotoPath] })
     }
   },
 
-  /**
-   * 删除安装照片
-   */
+  
   deleteInstallPhoto() {
     this.setData({ installPhotoPath: '' })
   },
 
-  /**
-   * 表单输入处理
-   */
+  
   onInput(e) {
     const field = e.currentTarget.dataset.field
     const value = e.detail.value
@@ -713,9 +535,7 @@ Page({
     })
   },
 
-  /**
-   * 辖区选择
-   */
+  
   onDistrictChange(e) {
     const index = e.detail.value
     const district = this.data.districtOptions[index]
@@ -725,9 +545,7 @@ Page({
     })
   },
 
-  /**
-   * 检定结论选择
-   */
+  
   onConclusionChange(e) {
     const index = e.detail.value
     const conclusions = ['合格', '不合格']
@@ -737,9 +555,7 @@ Page({
     })
   },
 
-  /**
-   * 检定日期选择
-   */
+  
   onDateChange(e) {
     const date = e.detail.value
     const expiryDateStr = calculateExpiryDate(date)
@@ -751,9 +567,7 @@ Page({
     })
   },
 
-  /**
-   * 设备选择
-   */
+  
   onEquipmentChange(e) {
     const index = e.detail.value
     const equipment = this.data.equipments[index]
@@ -773,12 +587,10 @@ Page({
   },
 
   goToEquipmentLibrary() {
-    wx.switchTab({ url: '/pages/archive/archive' })
+    wx.navigateTo({ url: '/pages/archive/archive' })
   },
 
-  /**
-   * 返回上一页
-   */
+  
   goBack() {
     const { activeTab } = this.data
     if (activeTab === 'manual') {
@@ -792,18 +604,14 @@ Page({
     }
   },
 
-  /**
-   * 新建设备输入
-   */
+  
   onNewDeviceInput(e) {
     const field = e.currentTarget.dataset.field
     const value = e.detail.value
     this.setData({ [`newDevice.${field}`]: value })
   },
 
-  /**
-   * 保存新设备
-   */
+  
   async ensureGaugeForRecord({ equipmentId, equipmentName, enterpriseUser, fromAdmin, district, recordData }) {
     const factoryNo = (recordData?.factoryNo || '').trim()
     if (!factoryNo) throw new Error('缺少出厂编号，无法生成压力表档案')
@@ -844,9 +652,7 @@ Page({
     return device
   },
 
-  /**
-   * 保存记录
-   */
+  
   async saveRecord() {
     const { formData, imagePath, installPhotoPath, activeTab, fromAdmin, enterpriseUser, selectedEquipmentId, selectedEquipmentName, gaugeStatus } = this.data
 
@@ -947,9 +753,7 @@ Page({
     }
   },
 
-  /**
-   * 请求订阅消息授权
-   */
+  
   async requestSubscribeMessage() {
     const appConfig = wx.getStorageSync('appConfig') || {}
     const tmplId = appConfig.deviceExpiryTemplateId || SUBSCRIBE_TEMPLATE_IDS.DEVICE_EXPIRY
@@ -969,9 +773,7 @@ Page({
     }
   },
 
-  /**
-   * 重置表单
-   */
+  
   resetForm() {
     this.setData({
       imagePath: '',
@@ -1008,20 +810,16 @@ Page({
     }
   },
 
-  /**
-   * 关闭到期提醒弹窗
-   */
+  
   closeExpiryModal() {
     this.setData({ showExpiryModal: false })
     expiryReminderService.markTodayReminded()
   },
 
-  /**
-   * 查看到期记录
-   */
+  
   viewExpiryRecords() {
     this.setData({ showExpiryModal: false })
     expiryReminderService.markTodayReminded()
-    wx.switchTab({ url: '/pages/archive/archive' })
+    wx.navigateTo({ url: '/pages/archive/archive' })
   }
 })

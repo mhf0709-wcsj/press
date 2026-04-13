@@ -1,41 +1,31 @@
 const db = wx.cloud.database()
 const _ = db.command
 
+const TEXT = {
+  eyebrow: '\u8bbe\u5907\u4e2d\u5fc3',
+  title: '\u8bbe\u5907\u4e2d\u5fc3',
+  companyFallback: '\u672a\u767b\u5f55\u4f01\u4e1a',
+  companyTag: '\u4f01\u4e1a\u7aef',
+  dashboardTitle: '\u4eea\u8868\u76d8',
+  dashboardNote: '\u70b9\u51fb\u5361\u7247\u53ef\u67e5\u770b\u76f8\u5e94\u660e\u7ec6',
+  recentTitle: '\u6700\u8fd1\u5f55\u5165',
+  recentMore: '\u5168\u90e8',
+  recentEmpty: '\u6682\u65e0\u6700\u8fd1\u8bb0\u5f55',
+  cards: {
+    equipment: '\u8bbe\u5907\u53f0\u8d26',
+    gauge: '\u538b\u529b\u8868',
+    expiring: '30\u5929\u5185\u5230\u671f',
+    expired: '\u5df2\u8fc7\u671f'
+  },
+  fallbackRecordTitle: '\u65b0\u8bb0\u5f55',
+  fallbackRecordSubtitle: '\u5f85\u8865\u5145\u4eea\u8868\u4fe1\u606f'
+}
+
 Page({
   data: {
+    text: TEXT,
     enterpriseUser: null,
-    summary: {
-      equipmentCount: 0,
-      gaugeCount: 0,
-      expiringSoon: 0,
-      expired: 0
-    },
-    quickActions: [
-      {
-        key: 'camera',
-        title: '拍照识别',
-        desc: '上传检定证书并自动填表',
-        accent: 'brand'
-      },
-      {
-        key: 'manual',
-        title: '手动录入',
-        desc: '不拍照也能直接建档',
-        accent: 'accent'
-      },
-      {
-        key: 'equipment',
-        title: '新建设备',
-        desc: '补齐设备台账与绑定关系',
-        accent: 'dark'
-      }
-    ],
-    shortcuts: [
-      { key: 'archive', label: '设备台账', value: '查看全部设备' },
-      { key: 'alerts', label: '到期提醒', value: '追踪临期压力表' },
-      { key: 'profile', label: '账号与订阅', value: '管理通知与设置' }
-    ],
-    recentEquipments: [],
+    summaryCards: [],
     recentRecords: [],
     loading: false
   },
@@ -59,79 +49,48 @@ Page({
       return
     }
 
-    this.setData({ enterpriseUser, loading: true })
+    this.setData({
+      enterpriseUser,
+      loading: true
+    })
 
     try {
       await Promise.all([
-        this.loadSummary(enterpriseUser),
-        this.loadRecentEquipments(enterpriseUser),
+        this.loadDashboard(enterpriseUser),
         this.loadRecentRecords(enterpriseUser)
       ])
     } catch (error) {
-      console.error('Workbench bootstrap failed:', error)
+      console.error('设备中心初始化失败', error)
     } finally {
       this.setData({ loading: false })
     }
   },
 
-  async loadSummary(enterpriseUser) {
+  async loadDashboard(enterpriseUser) {
     const companyName = enterpriseUser.companyName
     const today = this.formatDate(new Date())
     const threshold = this.formatDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))
 
-    const equipmentPromise = db.collection('equipments')
-      .where({ enterpriseName: companyName })
-      .count()
-
-    const gaugePromise = db.collection('devices')
-      .where({ enterpriseName: companyName })
-      .count()
-
-    const expiringPromise = db.collection('pressure_records')
-      .where({
+    const [equipmentRes, gaugeRes, expiringRes, expiredRes] = await Promise.all([
+      db.collection('equipments').where({ enterpriseName: companyName }).count(),
+      db.collection('devices').where({ enterpriseName: companyName }).count(),
+      db.collection('pressure_records').where({
         enterpriseName: companyName,
         expiryDate: _.gte(today).and(_.lte(threshold))
-      })
-      .count()
-
-    const expiredPromise = db.collection('pressure_records')
-      .where({
+      }).count(),
+      db.collection('pressure_records').where({
         enterpriseName: companyName,
         expiryDate: _.lt(today)
-      })
-      .count()
-
-    const [equipmentRes, gaugeRes, expiringRes, expiredRes] = await Promise.all([
-      equipmentPromise,
-      gaugePromise,
-      expiringPromise,
-      expiredPromise
+      }).count()
     ])
 
     this.setData({
-      summary: {
-        equipmentCount: equipmentRes.total || 0,
-        gaugeCount: gaugeRes.total || 0,
-        expiringSoon: expiringRes.total || 0,
-        expired: expiredRes.total || 0
-      }
-    })
-  },
-
-  async loadRecentEquipments(enterpriseUser) {
-    const res = await db.collection('equipments')
-      .where({ enterpriseName: enterpriseUser.companyName })
-      .orderBy('createTime', 'desc')
-      .limit(3)
-      .get()
-
-    this.setData({
-      recentEquipments: (res.data || []).map((item) => ({
-        _id: item._id,
-        title: item.equipmentName || '未命名设备',
-        subtitle: item.location || item.equipmentNo || '待补充位置信息',
-        meta: item.equipmentNo || '未填写编号'
-      }))
+      summaryCards: [
+        { key: 'equipment', label: TEXT.cards.equipment, value: equipmentRes.total || 0, tone: '' },
+        { key: 'gauge', label: TEXT.cards.gauge, value: gaugeRes.total || 0, tone: '' },
+        { key: 'expiring', label: TEXT.cards.expiring, value: expiringRes.total || 0, tone: 'warning' },
+        { key: 'expired', label: TEXT.cards.expired, value: expiredRes.total || 0, tone: 'danger' }
+      ]
     })
   },
 
@@ -139,49 +98,26 @@ Page({
     const res = await db.collection('pressure_records')
       .where({ enterpriseName: enterpriseUser.companyName })
       .orderBy('createTime', 'desc')
-      .limit(3)
+      .limit(5)
       .get()
 
     this.setData({
       recentRecords: (res.data || []).map((item) => ({
         _id: item._id,
-        title: item.factoryNo || item.certNo || '新建检定记录',
-        subtitle: item.instrumentName || item.sendUnit || '待补充器具信息',
-        meta: item.verificationDate || item.createTime || ''
+        title: item.factoryNo || item.certNo || TEXT.fallbackRecordTitle,
+        subtitle: item.instrumentName || item.sendUnit || TEXT.fallbackRecordSubtitle,
+        meta: item.verificationDate || this.formatCreateTime(item.createTime)
       }))
     })
   },
 
-  handleQuickAction(e) {
+  onTapDashboardCard(e) {
     const { key } = e.currentTarget.dataset
-    if (key === 'camera') {
-      wx.navigateTo({ url: '/pages/camera/camera' })
+    if (key === 'gauge') {
+      wx.navigateTo({ url: '/pages/device-list/device-list' })
       return
     }
-    if (key === 'manual') {
-      wx.navigateTo({ url: '/pages/camera/camera?tab=manual' })
-      return
-    }
-    if (key === 'equipment') {
-      wx.navigateTo({ url: '/pages/equipment-detail/equipment-detail?mode=create' })
-    }
-  },
-
-  handleShortcut(e) {
-    const { key } = e.currentTarget.dataset
-    if (key === 'archive' || key === 'alerts') {
-      wx.switchTab({ url: '/pages/archive/archive' })
-      return
-    }
-    if (key === 'profile') {
-      wx.switchTab({ url: '/pages/user/user' })
-    }
-  },
-
-  openEquipment(e) {
-    const { id } = e.currentTarget.dataset
-    if (!id) return
-    wx.navigateTo({ url: `/pages/equipment-detail/equipment-detail?id=${id}` })
+    wx.navigateTo({ url: '/pages/archive/archive' })
   },
 
   openRecord(e) {
@@ -190,10 +126,26 @@ Page({
     wx.navigateTo({ url: `/pages/detail/detail?id=${id}` })
   },
 
+  goToAllRecords() {
+    wx.navigateTo({ url: '/pages/archive/archive' })
+  },
+
   formatDate(date) {
     const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, '0')
     const day = String(date.getDate()).padStart(2, '0')
     return `${year}-${month}-${day}`
+  },
+
+  formatCreateTime(value) {
+    if (!value) return ''
+    if (typeof value === 'string') return value
+
+    const date = value instanceof Date ? value : value.toDate ? value.toDate() : new Date(value)
+    if (Number.isNaN(date.getTime())) return ''
+
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${month}-${day}`
   }
 })

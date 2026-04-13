@@ -15,7 +15,7 @@ Page({
       conclusion: '',
       verificationDate: '',
       district: '',
-      deviceStatus: '在用'  // 默认在用
+      deviceStatus: '在用'
     },
     conclusionIndex: 0,
     districtIndex: 0,
@@ -24,7 +24,6 @@ Page({
     districtOptions: ['大峃所', '珊溪所', '巨屿所', '峃口所', '黄坦所', '西坑所', '玉壶所', '南田所', '百丈漈所'],
     expiryDateText: '',
     saving: false,
-    // 设备相关
     devices: [],
     deviceIndex: -1,
     selectedDeviceId: '',
@@ -53,22 +52,16 @@ Page({
         wx.hideLoading()
         if (res.data) {
           const record = res.data
-          
-          // 设置辖区索引
           let districtIndex = 0
           if (record.district) {
             const idx = this.data.districtOptions.indexOf(record.district)
             if (idx > -1) districtIndex = idx
           }
-          
-          // 设置设备索引
           let deviceIndex = -1
           if (record.deviceId && this.data.devices.length > 0) {
             const idx = this.data.devices.findIndex(d => d._id === record.deviceId)
             if (idx > -1) deviceIndex = idx
           }
-
-          // 设置设备状态索引
           let deviceStatusIndex = 0
           if (record.deviceStatus) {
             const idx = this.data.deviceStatusOptions.indexOf(record.deviceStatus)
@@ -88,7 +81,7 @@ Page({
               conclusion: record.conclusion || '合格',
               verificationDate: record.verificationDate || '',
               district: record.district || '',
-              deviceStatus: record.deviceStatus || '在用'  // 设备状态
+              deviceStatus: record.deviceStatus || '在用'
             },
             districtIndex: districtIndex,
             deviceIndex: deviceIndex,
@@ -99,8 +92,6 @@ Page({
               `${new Date(record.expiryDate).getFullYear()}年${new Date(record.expiryDate).getMonth()+1}月${new Date(record.expiryDate).getDate()}日` : 
               ''
           })
-          
-          // 设置结论索引
           let conclusionIndex = 0
           if (record.conclusion === '不合格') conclusionIndex = 1
           this.setData({ conclusionIndex: conclusionIndex })
@@ -120,8 +111,6 @@ Page({
   goBack() {
     wx.navigateBack()
   },
-
-  // 加载设备列表
   loadDevices() {
     const enterpriseUser = wx.getStorageSync('enterpriseUser')
     const adminUser = wx.getStorageSync('adminUser')
@@ -129,12 +118,10 @@ Page({
     let whereCondition = {}
     
     if (adminUser) {
-      // 管理员模式：按辖区筛选
       if (adminUser.district) {
         whereCondition.district = adminUser.district
       }
     } else if (enterpriseUser) {
-      // 企业用户：只看本企业设备
       whereCondition.enterpriseName = enterpriseUser.companyName
     }
     
@@ -144,8 +131,6 @@ Page({
       .get()
       .then(res => {
         this.setData({ devices: res.data })
-        
-        // 如果已有记录，重新设置设备索引
         if (this.data.record && this.data.record.deviceId) {
           const idx = res.data.findIndex(d => d._id === this.data.record.deviceId)
           if (idx > -1) {
@@ -161,8 +146,6 @@ Page({
         console.error('加载设备失败:', err)
       })
   },
-
-  // 设备选择
   onDeviceChange(e) {
     const index = e.detail.value
     const device = this.data.devices[index]
@@ -175,8 +158,6 @@ Page({
       })
     }
   },
-
-  // 显示新建设备表单
   showNewDeviceForm() {
     this.setData({
       showNewDevice: true,
@@ -187,20 +168,14 @@ Page({
       }
     })
   },
-
-  // 隐藏新建设备表单
   hideNewDeviceForm() {
     this.setData({ showNewDevice: false })
   },
-
-  // 新建设备输入
   onNewDeviceInput(e) {
     const field = e.currentTarget.dataset.field
     const value = e.detail.value
     this.setData({ [`newDevice.${field}`]: value })
   },
-
-  // 保存新设备
   saveNewDevice() {
     const { newDevice, formData } = this.data
     const enterpriseUser = wx.getStorageSync('enterpriseUser')
@@ -231,8 +206,6 @@ Page({
     }).then(res => {
       wx.hideLoading()
       wx.showToast({ title: '创建成功', icon: 'success' })
-      
-      // 刷新设备列表并选中新设备
       this.loadDevices()
       this.setData({
         showNewDevice: false,
@@ -264,8 +237,6 @@ Page({
       'formData.district': this.data.districtOptions[index]
     })
   },
-
-  // 设备状态选择
   onDeviceStatusChange(e) {
     const index = e.detail.value
     this.setData({
@@ -291,7 +262,7 @@ Page({
   calculateExpiryDate(verifyDateStr) {
     const date = new Date(verifyDateStr)
     date.setMonth(date.getMonth() + 6)
-    date.setDate(date.getDate() - 1) // 检定日期+6个月-1天
+    date.setDate(date.getDate() - 1)
     return date
   },
 
@@ -323,15 +294,14 @@ Page({
     const verifyDate = new Date(formData.verificationDate)
     const expiryDate = new Date(verifyDate)
     expiryDate.setMonth(expiryDate.getMonth() + 6)
-    expiryDate.setDate(expiryDate.getDate() - 1) // 检定日期+6个月-1天
+    expiryDate.setDate(expiryDate.getDate() - 1)
 
     const updateData = {
       ...formData,
       expiryDate: this.formatDate(expiryDate),
       status: 'valid',
       updateTime: this.formatDateTime(new Date()),
-      ocrSource: 'manual', // 编辑后标记为手动录入
-      // 设备关联
+      ocrSource: 'manual',
       equipmentId: selectedDevice.equipmentId || '',
       equipmentName: selectedDevice.equipmentName || '',
       deviceId: this.data.selectedDeviceId,
@@ -345,15 +315,12 @@ Page({
     })
     .then(res => {
       console.log('✓ 更新成功:', recordId)
-      
-      // 更新设备记录数
       if (this.data.selectedDeviceId) {
         this.updateDeviceRecordCount(this.data.selectedDeviceId)
       }
       
       wx.hideLoading()
       wx.showToast({ title: '✓ 保存成功', icon: 'success', duration: 1500 })
-      // 返回并刷新列表
       const pages = getCurrentPages()
       if (pages.length > 1) {
         const prevPage = pages[pages.length - 2]
@@ -389,7 +356,6 @@ Page({
       .then(res => {
         wx.hideLoading()
         wx.showToast({ title: '删除成功', icon: 'success' })
-        // 返回并刷新列表
         const pages = getCurrentPages()
         if (pages.length > 1) {
           const prevPage = pages[pages.length - 2]
@@ -413,8 +379,6 @@ Page({
       })
     }
   },
-
-  // 预览安装照片
   previewInstallPhoto() {
     if (this.data.record.installPhotoFileID) {
       wx.previewImage({
@@ -432,8 +396,6 @@ Page({
     if (typeof date === 'string') date = new Date(date)
     return `${this.formatDate(date)} ${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}:${date.getSeconds().toString().padStart(2,'0')}`
   },
-
-  // 更新设备记录数
   updateDeviceRecordCount(deviceId) {
     db.collection('pressure_records').where({
       deviceId: deviceId

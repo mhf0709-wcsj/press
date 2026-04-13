@@ -1,180 +1,125 @@
-<view class="page">
+<view class="page-shell ai-page">
   <scroll-view
     scroll-y
     class="page-scroll"
     scroll-into-view="{{scrollToView}}"
     scroll-with-animation="{{true}}"
   >
-    <view class="hero">
-      <view class="hero-topline">{{text.heroTopline}}</view>
-      <view class="hero-title">{{text.heroTitle}}</view>
-      <view class="hero-desc">{{text.heroDesc}}</view>
-      <view class="identity-pill">
-        <text class="identity-label">{{text.currentIdentity}}</text>
-        <text class="identity-value">{{userScope}}</text>
+    <view class="content-wrapper ai-wrapper">
+      <view class="ai-hero panel">
+        <view class="panel-section">
+          <view class="eyebrow">{{text.heroTopline}}</view>
+          <view class="page-title ai-title">{{text.heroTitle}}</view>
+          <view class="page-subtitle">{{text.heroDesc}}</view>
+        </view>
       </view>
-    </view>
 
-    <view class="summary-grid">
-      <view
-        class="summary-card {{item.className}}"
-        wx:for="{{summaryCards}}"
-        wx:key="key"
-      >
-        <text class="summary-value">{{item.value}}</text>
-        <text class="summary-label">{{item.label}}</text>
-      </view>
-    </view>
-
-    <view class="section">
-      <view class="section-head">
-        <text class="section-title">{{text.sectionPrimaryTitle}}</text>
-        <text class="section-subtitle">{{text.sectionPrimarySubtitle}}</text>
-      </view>
-      <view class="action-list">
-        <view
-          class="action-card {{item.key === 'vision' ? 'primary' : ''}}"
-          wx:for="{{actionCards}}"
-          wx:key="key"
-          data-key="{{item.key}}"
-          bindtap="handleActionCard"
-        >
-          <view class="action-copy">
-            <text class="action-badge">{{item.badge}}</text>
-            <text class="action-title">{{item.title}}</text>
-            <text class="action-desc">{{item.desc}}</text>
+      <view class="ai-chat panel">
+        <view class="panel-section">
+          <view class="ai-actions">
+            <view class="soft-button ai-action" bindtap="onUploadVisionImage">
+              <text class="ai-action-text">{{visionDraft ? text.uploadAgain : text.uploadCta}}</text>
+            </view>
+            <view class="primary-button ai-action {{visionDraft ? 'is-active' : 'is-disabled'}}" bindtap="goToDraftConfirm">
+              <text class="ai-action-text is-primary">{{text.confirmDraft}}</text>
+            </view>
           </view>
-          <text class="action-arrow">></text>
-        </view>
-      </view>
-    </view>
 
-    <view class="section">
-      <view class="section-head">
-        <text class="section-title">{{text.sectionQuestionTitle}}</text>
-        <text class="section-subtitle">{{text.sectionQuestionSubtitle}}</text>
-      </view>
-      <view class="question-list">
-        <view
-          class="question-chip"
-          wx:for="{{quickQuestions}}"
-          wx:key="index"
-          data-question="{{item}}"
-          bindtap="onQuickQuestion"
-        >
-          {{item}}
-        </view>
-      </view>
-    </view>
+          <view class="message-list" wx:if="{{messages.length > 0 || isLoading || isVisionLoading}}">
+            <view
+              class="message-item"
+              wx:for="{{messages}}"
+              wx:key="id"
+              id="msg-{{item.id}}"
+            >
+              <view class="message-row" wx:if="{{item.role === 'assistant'}}">
+                <view class="message-avatar assistant-avatar">AI</view>
+                <view class="message-content">
+                  <view class="message-bubble assistant-bubble" wx:if="{{item.kind === 'text'}}">
+                    <text class="message-text" user-select>{{item.content}}</text>
+                  </view>
 
-    <view class="section">
-      <view class="section-head">
-        <text class="section-title">{{text.sectionChatTitle}}</text>
-        <text class="section-subtitle">{{text.sectionChatSubtitle}}</text>
-      </view>
+                  <view class="message-bubble assistant-bubble result-bubble" wx:if="{{item.kind === 'result'}}">
+                    <text class="result-title">{{item.title}}</text>
+                    <text class="result-summary">{{item.summary}}</text>
+                    <image
+                      wx:if="{{item.imagePath}}"
+                      class="result-image"
+                      src="{{item.imagePath}}"
+                      mode="aspectFill"
+                      data-image-path="{{item.imagePath}}"
+                      bindtap="previewChatImage"
+                    />
+                    <view class="result-field-list">
+                      <view class="result-field" wx:for="{{item.fields}}" wx:key="key">
+                        <text class="result-field-label">{{item.label}}</text>
+                        <text class="result-field-value">{{item.value}}</text>
+                      </view>
+                    </view>
+                    <view class="result-action" bindtap="goToDraftConfirm">
+                      <text class="result-action-text">{{text.confirmDraft}}</text>
+                    </view>
+                  </view>
 
-      <view class="chat-actions">
-        <view class="chat-upload-btn" bindtap="onUploadVisionImage">
-          <text class="chat-upload-btn-text">{{visionDraft ? text.uploadAgain : text.uploadCta}}</text>
-        </view>
-        <view class="chat-confirm-btn {{visionDraft ? 'active' : ''}}" bindtap="goToDraftConfirm">
-          <text class="chat-confirm-btn-text">{{text.confirmDraft}}</text>
-        </view>
-      </view>
-
-      <view class="message-list" wx:if="{{messages.length > 0 || isLoading || isVisionLoading}}">
-        <view
-          class="message-item"
-          wx:for="{{messages}}"
-          wx:key="id"
-          id="msg-{{item.id}}"
-        >
-          <view class="message-row" wx:if="{{item.role === 'assistant'}}">
-            <view class="message-avatar assistant-avatar">AI</view>
-            <view class="message-content">
-              <view class="message-bubble assistant-bubble" wx:if="{{item.kind === 'text'}}">
-                <text class="message-text" user-select>{{item.content}}</text>
+                  <text class="message-time">{{item.time}}</text>
+                </view>
               </view>
 
-              <view class="message-bubble assistant-bubble result-bubble" wx:if="{{item.kind === 'result'}}">
-                <text class="result-title">{{item.title}}</text>
-                <text class="result-summary">{{item.summary}}</text>
-                <image
-                  wx:if="{{item.imagePath}}"
-                  class="result-image"
-                  src="{{item.imagePath}}"
-                  mode="aspectFill"
-                  data-image-path="{{item.imagePath}}"
-                  bindtap="previewChatImage"
-                />
-                <view class="result-field-list">
-                  <view class="result-field" wx:for="{{item.fields}}" wx:key="key">
-                    <text class="result-field-label">{{item.label}}</text>
-                    <text class="result-field-value">{{item.value}}</text>
+              <view class="message-row user-row" wx:if="{{item.role === 'user'}}">
+                <view class="message-content user-content">
+                  <view class="message-bubble user-bubble" wx:if="{{item.kind === 'text'}}">
+                    <text class="message-text">{{item.content}}</text>
+                  </view>
+
+                  <view class="message-bubble user-bubble image-bubble" wx:if="{{item.kind === 'image'}}">
+                    <image
+                      class="chat-image"
+                      src="{{item.imagePath}}"
+                      mode="aspectFill"
+                      data-image-path="{{item.imagePath}}"
+                      bindtap="previewChatImage"
+                    />
+                    <text class="image-caption">{{item.content}}</text>
+                  </view>
+
+                  <text class="message-time">{{item.time}}</text>
+                </view>
+                <view class="message-avatar user-avatar">{{text.me}}</view>
+              </view>
+            </view>
+
+            <view class="message-item" wx:if="{{isVisionLoading}}" id="msg-vision-loading">
+              <view class="message-row">
+                <view class="message-avatar assistant-avatar">AI</view>
+                <view class="message-content">
+                  <view class="message-bubble assistant-bubble loading-bubble">
+                    <text class="loading-text">{{text.uploadReceived}}</text>
                   </view>
                 </view>
-                <view class="result-action" bindtap="goToDraftConfirm">
-                  <text class="result-action-text">{{text.confirmDraft}}</text>
+              </view>
+            </view>
+
+            <view class="message-item" wx:if="{{isLoading}}" id="msg-loading">
+              <view class="message-row">
+                <view class="message-avatar assistant-avatar">AI</view>
+                <view class="message-content">
+                  <view class="message-bubble assistant-bubble loading-bubble">
+                    <text class="loading-text">{{text.loadingAnswer}}</text>
+                  </view>
                 </view>
               </view>
-
-              <text class="message-time">{{item.time}}</text>
             </view>
           </view>
 
-          <view class="message-row user-row" wx:if="{{item.role === 'user'}}">
-            <view class="message-content user-content">
-              <view class="message-bubble user-bubble" wx:if="{{item.kind === 'text'}}">
-                <text class="message-text">{{item.content}}</text>
-              </view>
-
-              <view class="message-bubble user-bubble image-bubble" wx:if="{{item.kind === 'image'}}">
-                <image
-                  class="chat-image"
-                  src="{{item.imagePath}}"
-                  mode="aspectFill"
-                  data-image-path="{{item.imagePath}}"
-                  bindtap="previewChatImage"
-                />
-                <text class="image-caption">{{item.content}}</text>
-              </view>
-
-              <text class="message-time">{{item.time}}</text>
-            </view>
-            <view class="message-avatar user-avatar">{{text.me}}</view>
-          </view>
-        </view>
-
-        <view class="message-item" wx:if="{{isVisionLoading}}" id="msg-vision-loading">
-          <view class="message-row">
-            <view class="message-avatar assistant-avatar">AI</view>
-            <view class="message-content">
-              <view class="message-bubble assistant-bubble loading-bubble">
-                <text class="loading-text">{{text.uploadReceived}}</text>
-              </view>
-            </view>
-          </view>
-        </view>
-
-        <view class="message-item" wx:if="{{isLoading}}" id="msg-loading">
-          <view class="message-row">
-            <view class="message-avatar assistant-avatar">AI</view>
-            <view class="message-content">
-              <view class="message-bubble assistant-bubble loading-bubble">
-                <text class="loading-text">{{text.loadingAnswer}}</text>
-              </view>
-            </view>
+          <view class="empty-chat" wx:else>
+            <text class="empty-chat-title">{{text.emptyChatTitle}}</text>
+            <text class="empty-chat-desc">{{text.emptyChatDesc}}</text>
           </view>
         </view>
       </view>
 
-      <view class="empty-chat" wx:else>
-        <text class="empty-chat-title">{{text.emptyChatTitle}}</text>
-        <text class="empty-chat-desc">{{text.emptyChatDesc}}</text>
-      </view>
+      <view class="page-spacer" id="msg-tail"></view>
     </view>
-
-    <view class="page-spacer" id="msg-tail"></view>
   </scroll-view>
 
   <view class="composer">

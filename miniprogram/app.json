@@ -2,6 +2,7 @@
   "pages": [
     "pages/ai-assistant/ai-assistant",
     "pages/workbench/workbench",
+    "pages/task-center/task-center",
     "pages/archive/archive",
     "pages/user/user",
     "pages/camera/camera",
@@ -33,16 +34,22 @@
     "borderStyle": "white",
     "list": [
       {
+        "pagePath": "pages/ai-assistant/ai-assistant",
+        "text": "\u0041\u0049\u7ba1\u5bb6",
+        "iconPath": "images/icons/examples.png",
+        "selectedIconPath": "images/icons/examples-active.png"
+      },
+      {
         "pagePath": "pages/workbench/workbench",
+        "text": "\u8bbe\u5907\u4e2d\u5fc3",
+        "iconPath": "images/icons/goods.png",
+        "selectedIconPath": "images/icons/goods-active.png"
+      },
+      {
+        "pagePath": "pages/task-center/task-center",
         "text": "\u5de5\u4f5c\u53f0",
         "iconPath": "images/icons/home.png",
         "selectedIconPath": "images/icons/home-active.png"
-      },
-      {
-        "pagePath": "pages/archive/archive",
-        "text": "\u8bbe\u5907",
-        "iconPath": "images/icons/goods.png",
-        "selectedIconPath": "images/icons/goods-active.png"
       },
       {
         "pagePath": "pages/user/user",
@@ -55,3 +62,4 @@
   "style": "v2",
   "__usePrivacyCheck__": true
 }
+

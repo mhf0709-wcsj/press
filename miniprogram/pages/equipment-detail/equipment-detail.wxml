@@ -1,114 +1,65 @@
-<view class="container">
-  <view class="header-card card">
-    <view class="header-main">
-      <text class="title">{{equipment.equipmentName || '设备档案'}}</text>
-      <text class="sub">设备编号：{{equipment.equipmentNo || '-'}}</text>
-    </view>
-    <view class="header-actions">
-      <button class="btn secondary" bindtap="showEquipmentCode" wx:if="{{equipmentId}}">设备码</button>
-      <button class="btn primary" bindtap="createGauge" wx:if="{{equipmentId && !isAdminView}}">新增压力表</button>
-    </view>
-  </view>
-
-  <view class="card" wx:if="{{equipmentId}}">
-    <view class="card-title">监管概览</view>
-    <view class="stats">
-      <view class="stat">
-        <text class="num">{{dashboard.totalGauges}}</text>
-        <text class="label">压力表总数</text>
-      </view>
-      <view class="stat danger">
-        <text class="num">{{dashboard.expired}}</text>
-        <text class="label">逾期</text>
-      </view>
-      <view class="stat warn">
-        <text class="num">{{dashboard.expiring}}</text>
-        <text class="label">临期</text>
-      </view>
-      <view class="stat ok">
-        <text class="num">{{dashboard.normal}}</text>
-        <text class="label">正常</text>
-      </view>
-    </view>
-  </view>
-
-  <view class="card">
-    <view class="card-title">基础信息</view>
-    <view class="kv">
-      <text class="k">设备名称</text>
-      <view class="v">
-        <text class="value-text" wx:if="{{isAdminView}}">{{equipment.equipmentName || '-'}}</text>
-        <input class="input" wx:else value="{{equipment.equipmentName}}" bindinput="onInput" data-field="equipmentName" placeholder="请输入设备名称" />
-      </view>
-    </view>
-    <view class="kv">
-      <text class="k">设备编号</text>
-      <view class="v">
-        <text class="value-text" wx:if="{{isAdminView}}">{{equipment.equipmentNo || '-'}}</text>
-        <input class="input" wx:else value="{{equipment.equipmentNo}}" bindinput="onInput" data-field="equipmentNo" placeholder="请输入设备编号" />
-      </view>
-    </view>
-    <view class="kv">
-      <text class="k">安装位置</text>
-      <view class="v">
-        <text class="value-text" wx:if="{{isAdminView}}">{{equipment.location || '-'}}</text>
-        <input class="input" wx:else value="{{equipment.location}}" bindinput="onInput" data-field="location" placeholder="如：1号车间A线" />
-      </view>
-    </view>
-    <view class="kv" wx:if="{{equipment.enterpriseName}}">
-      <text class="k">企业</text>
-      <view class="v">
-        <text class="value-text">{{equipment.enterpriseName}}</text>
-      </view>
-    </view>
-    <view class="kv" wx:if="{{equipment.district}}">
-      <text class="k">辖区</text>
-      <view class="v">
-        <text class="value-text">{{equipment.district}}</text>
-      </view>
-    </view>
-    <view class="kv" wx:if="{{equipment.createTime}}">
-      <text class="k">备案时间</text>
-      <view class="v">
-        <text class="value-text">{{equipment.createTime}}</text>
-      </view>
-    </view>
-  </view>
-
-  <view class="card" wx:if="{{gauges.length > 0}}">
-    <view class="card-title">已绑定压力表</view>
-    <view class="list">
-      <view id="gauge-{{item._id}}" class="item {{highlightGaugeId === item._id ? 'highlight' : ''}}" wx:for="{{gauges}}" wx:key="_id" bindtap="onGaugeTap" data-id="{{item._id}}">
-        <view class="item-left">
-          <text class="name">{{item.deviceName}}</text>
-          <text class="meta">出厂编号：{{item.factoryNo || '-'}}</text>
-          <view class="meta-row">
-            <text class="pill {{item.expiryStatus}}">{{item.expiryStatusText}}</text>
-            <text class="meta2">到期：{{item.lastRecord.expiryDate || '-'}}</text>
-            <text class="meta2" wx:if="{{item.daysToExpiry !== null}}">剩余{{item.daysToExpiry}}天</text>
-          </view>
-          <view class="meta-row">
-            <text class="meta2">最近检定：{{item.lastRecord.verificationDate || '-'}}</text>
-            <text class="pill {{item.lastRecord.conclusion === '合格' ? 'pass' : item.lastRecord.conclusion === '不合格' ? 'fail' : ''}}" wx:if="{{item.lastRecord}}">{{item.lastRecord.conclusion || '-'}}</text>
-          </view>
-        </view>
-        <view class="item-right">
-          <view class="actions">
-            <button class="mini-btn" size="mini" catchtap="previewGaugeCode" data-id="{{item._id}}">码</button>
-          </view>
-          <text class="tag">{{item.status || '在用'}}</text>
-          <text class="arrow">›</text>
+<view class="page-shell equipment-page">
+  <view class="content-wrapper equipment-wrapper">
+    <view class="equipment-hero panel">
+      <view class="panel-section">
+        <text class="eyebrow">设备中心</text>
+        <view class="page-title equipment-title">{{equipment.equipmentName || '设备详情'}}</view>
+        <view class="page-subtitle">设备编号 {{equipment.equipmentNo || '-'}}</view>
+        <view class="equipment-hero-actions">
+          <button class="hero-ghost" bindtap="showEquipmentCode" wx:if="{{equipmentId}}">查看设备码</button>
+          <button class="hero-primary" bindtap="createGauge" wx:if="{{equipmentId && !isAdminView}}">新增压力表</button>
         </view>
       </view>
     </view>
+
+    <view class="equipment-dashboard panel" wx:if="{{equipmentId}}">
+      <view class="panel-section">
+        <view class="section-title">概览</view>
+        <view class="dashboard-grid">
+          <view class="dashboard-item"><text class="dashboard-number">{{dashboard.totalGauges}}</text><text class="dashboard-label">压力表总数</text></view>
+          <view class="dashboard-item danger"><text class="dashboard-number">{{dashboard.expired}}</text><text class="dashboard-label">已过期</text></view>
+          <view class="dashboard-item warning"><text class="dashboard-number">{{dashboard.expiring}}</text><text class="dashboard-label">临期</text></view>
+          <view class="dashboard-item success"><text class="dashboard-number">{{dashboard.normal}}</text><text class="dashboard-label">正常</text></view>
+        </view>
+      </view>
+    </view>
+
+    <view class="equipment-card panel">
+      <view class="panel-section">
+        <view class="section-title">基础信息</view>
+        <view class="detail-row"><text class="detail-label">设备名称</text><view class="detail-value"><text class="detail-static" wx:if="{{isAdminView}}">{{equipment.equipmentName || '-'}}</text><input class="detail-input" wx:else value="{{equipment.equipmentName}}" bindinput="onInput" data-field="equipmentName" placeholder="请输入设备名称" /></view></view>
+        <view class="detail-row"><text class="detail-label">设备编号</text><view class="detail-value"><text class="detail-static" wx:if="{{isAdminView}}">{{equipment.equipmentNo || '-'}}</text><input class="detail-input" wx:else value="{{equipment.equipmentNo}}" bindinput="onInput" data-field="equipmentNo" placeholder="请输入设备编号" /></view></view>
+        <view class="detail-row"><text class="detail-label">安装位置</text><view class="detail-value"><text class="detail-static" wx:if="{{isAdminView}}">{{equipment.location || '-'}}</text><input class="detail-input" wx:else value="{{equipment.location}}" bindinput="onInput" data-field="location" placeholder="请输入安装位置" /></view></view>
+        <view class="detail-row" wx:if="{{equipment.enterpriseName}}"><text class="detail-label">企业</text><view class="detail-value"><text class="detail-static">{{equipment.enterpriseName}}</text></view></view>
+        <view class="detail-row" wx:if="{{equipment.district}}"><text class="detail-label">辖区</text><view class="detail-value"><text class="detail-static">{{equipment.district}}</text></view></view>
+        <view class="detail-row no-border" wx:if="{{equipment.createTime}}"><text class="detail-label">建档时间</text><view class="detail-value"><text class="detail-static">{{equipment.createTime}}</text></view></view>
+      </view>
+    </view>
+
+    <view class="equipment-card panel" wx:if="{{gauges.length > 0}}">
+      <view class="panel-section">
+        <view class="section-title">已绑定压力表</view>
+        <view class="gauge-list">
+          <view id="gauge-{{item._id}}" class="gauge-item {{highlightGaugeId === item._id ? 'highlight' : ''}}" wx:for="{{gauges}}" wx:key="_id" bindtap="onGaugeTap" data-id="{{item._id}}">
+            <view class="gauge-copy">
+              <text class="gauge-name">{{item.deviceName}}</text>
+              <text class="gauge-meta">出厂编号 {{item.factoryNo || '-'}}</text>
+              <view class="gauge-meta-row"><text class="gauge-pill {{item.expiryStatus}}">{{item.expiryStatusText}}</text><text class="gauge-meta-light">到期 {{item.lastRecord.expiryDate || '-'}}</text><text class="gauge-meta-light" wx:if="{{item.daysToExpiry !== null}}">剩余 {{item.daysToExpiry}} 天</text></view>
+              <view class="gauge-meta-row"><text class="gauge-meta-light">最近检定 {{item.lastRecord.verificationDate || '-'}}</text><text class="gauge-pill" wx:if="{{item.lastRecord}}">{{item.lastRecord.conclusion || '-'}}</text></view>
+            </view>
+            <view class="gauge-side"><button class="mini-action" size="mini" catchtap="previewGaugeCode" data-id="{{item._id}}">码</button><text class="gauge-tag">{{item.status || '-'}}</text><text class="gauge-arrow">></text></view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="equipment-card panel empty-panel" wx:if="{{equipmentId && gauges.length === 0}}">
+      <view class="panel-section empty-section">
+        <view class="section-title">暂无绑定压力表</view>
+        <view class="section-note">新增第一块压力表后即可继续检定和建档。</view>
+      </view>
+    </view>
   </view>
 
-  <view class="card empty" wx:if="{{equipmentId && gauges.length === 0}}">
-    <text class="empty-title">暂无绑定压力表</text>
-    <text class="empty-desc">{{isAdminView ? '企业尚未绑定压力表或未产生检定记录' : '点击“新增压力表”开始录入并生成压力表码'}}</text>
-  </view>
-
-  <view class="footer" wx:if="{{!isAdminView}}">
-    <button class="btn primary full" bindtap="saveEquipment" loading="{{saving}}">保存设备档案</button>
-  </view>
+  <view class="equipment-bottom-bar" wx:if="{{!isAdminView}}"><button class="bottom-primary" bindtap="saveEquipment" loading="{{saving}}">{{saving ? '保存中...' : '保存设备档案'}}</button></view>
 </view>

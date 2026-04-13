@@ -1,4 +1,5 @@
 const cloud = require('wx-server-sdk')
+const https = require('https')
 const { getKnowledgeBase, getRelevantKnowledge } = require('./knowledge')
 const { buildVector, cosine, chunkText, formatDateTime } = require('./rag')
 
@@ -8,6 +9,9 @@ cloud.init({
 
 const db = cloud.database()
 const _ = db.command
+const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY || 'sk-251b049bb72449b787ea51fac48cf2b5'
+const DASHSCOPE_MODEL = process.env.DASHSCOPE_MODEL || 'qwen3.5-flash'
+const DASHSCOPE_ENDPOINT = process.env.DASHSCOPE_ENDPOINT || 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions'
 
 /**
  * AI智能管家云函数
@@ -48,13 +52,13 @@ exports.main = async (event, context) => {
       // 数据查询类问题
       answer = await handleDataQuery(intent, permission)
     } else if (intent.type === 'rag') {
-      answer = await handleRagQuery(question, permission)
+      answer = await tryModelAnswer(question, intent, permission) || await handleRagQuery(question, permission)
     } else if (intent.type === 'knowledge') {
       // 专业知识类问题
-      answer = handleKnowledgeQuery(question, intent)
+      answer = await tryModelAnswer(question, intent, permission) || handleKnowledgeQuery(question, intent)
     } else {
       // 通用问答
-      answer = handleGeneralQuery(question, permission)
+      answer = await tryModelAnswer(question, intent, permission) || handleGeneralQuery(question, permission)
     }
 
     return {
@@ -68,6 +72,127 @@ exports.main = async (event, context) => {
       answer: '抱歉，处理您的问题时出现了错误，请稍后再试。'
     }
   }
+}
+
+async function tryModelAnswer(question, intent, permission) {
+  if (!DASHSCOPE_API_KEY) return ''
+  if (!question) return ''
+
+  try {
+    const references = await collectModelReferences(question, intent)
+    const systemPrompt = [
+      '\u4f60\u662f\u538b\u529b\u8868\u68c0\u5b9a AI \u667a\u80fd\u7ba1\u5bb6\u3002',
+      '\u8bf7\u4f18\u5148\u6839\u636e\u7ed9\u5b9a\u8d44\u6599\u56de\u7b54\uff0c\u4e0d\u8981\u7f16\u9020\u6cd5\u89c4\u3001\u6807\u51c6\u6216\u4e1a\u52a1\u6570\u636e\u3002',
+      '\u5982\u679c\u8d44\u6599\u4e0d\u8db3\uff0c\u8bf7\u660e\u786e\u8bf4\u660e\u6839\u636e\u73b0\u6709\u8d44\u6599\u6682\u65e0\u6cd5\u786e\u5b9a\uff0c\u5e76\u5efa\u8bae\u7528\u6237\u67e5\u770b\u6b63\u5f0f\u89c4\u7a0b\u6216\u8865\u5145\u6761\u4ef6\u3002',
+      '\u56de\u7b54\u8bf7\u4f7f\u7528\u7b80\u4f53\u4e2d\u6587\uff0c\u98ce\u683c\u4e13\u4e1a\u3001\u76f4\u63a5\u3001\u6613\u6267\u884c\u3002',
+      `\u5f53\u524d\u7528\u6237\u6743\u9650\u8303\u56f4\uff1a${buildPermissionLabel(permission)}\u3002`
+    ].join('\n')
+
+    const userPrompt = [
+      `\u7528\u6237\u95ee\u9898\uff1a${question}`,
+      references
+        ? `\u53ef\u7528\u8d44\u6599\uff1a\n${references}`
+        : '\u53ef\u7528\u8d44\u6599\uff1a\u6682\u65e0\u989d\u5916\u8d44\u6599\uff0c\u8bf7\u8c28\u614e\u56de\u7b54\u3002'
+    ].join('\n\n')
+
+    return await callDashScopeChat([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ])
+  } catch (error) {
+    console.error('DashScope model answer failed:', error)
+    return ''
+  }
+}
+
+async function collectModelReferences(question, intent) {
+  if (intent.type === 'rag') {
+    try {
+      await seedKbIfNeeded()
+      const qv = buildVector(question)
+      const chunkRes = await db.collection('kb_chunks').limit(500).get()
+      const chunks = chunkRes.data || []
+
+      return chunks
+        .map((chunk) => ({ content: chunk.content, score: cosine(qv, chunk.vector || []) }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3)
+        .filter((item) => item.score > 0.1)
+        .map((item, index) => `\u53c2\u8003${index + 1}\uff1a${item.content}`)
+        .join('\n\n')
+    } catch (error) {
+      console.error('collectModelReferences failed:', error)
+    }
+  }
+
+  return getRelevantKnowledge(question) || ''
+}
+
+function buildPermissionLabel(permission) {
+  if (!permission) return '\u8bbf\u5ba2'
+  if (permission.type === 'enterprise') return `${permission.scope || ''} \u4f01\u4e1a\u7528\u6237`.trim()
+  if (permission.type === 'district_admin') return `${permission.scope || ''} \u8f96\u533a\u7ba1\u7406\u5458`.trim()
+  if (permission.type === 'super_admin') return '\u603b\u7ba1\u7406\u5458'
+  return '\u8bbf\u5ba2'
+}
+
+async function callDashScopeChat(messages) {
+  const payload = JSON.stringify({
+    model: DASHSCOPE_MODEL,
+    messages,
+    temperature: 0.2
+  })
+
+  return new Promise((resolve, reject) => {
+    const request = https.request(DASHSCOPE_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${DASHSCOPE_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload)
+      }
+    }, (response) => {
+      let body = ''
+
+      response.on('data', (chunk) => {
+        body += chunk
+      })
+
+      response.on('end', () => {
+        try {
+          const parsed = JSON.parse(body || '{}')
+          const statusCode = response.statusCode || 0
+          const content = parsed && parsed.choices && parsed.choices[0] && parsed.choices[0].message
+            ? parsed.choices[0].message.content
+            : ''
+
+          if (statusCode >= 200 && statusCode < 300 && content) {
+            resolve(String(content).trim())
+            return
+          }
+
+          console.error('DashScope response error:', {
+            statusCode,
+            body: body ? String(body).slice(0, 500) : ''
+          })
+          reject(new Error((parsed && parsed.error && parsed.error.message) || parsed.message || `DashScope request failed with status ${statusCode}`))
+        } catch (error) {
+          console.error('DashScope response parse error:', {
+            statusCode: response.statusCode || 0,
+            body: body ? String(body).slice(0, 500) : ''
+          })
+          reject(error)
+        }
+      })
+    })
+
+    request.on('error', reject)
+    request.setTimeout(15000, () => {
+      request.destroy(new Error('DashScope request timed out'))
+    })
+    request.write(payload)
+    request.end()
+  })
 }
 
 async function handleImageExtraction(event) {

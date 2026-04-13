@@ -130,7 +130,7 @@ Page({
   goToEnterprise() {
     const enterpriseUser = wx.getStorageSync('enterpriseUser')
     if (enterpriseUser) {
-      wx.switchTab({ url: '/pages/workbench/workbench' })
+      wx.switchTab({ url: '/pages/ai-assistant/ai-assistant' })
       return
     }
     wx.reLaunch({ url: '/pages/login/login' })

@@ -1,20 +1,16 @@
-const db = wx.cloud.database()
-const _ = db.command
 const ocrService = require('../../services/ocr-service')
 const aiExtractService = require('../../services/ai-extract-service')
 
 const TEXT = {
-  heroTopline: 'AI Steward Home',
+  heroTopline: '\u667a\u80fd\u7ba1\u5bb6\u9996\u9875',
   heroTitle: '\u0041\u0049\u667a\u80fd\u7ba1\u5bb6',
-  heroDesc: '\u4f01\u4e1a\u7528\u6237\u8fdb\u5165\u5e94\u7528\u540e\uff0c\u53ef\u4ee5\u76f4\u63a5\u7528\u5bf9\u8bdd\u65b9\u5f0f\u5b8c\u6210\u8bc6\u522b\u3001\u5206\u7c7b\u3001\u5efa\u6863\u4e0e\u95ee\u7b54\u3002',
+  heroDesc: '\u5728\u8fd9\u91cc\u76f4\u63a5\u5411 AI \u7ba1\u5bb6\u63d0\u95ee\uff0c\u6216\u4e0a\u4f20\u538b\u529b\u8868\u7167\u7247\uff0c\u7528\u5bf9\u8bdd\u65b9\u5f0f\u5b8c\u6210\u8bc6\u522b\u3001\u5efa\u6863\u548c\u95ee\u7b54\u3002',
   currentIdentity: '\u5f53\u524d\u8eab\u4efd',
   guest: '\u8bbf\u5ba2',
-  sectionPrimaryTitle: '\u4eca\u5929\u5148\u505a\u4ec0\u4e48',
-  sectionPrimarySubtitle: '\u628a\u56fe\u7247\u8bc6\u522b\u548c\u5efa\u6863\u4efb\u52a1\u653e\u5728\u6700\u524d\u9762',
   sectionQuestionTitle: '\u5e38\u7528\u63d0\u95ee',
   sectionQuestionSubtitle: '\u5feb\u901f\u95ee AI\uff0c\u4e5f\u53ef\u4ee5\u8ba9 AI \u4e3b\u52a8\u5f15\u5bfc\u4f60\u4e0a\u4f20\u56fe\u7247',
-  sectionChatTitle: '\u5bf9\u8bdd\u5f0f\u5efa\u6863',
-  sectionChatSubtitle: '\u5148\u7531 AI \u7ba1\u5bb6\u8bf7\u4f60\u4e0a\u4f20\u56fe\u7247\uff0c\u518d\u81ea\u52a8\u89e3\u6790\u5e76\u5f15\u5bfc\u5b58\u6863',
+  sectionChatTitle: '\u5bf9\u8bdd\u533a',
+  sectionChatSubtitle: '\u4f60\u53ef\u4ee5\u5728\u8fd9\u91cc\u63d0\u95ee\uff0c\u6216\u8005\u8ba9 AI \u5f15\u5bfc\u4f60\u4e0a\u4f20\u56fe\u7247\u8fdb\u884c\u5efa\u6863',
   emptyChatTitle: '\u7b49\u4f60\u5f00\u59cb\u5bf9\u8bdd',
   emptyChatDesc: '\u70b9\u201c\u4e0a\u4f20\u7167\u7247\u201d\uff0cAI \u7ba1\u5bb6\u5c31\u4f1a\u5f00\u59cb\u5f15\u5bfc\u4f60\u8fdb\u884c\u8bc6\u522b\u548c\u5f55\u5165\u3002',
   loadingAnswer: 'AI \u7ba1\u5bb6\u6b63\u5728\u6574\u7406\u7b54\u6848...',
@@ -30,12 +26,6 @@ const TEXT = {
   analysisDone: '\u6211\u5df2\u7ecf\u5b8c\u6210\u8fd9\u5f20\u56fe\u7247\u7684\u5206\u6790\uff0c\u4f60\u53ef\u4ee5\u76f4\u63a5\u53bb\u786e\u8ba4\u5e76\u5b58\u6863\u3002',
   draftReady: '\u5df2\u7ecf\u5e2e\u4f60\u51c6\u5907\u597d\u5efa\u6863\u8349\u7a3f',
   extractionTitle: '\u672c\u6b21\u8bc6\u522b\u7ed3\u679c',
-  summaryLabels: {
-    equipmentCount: '\u8bbe\u5907\u53f0\u8d26',
-    gaugeCount: '\u538b\u529b\u8868\u6570\u91cf',
-    expiringSoon: '30\u5929\u5185\u5230\u671f',
-    expired: '\u5df2\u8fc7\u671f'
-  },
   fields: {
     certNo: '\u8bc1\u4e66\u7f16\u53f7',
     sendUnit: '\u9001\u68c0\u5355\u4f4d',
@@ -84,27 +74,6 @@ const QUICK_QUESTIONS = {
   ]
 }
 
-const ACTION_CARDS = [
-  {
-    key: 'vision',
-    title: '\u4ee5\u5bf9\u8bdd\u65b9\u5f0f\u5f00\u59cb\u8bc6\u522b',
-    desc: 'AI \u5148\u8bf7\u4f60\u4e0a\u4f20\u56fe\u7247\uff0c\u518d\u81ea\u52a8\u8bfb\u53d6\u8bc1\u4e66\u5185\u5bb9\u3001\u5224\u65ad\u8bbe\u5907\u7c7b\u578b\u5e76\u5efa\u7acb\u8349\u7a3f',
-    badge: '\u4e3b\u4efb\u52a1'
-  },
-  {
-    key: 'archive',
-    title: '\u67e5\u770b\u8bbe\u5907\u53f0\u8d26',
-    desc: '\u8fdb\u5165\u8bbe\u5907\u6863\u6848\uff0c\u7ee7\u7eed\u8865\u5145\u3001\u7ed1\u5b9a\u548c\u7ba1\u7406\u5386\u53f2\u6570\u636e',
-    badge: '\u8bbe\u5907'
-  },
-  {
-    key: 'workbench',
-    title: '\u8fdb\u5165\u5de5\u4f5c\u53f0',
-    desc: '\u67e5\u770b\u63d0\u9192\u3001\u6700\u8fd1\u5efa\u6863\u8bb0\u5f55\u548c\u4f01\u4e1a\u8fd0\u8425\u6982\u51b5',
-    badge: '\u6982\u89c8'
-  }
-]
-
 Page({
   data: {
     text: TEXT,
@@ -117,8 +86,6 @@ Page({
     userInfo: null,
     userType: 'guest',
     userScope: TEXT.guest,
-    summaryCards: [],
-    actionCards: ACTION_CARDS,
     visionDraft: null
   },
 
@@ -141,18 +108,6 @@ Page({
   async bootstrap() {
     const profile = this.resolveUserProfile()
     this.setData(profile)
-
-    if (profile.userType === 'enterprise' || profile.userType === 'district_admin' || profile.userType === 'super_admin') {
-      await this.loadSummary(profile)
-      return
-    }
-
-    this.setSummaryCards({
-      equipmentCount: 0,
-      gaugeCount: 0,
-      expiringSoon: 0,
-      expired: 0
-    })
   },
 
   resolveUserProfile() {
@@ -186,88 +141,6 @@ Page({
       userScope: TEXT.guest,
       quickQuestions: QUICK_QUESTIONS.default
     }
-  },
-
-  async loadSummary(profile) {
-    const today = this.formatDate(new Date())
-    const threshold = this.formatDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))
-
-    let equipmentWhere = {}
-    let gaugeWhere = {}
-    let recordWhere = {}
-
-    if (profile.userType === 'enterprise') {
-      const companyName = profile.userInfo?.companyName || ''
-      equipmentWhere.enterpriseName = companyName
-      gaugeWhere.enterpriseName = companyName
-      recordWhere.enterpriseName = companyName
-    } else if (profile.userType === 'district_admin') {
-      const district = profile.userInfo?.district || ''
-      equipmentWhere.district = district
-      gaugeWhere.district = district
-      recordWhere.district = district
-    }
-
-    try {
-      const [equipmentRes, gaugeRes, expiringRes, expiredRes] = await Promise.all([
-        db.collection('equipments').where(equipmentWhere).count(),
-        db.collection('devices').where(gaugeWhere).count(),
-        db.collection('pressure_records').where({
-          ...recordWhere,
-          expiryDate: _.gte(today).and(_.lte(threshold))
-        }).count(),
-        db.collection('pressure_records').where({
-          ...recordWhere,
-          expiryDate: _.lt(today)
-        }).count()
-      ])
-
-      this.setSummaryCards({
-        equipmentCount: equipmentRes.total || 0,
-        gaugeCount: gaugeRes.total || 0,
-        expiringSoon: expiringRes.total || 0,
-        expired: expiredRes.total || 0
-      })
-    } catch (error) {
-      console.error('AI assistant summary failed:', error)
-      this.setSummaryCards({
-        equipmentCount: 0,
-        gaugeCount: 0,
-        expiringSoon: 0,
-        expired: 0
-      })
-    }
-  },
-
-  setSummaryCards(summary) {
-    this.setData({
-      summaryCards: [
-        {
-          key: 'equipmentCount',
-          value: summary.equipmentCount,
-          label: TEXT.summaryLabels.equipmentCount,
-          className: ''
-        },
-        {
-          key: 'gaugeCount',
-          value: summary.gaugeCount,
-          label: TEXT.summaryLabels.gaugeCount,
-          className: ''
-        },
-        {
-          key: 'expiringSoon',
-          value: summary.expiringSoon,
-          label: TEXT.summaryLabels.expiringSoon,
-          className: 'emphasis'
-        },
-        {
-          key: 'expired',
-          value: summary.expired,
-          label: TEXT.summaryLabels.expired,
-          className: 'danger'
-        }
-      ]
-    })
   },
 
   ensureGuideConversation() {
@@ -362,7 +235,7 @@ Page({
         isLoading: false
       }, () => this.scrollToBottom())
     } catch (error) {
-      console.error('AI request failed:', error)
+      console.error('AI 请求失败:', error)
       const errorMessage = this.createTextMessage('assistant', TEXT.answers.network)
       this.setData({
         messages: [...this.data.messages, errorMessage],
@@ -378,21 +251,6 @@ Page({
     }, () => {
       this.onSend()
     })
-  },
-
-  handleActionCard(e) {
-    const { key } = e.currentTarget.dataset
-    if (key === 'vision') {
-      this.startVisionFlow()
-      return
-    }
-    if (key === 'archive') {
-      this.goToArchive()
-      return
-    }
-    if (key === 'workbench') {
-      this.goToWorkbench()
-    }
   },
 
   startVisionFlow() {
@@ -414,7 +272,7 @@ Page({
 
       await this.processVisionImage(imagePath)
     } catch (error) {
-      console.error('choose image failed:', error)
+      console.error('选择图片失败:', error)
     }
   },
 
@@ -441,7 +299,7 @@ Page({
         this.createTextMessage('assistant', `${TEXT.analysisDone}${TEXT.draftReady}`)
       ])
     } catch (error) {
-      console.error('vision extract failed:', error)
+      console.error('图片分析失败:', error)
       this.setData({ isVisionLoading: false })
       this.appendMessages([this.createTextMessage('assistant', error.message || TEXT.answers.extractFailed)])
     }
@@ -523,18 +381,6 @@ Page({
     })
   },
 
-  goToWorkbench() {
-    wx.switchTab({
-      url: '/pages/workbench/workbench'
-    })
-  },
-
-  goToArchive() {
-    wx.switchTab({
-      url: '/pages/archive/archive'
-    })
-  },
-
   scrollToBottom() {
     setTimeout(() => {
       const loadingAnchor = this.data.isVisionLoading ? 'msg-vision-loading' : ''
@@ -549,13 +395,6 @@ Page({
     const hours = date.getHours().toString().padStart(2, '0')
     const minutes = date.getMinutes().toString().padStart(2, '0')
     return `${hours}:${minutes}`
-  },
-
-  formatDate(date) {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
   },
 
   onShareAppMessage() {

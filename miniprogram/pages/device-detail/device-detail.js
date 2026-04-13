@@ -39,7 +39,7 @@ Page({
       const equipmentName = options.equipmentName ? decodeURIComponent(options.equipmentName) : ''
       if (!equipmentId) {
         wx.showToast({ title: '请先选择所属设备', icon: 'none' })
-        wx.switchTab({ url: '/pages/archive/archive' })
+        wx.navigateTo({ url: '/pages/archive/archive' })
         return
       }
       this.setData({ mode: 'create' });

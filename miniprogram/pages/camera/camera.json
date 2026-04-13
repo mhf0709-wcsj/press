@@ -1,5 +1,1 @@
-{
-  "usingComponents": {
-    "privacy": "/components/privacy/privacy"
-  }
-}
+{"usingComponents":{"privacy":"/components/privacy/privacy"},"navigationBarTitleText":"AI识别录入"}

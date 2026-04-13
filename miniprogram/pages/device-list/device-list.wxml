@@ -1,55 +1,42 @@
-<!-- 设备台账列表页 -->
-<view class="container">
-  <!-- 搜索栏 -->
-  <view class="search-bar">
-    <view class="scan-btn" bindtap="scanQrCode">
-      <image src="../../images/tabbar_camera.png" class="scan-icon"></image>
+<view class="page-shell device-list-page">
+  <view class="content-wrapper device-list-wrapper">
+    <view class="device-list-hero panel">
+      <view class="panel-section">
+        <text class="eyebrow">压力表库</text>
+        <view class="page-title">压力表列表</view>
+        <view class="page-subtitle">搜索压力表、扫码识别并快速进入详情页。</view>
+      </view>
     </view>
-    <input 
-      class="search-input" 
-      placeholder="搜索或扫码识别" 
-      bindinput="onSearchInput"
-      bindconfirm="onSearch"
-      value="{{searchKeyword}}"
-    />
-    <button class="search-btn" bindtap="onSearch">搜索</button>
-  </view>
 
-  <!-- 设备列表 -->
-  <scroll-view class="device-list" scroll-y bindscrolltolower="loadMore">
-    <block wx:if="{{devices.length > 0}}">
-      <view class="device-card" wx:for="{{devices}}" wx:key="_id" bindtap="goToDetail" data-id="{{item._id}}">
-        <view class="device-header">
-          <text class="device-name">{{item.deviceName}}</text>
-          <text class="status-badge status-{{item.status === '在用' ? 'active' : (item.status === '报废' ? 'scrap' : 'other')}}">{{item.status || '在用'}}</text>
-        </view>
-        <view class="device-body">
-          <view class="info-row">
-            <text class="label">设备编号：</text>
-            <text class="value">{{item.deviceNo}}</text>
-          </view>
-          <view class="info-row">
-            <text class="label">出厂编号：</text>
-            <text class="value">{{item.factoryNo || '未录入'}}</text>
-          </view>
-          <view class="info-row">
-            <text class="label">建档时间：</text>
-            <text class="value">{{item.createTime}}</text>
-          </view>
-        </view>
-        <view class="device-footer">
-          <text class="qr-text">识别码: {{item.qrCode}}</text>
-          <image class="qr-icon" src="../../images/icons/copy.png" catchtap="copyQr" data-qr="{{item.qrCode}}" />
+    <view class="device-search panel">
+      <view class="panel-section device-search-section">
+        <view class="search-row">
+          <view class="scan-pill" bindtap="scanQrCode">扫码</view>
+          <input class="search-input" placeholder="搜索压力表或识别码" bindinput="onSearchInput" bindconfirm="onSearch" value="{{searchKeyword}}" />
+          <button class="search-button" bindtap="onSearch">搜索</button>
         </view>
       </view>
-    </block>
-    <view wx:else class="empty-state">
-      <text>暂无设备台账，请先新建或录入设备</text>
     </view>
-  </scroll-view>
 
-  <!-- 悬浮新建按钮 -->
-  <view class="fab-btn" bindtap="createNewDevice">
-    <text>+</text>
+    <view class="device-list-stack" wx:if="{{devices.length > 0}}">
+      <view class="device-item panel" wx:for="{{devices}}" wx:key="_id" bindtap="goToDetail" data-id="{{item._id}}">
+        <view class="panel-section">
+          <view class="device-item-head"><text class="device-item-title">{{item.deviceName}}</text><text class="device-status status-other">{{item.status || '-'}}</text></view>
+          <view class="device-item-row"><text class="device-item-label">设备编号</text><text class="device-item-value">{{item.deviceNo}}</text></view>
+          <view class="device-item-row"><text class="device-item-label">出厂编号</text><text class="device-item-value">{{item.factoryNo || '-'}}</text></view>
+          <view class="device-item-row"><text class="device-item-label">建档时间</text><text class="device-item-value">{{item.createTime}}</text></view>
+          <view class="device-item-foot"><text class="device-item-qr">识别码 {{item.qrCode}}</text><text class="device-item-copy" catchtap="copyQr" data-qr="{{item.qrCode}}">复制</text></view>
+        </view>
+      </view>
+    </view>
+
+    <view class="panel empty-panel" wx:else>
+      <view class="panel-section empty-section">
+        <view class="section-title">暂无压力表</view>
+        <view class="section-note">请先在设备档案下新建或绑定压力表。</view>
+      </view>
+    </view>
   </view>
+
+  <view class="floating-create" bindtap="createNewDevice">+</view>
 </view>

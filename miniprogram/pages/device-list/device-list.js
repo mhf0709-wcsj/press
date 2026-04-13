@@ -94,7 +94,7 @@ Page({
 
   createNewDevice() {
     wx.showToast({ title: '请在设备库下新增压力表', icon: 'none' })
-    wx.switchTab({ url: '/pages/archive/archive' })
+    wx.navigateTo({ url: '/pages/archive/archive' })
   },
 
   copyQr(e) {

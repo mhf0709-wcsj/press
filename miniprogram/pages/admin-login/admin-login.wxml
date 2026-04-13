@@ -1,7 +1,7 @@
 <view class="page-shell admin-page">
   <view class="content-wrapper admin-wrapper">
     <view class="admin-hero">
-      <view class="admin-badge">Admin Console</view>
+      <view class="admin-badge">管理控制台</view>
       <view class="admin-title">管理端登录</view>
       <view class="admin-desc">进入后台查看统计、企业台账与检定记录。</view>
     </view>

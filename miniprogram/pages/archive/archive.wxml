@@ -1,99 +1,72 @@
-<view class="container">
-  <!-- 大标题区域 -->
-  <view class="header-section">
-    <view class="header-content">
-      <text class="large-title">设备库</text>
-      
+<view class="page-shell archive-page">
+  <view class="content-wrapper archive-wrapper">
+    <view class="archive-hero panel">
+      <view class="panel-section">
+        <text class="eyebrow">设备档案</text>
+        <view class="page-title archive-title">设备档案</view>
+        <view class="page-subtitle">集中查看设备、安装位置和已绑定的压力表。</view>
+      </view>
     </view>
-  </view>
 
-  
-
-  <!-- 空状态 -->
-  <view wx:if="{{equipments.length === 0}}" class="empty-section">
-    <view class="empty-icon-wrap">
-      <text class="empty-icon">📋</text>
+    <view class="archive-search panel" wx:if="{{equipments.length > 0}}">
+      <view class="panel-section archive-search-section">
+        <view class="search-bar">
+          <text class="search-icon">搜索</text>
+          <input class="search-input" placeholder="搜索设备名称或编号" bindinput="onSearch" />
+          <text class="search-count">共 {{equipments.length}} 条</text>
+        </view>
+      </view>
     </view>
-    <text class="empty-title">暂无设备档案</text>
-    <text class="empty-desc">先创建设备，再在设备下绑定压力表</text>
-    <button class="primary-btn" bindtap="createEquipment">
-      <text class="btn-icon">📷</text>
-      <text class="btn-text">新建设备</text>
-    </button>
-  </view>
 
-  <!-- 记录列表 -->
-  <view wx:elif="{{equipments.length > 0}}" class="records-section">
-    <block wx:for="{{equipments}}" wx:key="_id">
-      <view class="swipe-container">
-        <!-- 滑动内容区 -->
-        <view 
-          class="swipe-content {{swipeIndex === index ? 'swiped' : ''}}" 
-          bindtouchstart="onTouchStart" 
-          bindtouchmove="onTouchMove" 
-          bindtouchend="onTouchEnd"
-          data-index="{{index}}"
-        >
-          <view class="card" bindtap="viewDetail" data-id="{{item._id}}">
-            <view class="card-content">
-              <view class="record-header">
-                <view class="record-left">
-                  <text class="record-no">{{item.equipmentName || '未命名设备'}}</text>
+    <view class="empty-state panel" wx:if="{{equipments.length === 0}}">
+      <view class="panel-section empty-section">
+        <view class="empty-badge">+</view>
+        <view class="section-title">暂无设备</view>
+        <view class="section-note">先新建设备，再继续绑定压力表和检定记录。</view>
+        <button class="primary-cta" bindtap="createEquipment">新建设备</button>
+      </view>
+    </view>
+
+    <view class="archive-list" wx:elif="{{equipments.length > 0}}">
+      <block wx:for="{{equipments}}" wx:key="_id">
+        <view class="swipe-container">
+          <view class="swipe-content {{swipeIndex === index ? 'swiped' : ''}}" bindtouchstart="onTouchStart" bindtouchmove="onTouchMove" bindtouchend="onTouchEnd" data-index="{{index}}">
+            <view class="archive-card panel" bindtap="viewDetail" data-id="{{item._id}}">
+              <view class="panel-section archive-card-section">
+                <view class="archive-card-top">
+                  <view class="archive-card-copy">
+                    <view class="archive-card-title">{{item.equipmentName || '未命名设备'}}</view>
+                    <view class="archive-card-meta">设备编号 {{item.equipmentNo || '-'}}</view>
+                  </view>
+                  <view class="archive-pill">{{item.gaugeCount || 0}} 台压力表</view>
                 </view>
-                <view class="record-right">
-                  <text class="device-status-tag in-use">{{item.gaugeCount || 0}} 台压力表</text>
-                  <text class="arrow">›</text>
+                <view class="archive-grid">
+                  <view class="archive-grid-item">
+                    <text class="archive-grid-label">安装位置</text>
+                    <text class="archive-grid-value">{{item.location || '-'}}</text>
+                  </view>
+                  <view class="archive-grid-item">
+                    <text class="archive-grid-label">辖区</text>
+                    <text class="archive-grid-value">{{item.district || '-'}}</text>
+                  </view>
                 </view>
-              </view>
-              <view class="record-info">
-                <view class="info-item">
-                  <text class="info-label">设备编号</text>
-                  <text class="info-value">{{item.equipmentNo || '-'}}</text>
+                <view class="archive-card-footer">
+                  <text class="archive-time">{{item.createTime}}</text>
+                  <text class="archive-arrow">></text>
                 </view>
-                <view class="info-item">
-                  <text class="info-label">安装位置</text>
-                  <text class="info-value">{{item.location || '-'}}</text>
-                </view>
-                <view class="info-item" wx:if="{{item.district}}">
-                  <text class="info-label">辖区</text>
-                  <text class="info-value">{{item.district}}</text>
-                </view>
-              </view>
-              <view class="record-footer">
-                <text class="footer-time">{{item.createTime}}</text>
               </view>
             </view>
           </view>
+          <view class="swipe-delete" bindtap="confirmDelete" data-id="{{item._id}}" data-index="{{index}}">
+            <text class="swipe-delete-text">删除</text>
+          </view>
         </view>
-        <!-- 删除按钮 -->
-        <view class="swipe-delete" bindtap="confirmDelete" data-id="{{item._id}}" data-index="{{index}}">
-          <text class="delete-icon">🗑️</text>
-          <text class="delete-text">删除</text>
-        </view>
-      </view>
-    </block>
-  </view>
-
-  <!-- 底部搜索和统计 -->
-  <view class="bottom-search-section" wx:if="{{equipments.length > 0}}">
-    <view class="search-bar">
-      <text class="search-icon">🔍</text>
-      <input class="search-input" placeholder="搜索设备名称/编号" bindinput="onSearch" />
+      </block>
     </view>
-    <text class="record-count">共 {{equipments.length}} 条</text>
   </view>
 
-  <!-- 底部操作 -->
-  <view class="bottom-bar" wx:if="{{equipments.length > 0}}">
-    <button class="secondary-btn" bindtap="loadEquipments">
-      <text class="btn-icon">🔄</text>
-      <text class="btn-text">刷新</text>
-    </button>
-    <button class="primary-btn" bindtap="createEquipment">
-      <text class="btn-icon">📤</text>
-      <text class="btn-text">新建</text>
-    </button>
+  <view class="archive-bottom-bar" wx:if="{{equipments.length > 0}}">
+    <button class="bottom-ghost" bindtap="loadEquipments">刷新</button>
+    <button class="bottom-primary" bindtap="createEquipment">新建</button>
   </view>
 </view>
-
-<!-- AI悬浮按钮 -->

@@ -114,7 +114,7 @@ App({
       console.log('[Auth] enterprise login:', enterpriseUser.companyName)
       this.globalData.userInfo = enterpriseUser
       this.globalData.isLogin = true
-      wx.switchTab({ url: ROUTES.WORKBENCH })
+      wx.switchTab({ url: ROUTES.AI_ASSISTANT })
       return
     }
 
