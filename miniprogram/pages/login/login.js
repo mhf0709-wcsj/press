@@ -3,15 +3,19 @@ const db = wx.cloud.database()
 const TEXT = {
   brandName: '\u538b\u529b\u8868\u667a\u80fd\u52a9\u624b',
   title: '\u4f01\u4e1a\u767b\u5f55',
-  desc: '\u7ee7\u7eed\u4f7f\u7528 AI \u667a\u80fd\u7ba1\u5bb6',
+  desc: '\u4f18\u5148\u4f7f\u7528\u5fae\u4fe1\u767b\u5f55\uff0c\u9996\u6b21\u767b\u5f55\u540e\u518d\u8865\u5168\u4f01\u4e1a\u4fe1\u606f',
+  wechatSubmit: '\u5fae\u4fe1\u767b\u5f55',
+  wechatSubmitting: '\u767b\u5f55\u4e2d...',
+  wechatHint: '\u5fae\u4fe1\u9a8c\u8bc1\u901a\u8fc7\u540e\uff0c\u53ef\u81ea\u52a8\u7ed1\u5b9a\u4f01\u4e1a\u8d26\u53f7',
+  manualToggle: '\u4f7f\u7528\u4f01\u4e1a\u4fe1\u606f\u767b\u5f55',
   companyLabel: '\u4f01\u4e1a\u540d\u79f0',
   companyPlaceholder: '\u8bf7\u8f93\u5165\u4f01\u4e1a\u540d\u79f0',
   phoneLabel: '\u6cd5\u4eba\u624b\u673a\u53f7',
   phonePlaceholder: '\u8bf7\u8f93\u5165\u6cd5\u4eba\u624b\u673a\u53f7',
-  submit: '\u8fdb\u5165\u667a\u80fd\u7ba1\u5bb6',
+  submit: '\u4f7f\u7528\u4f01\u4e1a\u4fe1\u606f\u767b\u5f55',
   submitting: '\u767b\u5f55\u4e2d...',
-  assistText: '\u6ca1\u6709\u4f01\u4e1a\u8d26\u53f7\uff1f',
-  register: '\u524d\u5f80\u6ce8\u518c',
+  assistText: '\u8fd8\u6ca1\u6709\u7ed1\u5b9a\u4f01\u4e1a\uff1f',
+  register: '\u8865\u5168\u4f01\u4e1a\u4fe1\u606f',
   adminLogin: '\u7ba1\u7406\u7aef\u767b\u5f55',
   requireCompany: '\u8bf7\u8f93\u5165\u4f01\u4e1a\u540d\u79f0',
   requirePhone: '\u8bf7\u8f93\u5165\u6cd5\u4eba\u624b\u673a\u53f7',
@@ -19,10 +23,12 @@ const TEXT = {
   loading: '\u767b\u5f55\u4e2d...',
   loginSuccess: '\u767b\u5f55\u6210\u529f',
   loginFailed: '\u767b\u5f55\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5',
-  userMissingTitle: '\u672a\u627e\u5230\u8be5\u7528\u6237',
-  userMissingContent: '\u8be5\u4f01\u4e1a\u4fe1\u606f\u672a\u6ce8\u518c\uff0c\u662f\u5426\u524d\u5f80\u6ce8\u518c\uff1f',
-  confirmRegister: '\u53bb\u6ce8\u518c',
-  cancel: '\u53d6\u6d88'
+  userMissingTitle: '\u672a\u627e\u5230\u8be5\u4f01\u4e1a',
+  userMissingContent: '\u8be5\u4f01\u4e1a\u4fe1\u606f\u672a\u6ce8\u518c\uff0c\u662f\u5426\u5148\u4f7f\u7528\u5fae\u4fe1\u767b\u5f55\u5e76\u8865\u5168\u4f01\u4e1a\u4fe1\u606f\uff1f',
+  confirmRegister: '\u53bb\u7ed1\u5b9a',
+  cancel: '\u53d6\u6d88',
+  wechatNeedBind: '\u9996\u6b21\u767b\u5f55\uff0c\u8bf7\u8865\u5168\u4f01\u4e1a\u4fe1\u606f',
+  wechatFailed: '\u5fae\u4fe1\u767b\u5f55\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5'
 }
 
 Page({
@@ -30,7 +36,8 @@ Page({
     text: TEXT,
     companyName: '',
     phone: '',
-    loading: false
+    loading: false,
+    manualVisible: false
   },
 
   onLoad() {
@@ -46,6 +53,59 @@ Page({
 
   onInputPhone(e) {
     this.setData({ phone: e.detail.value })
+  },
+
+  toggleManualLogin() {
+    this.setData({
+      manualVisible: !this.data.manualVisible
+    })
+  },
+
+  async handleWechatLogin() {
+    if (this.data.loading) return
+
+    this.setData({ loading: true })
+    wx.showLoading({ title: TEXT.wechatSubmitting, mask: true })
+
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'enterpriseAuth',
+        data: {
+          action: 'wechatLogin'
+        }
+      })
+
+      const result = res.result || {}
+      if (!result.success) {
+        throw new Error(result.error || TEXT.wechatFailed)
+      }
+
+      if (result.registered && result.enterprise) {
+        wx.setStorageSync('enterpriseUser', result.enterprise)
+        wx.removeStorageSync('enterpriseAuthPending')
+        wx.hideLoading()
+        wx.showToast({ title: TEXT.loginSuccess, icon: 'success' })
+        setTimeout(() => this.goToHome(), 1200)
+        return
+      }
+
+      wx.setStorageSync('enterpriseAuthPending', {
+        authType: 'wechat',
+        bindMode: true
+      })
+
+      wx.hideLoading()
+      wx.showToast({ title: TEXT.wechatNeedBind, icon: 'none' })
+      setTimeout(() => {
+        wx.navigateTo({ url: '/pages/register/register?mode=bind' })
+      }, 500)
+    } catch (error) {
+      wx.hideLoading()
+      console.error('Wechat login failed:', error)
+      wx.showToast({ title: error.message || TEXT.wechatFailed, icon: 'none' })
+    } finally {
+      this.setData({ loading: false })
+    }
   },
 
   handleLogin() {
@@ -79,7 +139,7 @@ Page({
           const userInfo = res.data[0]
           wx.setStorageSync('enterpriseUser', userInfo)
           wx.showToast({ title: TEXT.loginSuccess, icon: 'success' })
-          setTimeout(() => this.goToHome(), 1500)
+          setTimeout(() => this.goToHome(), 1200)
           return
         }
 
@@ -97,7 +157,7 @@ Page({
       })
       .catch((err) => {
         wx.hideLoading()
-        console.error('登录失败:', err)
+        console.error('Manual login failed:', err)
         wx.showToast({ title: TEXT.loginFailed, icon: 'none' })
       })
       .finally(() => {
@@ -106,7 +166,7 @@ Page({
   },
 
   goToRegister() {
-    wx.navigateTo({ url: '/pages/register/register' })
+    wx.navigateTo({ url: '/pages/register/register?mode=bind' })
   },
 
   goToAdminLogin() {

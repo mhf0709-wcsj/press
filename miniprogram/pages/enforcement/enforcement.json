@@ -1,4 +1,6 @@
 {
-  "navigationBarTitleText": "现场核验取证",
-  "enablePullDownRefresh": false
+  "navigationBarTitleText": "现场核验",
+  "navigationBarBackgroundColor": "#ffffff",
+  "navigationBarTextStyle": "black",
+  "backgroundColor": "#f8f9fc"
 }

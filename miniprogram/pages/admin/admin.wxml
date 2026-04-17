@@ -1,146 +1,117 @@
-<view class="container">
-  <!-- 页面标题 -->
-  <view class="page-header">
-    <view class="header-left" wx:if="{{fromDashboard}}" bindtap="goToDashboard">
-      <text class="back-arrow">‹</text>
-      <text class="back-text">返回</text>
-    </view>
-    <text class="page-title">数据管理</text>
-    <text class="header-right" bindtap="goToDashboard">📊</text>
-  </view>
-
-  <!-- 筛选提示 -->
-  <view class="filter-tip" wx:if="{{selectedConclusion && viewMode === 'records'}}">
-    <text class="filter-text">当前筛选：{{selectedConclusion}}记录</text>
-    <text class="filter-clear" bindtap="clearConclusionFilter">清除</text>
-  </view>
-
-  <view class="view-toggle">
-    <view class="toggle-btn {{viewMode === 'equipment' ? 'active' : ''}}" bindtap="switchViewMode" data-mode="equipment">设备预览</view>
-    <view class="toggle-btn {{viewMode === 'records' ? 'active' : ''}}" bindtap="switchViewMode" data-mode="records">检定记录</view>
-  </view>
-
-  <view class="toolbar">
-    <view class="search-box">
-      <input class="search-input" placeholder="{{viewMode === 'equipment' ? '搜索设备名称/编号' : '搜索证书编号/出厂编号'}}" bindinput="onSearch" />
-    </view>
-    <picker bindchange="onDistrictChange" value="{{0}}" range="{{districtOptions}}" wx:if="{{isAdmin}}">
-      <view class="district-picker">{{selectedDistrict}} ▼</view>
-    </picker>
-    <view class="district-label" wx:else>{{adminDistrict}}</view>
-    <picker bindchange="onEnterpriseChange" value="{{0}}" range="{{enterprises}}" range-key="companyName">
-      <view class="enterprise-picker">{{selectedEnterprise}} ▼</view>
-    </picker>
-  </view>
-  <view class="action-bar" wx:if="{{viewMode === 'records'}}">
-    <button class="btn add" bindtap="showAdd">新增记录</button>
-  </view>
-  <scroll-view scroll-y class="record-list" wx:if="{{viewMode === 'records'}}">
-    <block wx:if="{{records.length > 0}}">
-      <view class="record-card" wx:for="{{records}}" wx:key="_id" bindtap="viewRecordDetail" data-id="{{item._id}}">
-        <view class="record-header">
-          <text class="record-factory">{{item.factoryNo}}</text>
-          <view class="record-tags">
-            <text class="device-status {{item.deviceStatus === '在用' ? 'in-use' : item.deviceStatus === '停用' ? 'stopped' : 'inspecting'}}">{{item.deviceStatus || '在用'}}</text>
-            <text class="record-conclusion {{item.conclusion === '合格' ? 'pass' : 'fail'}}">{{item.conclusion}}</text>
+<view class="page-shell admin-page">
+  <scroll-view scroll-y class="admin-scroll">
+    <view class="content-wrapper admin-wrapper">
+      <view class="panel hero-panel">
+        <view class="panel-section">
+          <view class="hero-row">
+            <view>
+              <view class="eyebrow">{{text.heroTopline}}</view>
+              <view class="page-title hero-title">{{text.heroTitle}}</view>
+              <view class="page-subtitle">{{text.heroDesc}}</view>
+            </view>
+            <view class="hero-actions">
+              <view class="soft-button mini-action" bindtap="refreshData">
+                <text>{{text.refresh}}</text>
+              </view>
+              <view class="primary-button mini-action" bindtap="goToAiEntry">
+                <text>{{text.aiEntry}}</text>
+              </view>
+            </view>
           </view>
-        </view>
-        <view class="record-body">
-          <view class="record-row"><text class="label">证书编号：</text><text class="value">{{item.certNo || '-'}}</text></view>
-          <view class="record-row"><text class="label">企业：</text><text class="value">{{item.enterpriseName || item.sendUnit || '-'}}</text></view>
-          <view class="record-row"><text class="label">设备：</text><text class="value">{{item.equipmentName || '-'}}</text></view>
-          <view class="record-row"><text class="label">压力表：</text><text class="value">{{item.deviceName || '-'}}</text></view>
-          <view class="record-row" wx:if="{{item.enterprisePhone}}"><text class="label">联系方式：</text><text class="value phone">{{item.enterprisePhone}}</text></view>
-          <view class="record-row"><text class="label">辖区：</text><text class="value">{{item.district || '-'}}</text></view>
-          <view class="record-row"><text class="label">检定日期：</text><text class="value">{{item.verificationDate || '-'}}</text></view>
-          <view class="record-row"><text class="label">到期日期：</text><text class="value {{item.expiryDate < today ? 'expired' : ''}}">{{item.expiryDate || '-'}}</text></view>
-          <!-- 图片指示 -->
-          <view class="record-row" wx:if="{{item.fileID || item.installPhotoFileID}}">
-            <text class="label">附件：</text>
-            <text class="value has-image">📷 {{item.fileID ? '证书' : ''}}{{item.fileID && item.installPhotoFileID ? '/' : ''}}{{item.installPhotoFileID ? '安装照' : ''}}</text>
+
+          <view class="hero-back" wx:if="{{fromDashboard}}" bindtap="goToDashboard">
+            <text>{{text.fromDashboard}}</text>
           </view>
-        </view>
-        <view class="record-actions" catchtap="stopPropagation">
-          <button class="action-btn view" size="mini" catchtap="viewRecordDetail" data-id="{{item._id}}">查看详情</button>
-          <button class="action-btn edit" size="mini" catchtap="editRecord" data-record="{{item}}">编辑</button>
-          <button class="action-btn delete" size="mini" catchtap="deleteRecord" data-record="{{item}}">删除</button>
         </view>
       </view>
-    </block>
-    <view wx:else class="empty"><text>暂无数据</text></view>
+
+      <view class="panel filter-panel">
+        <view class="panel-section">
+          <view class="mode-toggle">
+            <view class="toggle-item {{viewMode === 'records' ? 'active' : ''}}" bindtap="switchViewMode" data-mode="records">
+              <text>{{text.modeRecords}}</text>
+            </view>
+            <view class="toggle-item {{viewMode === 'equipments' ? 'active' : ''}}" bindtap="switchViewMode" data-mode="equipments">
+              <text>{{text.modeEquipments}}</text>
+            </view>
+          </view>
+
+          <view class="filter-stack">
+            <input
+              class="search-input"
+              placeholder="{{viewMode === 'records' ? text.searchRecords : text.searchEquipments}}"
+              value="{{searchKeyword}}"
+              bindinput="onSearch"
+            />
+
+            <view class="filter-row">
+              <picker wx:if="{{isAdmin}}" mode="selector" range="{{districtOptions}}" bindchange="onDistrictChange">
+                <view class="picker-chip">{{selectedDistrict}}</view>
+              </picker>
+              <view wx:else class="picker-chip static-chip">{{adminDistrict}}</view>
+
+              <picker mode="selector" range="{{enterprises}}" range-key="companyName" bindchange="onEnterpriseChange">
+                <view class="picker-chip">{{selectedEnterprise}}</view>
+              </picker>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="panel list-panel">
+        <view class="panel-section">
+          <view class="list-block" wx:if="{{viewMode === 'records'}}">
+            <view
+              class="list-cell ledger-cell"
+              wx:for="{{records}}"
+              wx:key="_id"
+              bindtap="viewRecordDetail"
+              data-id="{{item._id}}"
+            >
+              <view class="cell-main">
+                <text class="cell-title">{{item.factoryNo || '-'}}</text>
+                <text class="cell-subtitle">{{text.fields.certNo}} {{item.certNo || '-'}}</text>
+                <text class="cell-subtitle">{{text.fields.enterprise}} {{item.enterpriseName || item.sendUnit || '-'}}</text>
+                <text class="cell-subtitle">{{text.fields.equipment}} {{item.equipmentName || '-'}}</text>
+              </view>
+              <view class="cell-side">
+                <text class="status-tag {{item.conclusion === text.passValue ? 'pass' : 'fail'}}">{{item.conclusion || '-'}}</text>
+                <text class="cell-meta">{{text.fields.verificationDate}} {{item.verificationDate || '-'}}</text>
+                <text class="cell-meta">{{text.fields.expiryDate}} {{item.expiryDate || '-'}}</text>
+              </view>
+            </view>
+
+            <view class="empty-state" wx:if="{{!records.length && !loading}}">
+              <text class="empty-text">{{text.emptyRecords}}</text>
+            </view>
+          </view>
+
+          <view class="list-block" wx:if="{{viewMode === 'equipments'}}">
+            <view
+              class="list-cell ledger-cell"
+              wx:for="{{equipments}}"
+              wx:key="_id"
+              bindtap="viewEquipmentDetail"
+              data-id="{{item._id}}"
+            >
+              <view class="cell-main">
+                <text class="cell-title">{{item.equipmentName || '-'}}</text>
+                <text class="cell-subtitle">{{text.fields.equipmentNo}} {{item.equipmentNo || '-'}}</text>
+                <text class="cell-subtitle">{{text.fields.enterprise}} {{item.enterpriseName || '-'}}</text>
+                <text class="cell-subtitle">{{text.fields.location}} {{item.location || '-'}}</text>
+              </view>
+              <view class="cell-side">
+                <text class="badge">{{item.gaugeCount || 0}} {{text.countUnit}}</text>
+                <text class="cell-meta">{{text.fields.district}} {{item.district || '-'}}</text>
+              </view>
+            </view>
+
+            <view class="empty-state" wx:if="{{!equipments.length && !loading}}">
+              <text class="empty-text">{{text.emptyEquipments}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
   </scroll-view>
-
-  <scroll-view scroll-y class="record-list" wx:if="{{viewMode === 'equipment'}}">
-    <block wx:if="{{equipments.length > 0}}">
-      <view class="record-card" wx:for="{{equipments}}" wx:key="_id" bindtap="viewEquipmentDetail" data-id="{{item._id}}">
-        <view class="record-header">
-          <text class="record-factory">{{item.equipmentName || '未命名设备'}}</text>
-          <view class="record-tags">
-            <text class="device-status in-use">{{item.gaugeCount || 0}} 台压力表</text>
-          </view>
-        </view>
-        <view class="record-body">
-          <view class="record-row"><text class="label">设备编号：</text><text class="value">{{item.equipmentNo || '-'}}</text></view>
-          <view class="record-row"><text class="label">企业：</text><text class="value">{{item.enterpriseName || '-'}}</text></view>
-          <view class="record-row"><text class="label">辖区：</text><text class="value">{{item.district || '-'}}</text></view>
-          <view class="record-row"><text class="label">位置：</text><text class="value">{{item.location || '-'}}</text></view>
-        </view>
-        <view class="record-actions" catchtap="stopPropagation">
-          <button class="action-btn view" size="mini" catchtap="viewEquipmentDetail" data-id="{{item._id}}">查看设备</button>
-        </view>
-      </view>
-    </block>
-    <view wx:else class="empty"><text>暂无设备档案</text></view>
-  </scroll-view>
-
-  <!-- 新增记录弹窗 -->
-  <view class="modal-mask" wx:if="{{showAddModal}}">
-    <view class="modal">
-      <view class="modal-header">新增记录</view>
-      <view class="modal-body">
-        <view class="form-item"><text class="label">出厂编号 *</text><input class="input" data-field="factoryNo" value="{{newRecord.factoryNo}}" bindinput="onNewInput" placeholder="请输入出厂编号" /></view>
-        <view class="form-item"><text class="label">证书编号</text><input class="input" data-field="certNo" value="{{newRecord.certNo}}" bindinput="onNewInput" placeholder="请输入证书编号" /></view>
-        <view class="form-item"><text class="label">企业名称</text><input class="input" data-field="enterpriseName" value="{{newRecord.enterpriseName}}" bindinput="onNewInput" placeholder="请输入企业名称" /></view>
-        <view class="form-item"><text class="label">检定结论</text><picker bindchange="onNewConclusionChange" value="{{0}}" range="{{conclusionOptions}}"><view class="picker">{{newRecord.conclusion}}</view></picker></view>
-        <view class="form-item"><text class="label">检定日期</text><picker mode="date" value="{{newRecord.verificationDate}}" bindchange="onNewDateChange"><view class="picker">{{newRecord.verificationDate}}</view></picker></view>
-        <!-- 设备选择 -->
-        <view class="form-item">
-          <text class="label">压力表</text>
-          <picker bindchange="onDeviceChange" value="{{deviceIndex}}" range="{{devices}}" range-key="deviceName">
-            <view class="picker">{{selectedDeviceName || '请选择（必选）'}}</view>
-          </picker>
-        </view>
-      </view>
-      <view class="modal-footer">
-        <button class="btn-cancel" bindtap="closeAddModal">取消</button>
-        <button class="btn-confirm" bindtap="saveNewRecord">保存</button>
-      </view>
-    </view>
-  </view>
-
-  <!-- 编辑记录弹窗 -->
-  <view class="modal-mask" wx:if="{{showEditModal}}">
-    <view class="modal">
-      <view class="modal-header">编辑记录</view>
-      <view class="modal-body">
-        <view class="form-item"><text class="label">出厂编号 *</text><input class="input" data-field="factoryNo" value="{{editingRecord.factoryNo}}" bindinput="onEditInput" /></view>
-        <view class="form-item"><text class="label">证书编号</text><input class="input" data-field="certNo" value="{{editingRecord.certNo}}" bindinput="onEditInput" /></view>
-        <view class="form-item"><text class="label">企业名称</text><input class="input" data-field="enterpriseName" value="{{editingRecord.enterpriseName}}" bindinput="onEditInput" /></view>
-        <view class="form-item"><text class="label">送检单位</text><input class="input" data-field="sendUnit" value="{{editingRecord.sendUnit}}" bindinput="onEditInput" /></view>
-        <view class="form-item"><text class="label">检定结论</text><picker bindchange="onEditConclusionChange" value="{{0}}" range="{{conclusionOptions}}"><view class="picker">{{editingRecord.conclusion}}</view></picker></view>
-        <view class="form-item"><text class="label">检定日期</text><picker mode="date" value="{{editingRecord.verificationDate}}" bindchange="onEditDateChange"><view class="picker">{{editingRecord.verificationDate}}</view></picker></view>
-        <!-- 设备选择 -->
-        <view class="form-item">
-          <text class="label">压力表</text>
-          <picker bindchange="onDeviceChange" value="{{deviceIndex}}" range="{{devices}}" range-key="deviceName">
-            <view class="picker">{{selectedDeviceName || editingRecord.deviceName || '请选择（必选）'}}</view>
-          </picker>
-        </view>
-      </view>
-      <view class="modal-footer">
-        <button class="btn-cancel" bindtap="closeEditModal">取消</button>
-        <button class="btn-confirm" bindtap="saveEditRecord">保存</button>
-      </view>
-    </view>
-  </view>
 </view>

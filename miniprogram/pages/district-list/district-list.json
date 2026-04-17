@@ -1,5 +1,7 @@
 {
-  "navigationBarTitleText": "辖区分布",
-  "navigationBarBackgroundColor": "#667eea",
-  "navigationBarTextStyle": "white"
+  "navigationBarTitleText": "辖区统计",
+  "navigationBarBackgroundColor": "#ffffff",
+  "navigationBarTextStyle": "black",
+  "backgroundColor": "#f8f9fc",
+  "enablePullDownRefresh": true
 }

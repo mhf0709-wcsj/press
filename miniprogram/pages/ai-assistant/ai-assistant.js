@@ -3,23 +3,25 @@ const aiExtractService = require('../../services/ai-extract-service')
 
 const TEXT = {
   heroTopline: '\u667a\u80fd\u7ba1\u5bb6\u9996\u9875',
-  heroTitle: '\u0041\u0049\u667a\u80fd\u7ba1\u5bb6',
+  heroTitle: 'AI\u667a\u80fd\u7ba1\u5bb6',
   heroDesc: '\u5728\u8fd9\u91cc\u76f4\u63a5\u5411 AI \u7ba1\u5bb6\u63d0\u95ee\uff0c\u6216\u4e0a\u4f20\u538b\u529b\u8868\u7167\u7247\uff0c\u7528\u5bf9\u8bdd\u65b9\u5f0f\u5b8c\u6210\u8bc6\u522b\u3001\u5efa\u6863\u548c\u95ee\u7b54\u3002',
-  currentIdentity: '\u5f53\u524d\u8eab\u4efd',
   guest: '\u8bbf\u5ba2',
-  sectionQuestionTitle: '\u5e38\u7528\u63d0\u95ee',
-  sectionQuestionSubtitle: '\u5feb\u901f\u95ee AI\uff0c\u4e5f\u53ef\u4ee5\u8ba9 AI \u4e3b\u52a8\u5f15\u5bfc\u4f60\u4e0a\u4f20\u56fe\u7247',
-  sectionChatTitle: '\u5bf9\u8bdd\u533a',
-  sectionChatSubtitle: '\u4f60\u53ef\u4ee5\u5728\u8fd9\u91cc\u63d0\u95ee\uff0c\u6216\u8005\u8ba9 AI \u5f15\u5bfc\u4f60\u4e0a\u4f20\u56fe\u7247\u8fdb\u884c\u5efa\u6863',
   emptyChatTitle: '\u7b49\u4f60\u5f00\u59cb\u5bf9\u8bdd',
-  emptyChatDesc: '\u70b9\u201c\u4e0a\u4f20\u7167\u7247\u201d\uff0cAI \u7ba1\u5bb6\u5c31\u4f1a\u5f00\u59cb\u5f15\u5bfc\u4f60\u8fdb\u884c\u8bc6\u522b\u548c\u5f55\u5165\u3002',
+  emptyChatDesc: '\u70b9\u201c\u4e0a\u4f20\u7167\u7247\u201d\uff0cAI \u7ba1\u5bb6\u5c31\u4f1a\u5f00\u59cb\u5f15\u5bfc\u4f60\u8fdb\u884c\u8bc6\u522b\u3001\u5f55\u5165\u6216\u53f0\u8d26\u64cd\u4f5c\u3002',
   loadingAnswer: 'AI \u7ba1\u5bb6\u6b63\u5728\u6574\u7406\u7b54\u6848...',
+  planningAction: 'AI \u7ba1\u5bb6\u6b63\u5728\u7406\u89e3\u4f60\u7684\u64cd\u4f5c\u8bf7\u6c42...',
+  executingAction: 'AI \u7ba1\u5bb6\u6b63\u5728\u6267\u884c\u64cd\u4f5c...',
   uploadCta: '\u4e0a\u4f20\u7167\u7247',
   uploadAgain: '\u91cd\u65b0\u4e0a\u4f20',
   confirmDraft: '\u53bb\u786e\u8ba4\u5e76\u4fdd\u5b58',
+  confirmExecute: '\u786e\u8ba4\u6267\u884c',
+  cancelExecute: '\u53d6\u6d88',
+  useThisOne: '\u5c31\u9009\u8fd9\u6761',
+  operationResultTitle: '\u64cd\u4f5c\u7ed3\u679c',
+  candidateTitle: '\u5019\u9009\u8bb0\u5f55',
   inputPlaceholder: '\u7ee7\u7eed\u5411 AI \u7ba1\u5bb6\u63d0\u95ee\uff0c\u6216\u8005\u76f4\u63a5\u4e0a\u4f20\u538b\u529b\u8868\u7167\u7247',
   send: '\u53d1\u9001',
-  composerTip: '\u5bf9\u8bdd\u53ef\u7528\u4e8e\u8bc6\u522b\u5efa\u6863\u548c\u77e5\u8bc6\u95ee\u7b54\uff0c\u6d89\u53ca\u68c0\u5b9a\u7ed3\u8bba\u8bf7\u4ee5\u6b63\u5f0f\u8bb0\u5f55\u4e3a\u51c6\u3002',
+  composerTip: '\u5bf9\u8bdd\u53ef\u7528\u4e8e\u8bc6\u522b\u5efa\u6863\u3001\u77e5\u8bc6\u95ee\u7b54\u548c\u53f0\u8d26\u64cd\u4f5c\uff0c\u6d89\u53ca\u68c0\u5b9a\u7ed3\u8bba\u8bf7\u4ee5\u6b63\u5f0f\u8bb0\u5f55\u4e3a\u51c6\u3002',
   me: '\u6211',
   uploadPrompt: '\u8bf7\u4e0a\u4f20\u538b\u529b\u8868\u68c0\u5b9a\u8bc1\u4e66\u6216\u4eea\u8868\u7167\u7247\uff0c\u6211\u4f1a\u5148\u5e2e\u4f60\u8bc6\u522b\u5173\u952e\u4fe1\u606f\uff0c\u518d\u81ea\u52a8\u5224\u65ad\u8bbe\u5907\u5206\u7c7b\u3002',
   uploadReceived: '\u6211\u5df2\u6536\u5230\u56fe\u7247\uff0c\u6b63\u5728\u5206\u6790\u8bc1\u4e66\u5185\u5bb9\u548c\u8bbe\u5907\u5f52\u5c5e...',
@@ -42,36 +44,11 @@ const TEXT = {
   answers: {
     fallback: '\u62b1\u6b49\uff0c\u6211\u6682\u65f6\u65e0\u6cd5\u56de\u7b54\u8fd9\u4e2a\u95ee\u9898\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5\u3002',
     network: '\u7f51\u7edc\u8fde\u63a5\u51fa\u73b0\u95ee\u9898\uff0c\u8bf7\u68c0\u67e5\u7f51\u7edc\u540e\u91cd\u8bd5\u3002',
-    extractFailed: '\u56fe\u7247\u5206\u6790\u5931\u8d25\uff0c\u4f60\u53ef\u4ee5\u91cd\u65b0\u4e0a\u4f20\u4e00\u5f20\u66f4\u6e05\u6670\u7684\u7167\u7247\u3002'
+    extractFailed: '\u56fe\u7247\u5206\u6790\u5931\u8d25\uff0c\u4f60\u53ef\u4ee5\u91cd\u65b0\u4e0a\u4f20\u4e00\u5f20\u66f4\u6e05\u6670\u7684\u7167\u7247\u3002',
+    executeCancelled: '\u597d\u7684\uff0c\u6211\u5df2\u53d6\u6d88\u8fd9\u6b21\u64cd\u4f5c\u3002',
+    executeFailed: '\u8fd9\u6b21\u64cd\u4f5c\u6ca1\u6709\u6267\u884c\u6210\u529f\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002'
   },
-  shareTitle: '\u0041\u0049\u667a\u80fd\u7ba1\u5bb6 - \u5bf9\u8bdd\u5f0f\u5efa\u6863'
-}
-
-const QUICK_QUESTIONS = {
-  enterprise: [
-    '\u6211\u4eec\u8fd8\u6709\u591a\u5c11\u8bbe\u5907\u5373\u5c06\u5230\u671f\uff1f',
-    '\u672c\u6708\u68c0\u5b9a\u4e86\u591a\u5c11\u5757\u538b\u529b\u8868\uff1f',
-    '\u6211\u4eec\u7684\u68c0\u5b9a\u5408\u683c\u7387\u662f\u591a\u5c11\uff1f',
-    '\u538b\u529b\u8868\u68c0\u5b9a\u5468\u671f\u662f\u591a\u4e45\uff1f'
-  ],
-  district_admin: [
-    '\u8f96\u533a\u5185\u6709\u591a\u5c11\u8bbe\u5907\u5373\u5c06\u5230\u671f\uff1f',
-    '\u672c\u6708\u8f96\u533a\u68c0\u5b9a\u4e86\u591a\u5c11\u5757\u538b\u529b\u8868\uff1f',
-    '\u8f96\u533a\u68c0\u5b9a\u5408\u683c\u7387\u662f\u591a\u5c11\uff1f',
-    '\u5982\u4f55\u5224\u65ad\u538b\u529b\u8868\u9700\u8981\u66f4\u6362\uff1f'
-  ],
-  super_admin: [
-    '\u5e73\u53f0\u6709\u591a\u5c11\u8bbe\u5907\u5373\u5c06\u5230\u671f\uff1f',
-    '\u672c\u6708\u5168\u5e73\u53f0\u68c0\u5b9a\u4e86\u591a\u5c11\u5757\u538b\u529b\u8868\uff1f',
-    '\u5e73\u53f0\u68c0\u5b9a\u5408\u683c\u7387\u662f\u591a\u5c11\uff1f',
-    '\u68c0\u5b9a\u4e0d\u5408\u683c\u7684\u6807\u51c6\u662f\u4ec0\u4e48\uff1f'
-  ],
-  default: [
-    '\u8bf7\u5f15\u5bfc\u6211\u4e0a\u4f20\u538b\u529b\u8868\u7167\u7247',
-    '\u538b\u529b\u8868\u68c0\u5b9a\u5468\u671f\u662f\u591a\u4e45\uff1f',
-    '\u538b\u529b\u8868\u5982\u4f55\u9009\u578b\uff1f',
-    '\u4ec0\u4e48\u60c5\u51b5\u9700\u8981\u66f4\u6362\u538b\u529b\u8868\uff1f'
-  ]
+  shareTitle: 'AI\u667a\u80fd\u7ba1\u5bb6 - \u5bf9\u8bdd\u5f0f\u5efa\u6863'
 }
 
 Page({
@@ -81,12 +58,13 @@ Page({
     inputValue: '',
     isLoading: false,
     isVisionLoading: false,
+    isCrudExecuting: false,
     scrollToView: '',
-    quickQuestions: QUICK_QUESTIONS.default,
     userInfo: null,
     userType: 'guest',
     userScope: TEXT.guest,
-    visionDraft: null
+    visionDraft: null,
+    pendingCrudPlan: null
   },
 
   async onLoad() {
@@ -106,8 +84,7 @@ Page({
   },
 
   async bootstrap() {
-    const profile = this.resolveUserProfile()
-    this.setData(profile)
+    this.setData(this.resolveUserProfile())
   },
 
   resolveUserProfile() {
@@ -119,10 +96,7 @@ Page({
       return {
         userType: isDistrictAdmin ? 'district_admin' : 'super_admin',
         userInfo: adminUser,
-        userScope: isDistrictAdmin
-          ? `${adminUser.district}\u8f96\u533a\u7ba1\u7406\u5458`
-          : '\u603b\u7ba1\u7406\u5458',
-        quickQuestions: QUICK_QUESTIONS[isDistrictAdmin ? 'district_admin' : 'super_admin']
+        userScope: isDistrictAdmin ? `${adminUser.district}\u8f96\u533a\u7ba1\u7406\u5458` : '\u603b\u7ba1\u7406\u5458'
       }
     }
 
@@ -130,59 +104,92 @@ Page({
       return {
         userType: 'enterprise',
         userInfo: enterpriseUser,
-        userScope: enterpriseUser.companyName || '\u4f01\u4e1a\u7528\u6237',
-        quickQuestions: QUICK_QUESTIONS.enterprise
+        userScope: enterpriseUser.companyName || '\u4f01\u4e1a\u7528\u6237'
       }
     }
 
     return {
       userType: 'guest',
       userInfo: null,
-      userScope: TEXT.guest,
-      quickQuestions: QUICK_QUESTIONS.default
+      userScope: TEXT.guest
     }
   },
 
   ensureGuideConversation() {
     if (this.data.messages.length > 0) return
-    const openingMessages = [
-      this.createTextMessage('assistant', TEXT.uploadPrompt),
-      this.createTextMessage('assistant', '\u4f60\u4e5f\u53ef\u4ee5\u76f4\u63a5\u5411\u6211\u63d0\u95ee\uff0c\u4f46\u5982\u679c\u4f60\u60f3\u5feb\u901f\u5efa\u6863\uff0c\u73b0\u5728\u4e0a\u4f20\u7167\u7247\u6700\u5408\u9002\u3002')
-    ]
-    this.setData({ messages: openingMessages }, () => this.scrollToBottom())
+    this.setData({
+      messages: [
+        this.createTextMessage('assistant', TEXT.uploadPrompt),
+        this.createTextMessage('assistant', '\u4f60\u4e5f\u53ef\u4ee5\u76f4\u63a5\u5411\u6211\u63d0\u95ee\uff0c\u6216\u8005\u8bf4\u201c\u5e2e\u6211\u67e5\u4e00\u4e0b\u67d0\u5757\u538b\u529b\u8868\u201d\u3001\u201c\u628a\u67d0\u6761\u8bb0\u5f55\u6539\u6210\u5408\u683c\u201d\uff0c\u6211\u4f1a\u6309\u5bf9\u8bdd\u65b9\u5f0f\u5e2e\u4f60\u5904\u7406\u3002')
+      ]
+    }, () => this.scrollToBottom())
+  },
+
+  createBaseMessage(role, kind) {
+    return {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      role,
+      kind,
+      time: this.formatTime(new Date())
+    }
   },
 
   createTextMessage(role, content) {
     return {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      role,
-      kind: 'text',
-      content,
-      time: this.formatTime(new Date())
+      ...this.createBaseMessage(role, 'text'),
+      content
     }
   },
 
   createImageMessage(imagePath) {
     return {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      role: 'user',
-      kind: 'image',
+      ...this.createBaseMessage('user', 'image'),
       imagePath,
-      content: TEXT.uploadCta,
-      time: this.formatTime(new Date())
+      content: TEXT.uploadCta
     }
   },
 
   createResultMessage(result) {
     return {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      role: 'assistant',
-      kind: 'result',
+      ...this.createBaseMessage('assistant', 'result'),
       title: TEXT.extractionTitle,
       summary: result.summary,
       fields: result.fields,
-      imagePath: result.imagePath,
-      time: this.formatTime(new Date())
+      imagePath: result.imagePath
+    }
+  },
+
+  createCrudResultMessage(plan) {
+    return {
+      ...this.createBaseMessage('assistant', 'crud_result'),
+      title: TEXT.operationResultTitle,
+      content: plan.answer || TEXT.answers.fallback,
+      items: Array.isArray(plan.items) ? plan.items : []
+    }
+  },
+
+  createCrudConfirmMessage(plan) {
+    return {
+      ...this.createBaseMessage('assistant', 'crud_confirm'),
+      title: plan.entityLabel || TEXT.operationResultTitle,
+      content: plan.answer || TEXT.answers.fallback,
+      items: Array.isArray(plan.items) ? plan.items : [],
+      payload: plan.payload || null
+    }
+  },
+
+  createCrudSelectMessage(plan) {
+    return {
+      ...this.createBaseMessage('assistant', 'crud_select'),
+      title: TEXT.candidateTitle,
+      content: plan.answer || TEXT.answers.fallback,
+      items: Array.isArray(plan.items)
+        ? plan.items.map((entry) => ({
+          ...entry,
+          payloadBase: plan.payloadBase || null
+        }))
+        : [],
+      payloadBase: plan.payloadBase || null
     }
   },
 
@@ -198,59 +205,196 @@ Page({
     })
   },
 
+  getCloudUserType() {
+    return this.data.userType === 'district_admin' || this.data.userType === 'super_admin'
+      ? 'admin'
+      : this.data.userType
+  },
+
+  async requestCrudPlan(question) {
+    const res = await wx.cloud.callFunction({
+      name: 'aiAssistant',
+      data: {
+        action: 'crudPlan',
+        question,
+        userType: this.getCloudUserType(),
+        userInfo: this.data.userInfo
+      }
+    })
+    return res.result || {}
+  },
+
+  async requestCrudExecute(payload) {
+    const res = await wx.cloud.callFunction({
+      name: 'aiAssistant',
+      data: {
+        action: 'crudExecute',
+        payload,
+        userType: this.getCloudUserType(),
+        userInfo: this.data.userInfo
+      }
+    })
+    return res.result || {}
+  },
+
+  looksLikeCrudQuestion(question) {
+    return /(查|查询|查找|找出|列出|搜索|看看|修改|改成|改为|更新|变更|新增|创建|录入|添加|删除|移除|作废)/.test(question)
+  },
+
   async onSend() {
     const question = this.data.inputValue.trim()
-    if (!question || this.data.isLoading || this.data.isVisionLoading) return
-
-    const userMessage = this.createTextMessage('user', question)
+    if (!question || this.data.isLoading || this.data.isVisionLoading || this.data.isCrudExecuting) return
 
     this.setData({
-      messages: [...this.data.messages, userMessage],
+      messages: [...this.data.messages, this.createTextMessage('user', question)],
       inputValue: '',
       isLoading: true
-    })
-
-    this.scrollToBottom()
+    }, () => this.scrollToBottom())
 
     const normalized = question.toLowerCase()
-    if (normalized.includes('\u4e0a\u4f20') || normalized.includes('\u7167\u7247') || normalized.includes('\u8bc1\u4e66') || normalized.includes('photo') || normalized.includes('image')) {
+    if (
+      normalized.includes('\u4e0a\u4f20') ||
+      normalized.includes('\u7167\u7247') ||
+      normalized.includes('\u8bc1\u4e66') ||
+      normalized.includes('photo') ||
+      normalized.includes('image')
+    ) {
       this.setData({ isLoading: false })
       this.appendMessages([this.createTextMessage('assistant', TEXT.uploadPrompt)])
       return
     }
 
     try {
+      if (this.looksLikeCrudQuestion(question)) {
+        const crudPlan = await this.requestCrudPlan(question)
+        const crudMessage = this.buildCrudMessage(crudPlan)
+
+        if (crudMessage) {
+          this.setData({
+            messages: [...this.data.messages, crudMessage],
+            isLoading: false,
+            pendingCrudPlan: crudPlan.mode === 'confirm'
+              ? {
+                answer: crudPlan.answer,
+                entityLabel: crudPlan.entityLabel,
+                items: crudPlan.items || [],
+                payload: crudPlan.payload
+              }
+              : null
+          }, () => this.scrollToBottom())
+          return
+        }
+      }
+
       const res = await wx.cloud.callFunction({
         name: 'aiAssistant',
         data: {
           question,
-          userType: this.data.userType === 'district_admin' || this.data.userType === 'super_admin' ? 'admin' : this.data.userType,
+          userType: this.getCloudUserType(),
           userInfo: this.data.userInfo
         }
       })
 
-      const aiMessage = this.createTextMessage('assistant', res.result.answer || TEXT.answers.fallback)
       this.setData({
-        messages: [...this.data.messages, aiMessage],
-        isLoading: false
+        messages: [...this.data.messages, this.createTextMessage('assistant', res.result.answer || TEXT.answers.fallback)],
+        isLoading: false,
+        pendingCrudPlan: null
       }, () => this.scrollToBottom())
     } catch (error) {
-      console.error('AI 请求失败:', error)
-      const errorMessage = this.createTextMessage('assistant', TEXT.answers.network)
+      console.error('AI request failed:', error)
       this.setData({
-        messages: [...this.data.messages, errorMessage],
+        messages: [...this.data.messages, this.createTextMessage('assistant', TEXT.answers.network)],
         isLoading: false
       }, () => this.scrollToBottom())
     }
   },
 
-  onQuickQuestion(e) {
-    const question = e.currentTarget.dataset.question
+  buildCrudMessage(plan) {
+    if (!plan || !plan.success || !plan.mode) return null
+
+    if (plan.mode === 'result') {
+      return this.createCrudResultMessage(plan)
+    }
+
+    if (plan.mode === 'confirm' && plan.payload) {
+      return this.createCrudConfirmMessage(plan)
+    }
+
+    if (plan.mode === 'select' && Array.isArray(plan.items) && plan.items.length) {
+      return this.createCrudSelectMessage(plan)
+    }
+
+    if (plan.mode === 'collect') {
+      return this.createTextMessage('assistant', plan.answer || TEXT.answers.fallback)
+    }
+
+    return null
+  },
+
+  async confirmCrudExecution() {
+    const payload = this.data.pendingCrudPlan?.payload
+    if (!payload || this.data.isCrudExecuting) return
+
     this.setData({
-      inputValue: question
-    }, () => {
-      this.onSend()
+      isCrudExecuting: true
+    }, () => this.scrollToBottom())
+
+    try {
+      const result = await this.requestCrudExecute(payload)
+      this.setData({
+        messages: [...this.data.messages, this.createTextMessage('assistant', result.answer || TEXT.answers.fallback)],
+        isCrudExecuting: false,
+        pendingCrudPlan: null
+      }, () => this.scrollToBottom())
+    } catch (error) {
+      console.error('CRUD execute failed:', error)
+      this.setData({
+        messages: [...this.data.messages, this.createTextMessage('assistant', error.message || TEXT.answers.executeFailed)],
+        isCrudExecuting: false
+      }, () => this.scrollToBottom())
+    }
+  },
+
+  cancelCrudExecution() {
+    if (!this.data.pendingCrudPlan) return
+    this.setData({
+      pendingCrudPlan: null
     })
+    this.appendMessages([this.createTextMessage('assistant', TEXT.answers.executeCancelled)])
+  },
+
+  selectCrudItem(e) {
+    const item = e.currentTarget.dataset.item
+    const payloadBase = e.currentTarget.dataset.payloadBase || {}
+    if (!item || !item.id || !payloadBase.operation || !payloadBase.entity) return
+
+    const answer = payloadBase.operation === 'delete'
+      ? `\u6211\u51c6\u5907\u5220\u9664\u300c${item.title}\u300d\uff0c\u662f\u5426\u786e\u8ba4\uff1f`
+      : `\u6211\u51c6\u5907\u5bf9\u300c${item.title}\u300d\u6267\u884c\u8fd9\u6b21\u64cd\u4f5c\uff0c\u662f\u5426\u786e\u8ba4\uff1f`
+
+    const nextPlan = {
+      entityLabel: this.getEntityLabel(payloadBase.entity),
+      answer,
+      items: [item],
+      payload: {
+        operation: payloadBase.operation,
+        entity: payloadBase.entity,
+        targetId: item.id,
+        changes: payloadBase.changes || {}
+      }
+    }
+
+    this.setData({
+      pendingCrudPlan: nextPlan
+    })
+
+    this.appendMessages([this.createCrudConfirmMessage(nextPlan)])
+  },
+
+  getEntityLabel(entity) {
+    if (entity === 'device') return '\u538b\u529b\u8868'
+    if (entity === 'equipment') return '\u8bbe\u5907'
+    return '\u68c0\u5b9a\u8bb0\u5f55'
   },
 
   startVisionFlow() {
@@ -272,17 +416,16 @@ Page({
 
       await this.processVisionImage(imagePath)
     } catch (error) {
-      console.error('选择图片失败:', error)
+      console.error('Select image failed:', error)
     }
   },
 
   async processVisionImage(imagePath) {
-    const userType = this.data.userType === 'district_admin' || this.data.userType === 'super_admin' ? 'admin' : this.data.userType
     this.setData({ isVisionLoading: true })
 
     try {
       const result = await aiExtractService.extractFromImage(imagePath, {
-        userType,
+        userType: this.getCloudUserType(),
         userInfo: this.data.userInfo
       })
 
@@ -299,7 +442,7 @@ Page({
         this.createTextMessage('assistant', `${TEXT.analysisDone}${TEXT.draftReady}`)
       ])
     } catch (error) {
-      console.error('图片分析失败:', error)
+      console.error('Image analysis failed:', error)
       this.setData({ isVisionLoading: false })
       this.appendMessages([this.createTextMessage('assistant', error.message || TEXT.answers.extractFailed)])
     }
@@ -308,8 +451,7 @@ Page({
   buildVisionDraft(result, imagePath) {
     const fields = []
     const pushField = (key, value) => {
-      if (!value) return
-      if (!TEXT.fields[key]) return
+      if (!value || !TEXT.fields[key]) return
       fields.push({
         key,
         label: TEXT.fields[key],
@@ -342,7 +484,13 @@ Page({
 
   inferCategoryLabel(result) {
     const source = `${result.instrumentName || ''} ${result.modelSpec || ''}`.toLowerCase()
-    if (source.includes('\u538b\u529b') || source.includes('pressure') || source.includes('gauge') || source.includes('mpa') || source.includes('kpa')) {
+    if (
+      source.includes('\u538b\u529b') ||
+      source.includes('pressure') ||
+      source.includes('gauge') ||
+      source.includes('mpa') ||
+      source.includes('kpa')
+    ) {
       return '\u538b\u529b\u8868'
     }
     return '\u901a\u7528\u4eea\u8868'
@@ -383,10 +531,18 @@ Page({
 
   scrollToBottom() {
     setTimeout(() => {
-      const loadingAnchor = this.data.isVisionLoading ? 'msg-vision-loading' : ''
+      let anchor = ''
+      if (this.data.isVisionLoading) {
+        anchor = 'msg-vision-loading'
+      } else if (this.data.isCrudExecuting) {
+        anchor = 'msg-crud-executing'
+      } else if (this.data.isLoading) {
+        anchor = 'msg-loading'
+      }
+
       const lastMessage = this.data.messages[this.data.messages.length - 1]
       this.setData({
-        scrollToView: loadingAnchor || `msg-${lastMessage?.id || 'tail'}`
+        scrollToView: anchor || `msg-${lastMessage?.id || 'tail'}`
       })
     }, 80)
   },

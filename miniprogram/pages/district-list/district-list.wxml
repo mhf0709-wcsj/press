@@ -1,34 +1,48 @@
-<view class="container">
-  <!-- 加载状态 -->
-  <view class="loading" wx:if="{{loading}}">
-    <text>加载中...</text>
-  </view>
+<view class="page-shell district-page">
+  <scroll-view scroll-y class="district-scroll">
+    <view class="content-wrapper district-wrapper">
+      <view class="panel hero-panel">
+        <view class="panel-section">
+          <view class="eyebrow">{{text.heroTopline}}</view>
+          <view class="page-title hero-title">{{text.heroTitle}}</view>
+          <view class="page-subtitle">{{text.heroDesc}}</view>
+        </view>
+      </view>
 
-  <view wx:if="{{!loading}}">
-    <!-- 统计概览 -->
-    <view class="card summary-card">
-      <text class="summary-title">设备总数</text>
-      <text class="summary-num">{{totalEquipments}}</text>
-      <text class="summary-desc">台设备备案</text>
-    </view>
+      <view class="panel summary-panel">
+        <view class="panel-section">
+          <text class="section-title">{{text.summaryTitle}}</text>
+          <text class="summary-number">{{totalEquipments}}</text>
+          <text class="section-note">{{text.summaryDesc}}</text>
+        </view>
+      </view>
 
-    <!-- 辖区列表 -->
-    <view class="card list-card">
-      <view class="card-title">辖区统计</view>
-      <view class="district-list">
-        <view class="district-card" wx:for="{{districtStats}}" wx:key="district" bindtap="goToDistrictRecords" data-district="{{item.district}}">
-          <text class="district-name">{{item.district}}</text>
-          <view class="district-right">
-            <text class="district-count">{{item.count}}台</text>
-            <text class="district-arrow">›</text>
+      <view class="panel">
+        <view class="panel-section">
+          <view class="list-block" wx:if="{{districtStats.length}}">
+            <view
+              class="list-cell district-cell"
+              wx:for="{{districtStats}}"
+              wx:key="district"
+              bindtap="goToDistrictRecords"
+              data-district="{{item.district}}"
+            >
+              <view>
+                <text class="cell-title">{{item.district}}</text>
+                <text class="cell-subtitle">{{item.percent}}%</text>
+              </view>
+              <view class="district-side">
+                <text class="district-count">{{item.count}} {{text.unit}}</text>
+                <text class="entry-arrow">></text>
+              </view>
+            </view>
+          </view>
+
+          <view class="empty-state" wx:if="{{!districtStats.length && !loading}}">
+            <text class="empty-text">{{text.empty}}</text>
           </view>
         </view>
       </view>
     </view>
-
-    <!-- 空状态 -->
-    <view wx:if="{{districtStats.length === 0}}" class="empty">
-      <text>暂无辖区数据</text>
-    </view>
-  </view>
+  </scroll-view>
 </view>

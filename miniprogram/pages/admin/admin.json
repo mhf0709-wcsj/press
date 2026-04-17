@@ -1,1 +1,7 @@
-{"navigationBarTitleText": "管理端", "navigationBarBackgroundColor": "#722ed1", "navigationBarTextStyle": "white"}
+{
+  "navigationBarTitleText": "台账中心",
+  "navigationBarBackgroundColor": "#ffffff",
+  "navigationBarTextStyle": "black",
+  "backgroundColor": "#f8f9fc",
+  "enablePullDownRefresh": true
+}

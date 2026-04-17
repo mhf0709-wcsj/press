@@ -7,8 +7,8 @@
       </view>
 
       <view class="register-copy">
-        <view class="register-title">{{text.title}}</view>
-        <view class="register-desc">{{text.desc}}</view>
+        <view class="register-title">{{bindMode ? text.title : text.manualTitle}}</view>
+        <view class="register-desc">{{bindMode ? text.desc : text.manualDesc}}</view>
       </view>
 
       <view class="register-form">
@@ -75,7 +75,7 @@
         bindtap="handleRegister"
         disabled="{{loading}}"
       >
-        <text>{{loading ? text.submitting : text.submit}}</text>
+        <text>{{loading ? (bindMode ? text.submitting : text.manualSubmitting) : (bindMode ? text.submit : text.manualSubmit)}}</text>
       </button>
 
       <view class="register-actions">

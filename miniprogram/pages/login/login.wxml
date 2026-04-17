@@ -11,7 +11,21 @@
         <view class="login-desc">{{text.desc}}</view>
       </view>
 
-      <view class="login-form">
+      <button
+        class="btn-primary-solid login-submit wechat-submit {{loading ? 'is-loading' : ''}}"
+        bindtap="handleWechatLogin"
+        disabled="{{loading}}"
+      >
+        <text>{{loading ? text.wechatSubmitting : text.wechatSubmit}}</text>
+      </button>
+
+      <view class="wechat-hint">{{text.wechatHint}}</view>
+
+      <view class="manual-toggle" bindtap="toggleManualLogin">
+        <text>{{text.manualToggle}}</text>
+      </view>
+
+      <view class="login-form" wx:if="{{manualVisible}}">
         <view class="field-block">
           <view class="field-label">{{text.companyLabel}}</view>
           <input
@@ -35,15 +49,15 @@
             placeholder-class="input-placeholder"
           />
         </view>
-      </view>
 
-      <button
-        class="btn-primary-solid login-submit {{loading ? 'is-loading' : ''}}"
-        bindtap="handleLogin"
-        disabled="{{loading}}"
-      >
-        <text>{{loading ? text.submitting : text.submit}}</text>
-      </button>
+        <button
+          class="btn-primary-solid login-submit manual-submit {{loading ? 'is-loading' : ''}}"
+          bindtap="handleLogin"
+          disabled="{{loading}}"
+        >
+          <text>{{loading ? text.submitting : text.submit}}</text>
+        </button>
+      </view>
 
       <view class="login-actions">
         <view class="assist-row">

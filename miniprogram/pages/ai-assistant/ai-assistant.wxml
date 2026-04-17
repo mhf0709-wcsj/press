@@ -25,7 +25,7 @@
             </view>
           </view>
 
-          <view class="message-list" wx:if="{{messages.length > 0 || isLoading || isVisionLoading}}">
+          <view class="message-list" wx:if="{{messages.length > 0 || isLoading || isVisionLoading || isCrudExecuting}}">
             <view
               class="message-item"
               wx:for="{{messages}}"
@@ -58,6 +58,68 @@
                     </view>
                     <view class="result-action" bindtap="goToDraftConfirm">
                       <text class="result-action-text">{{text.confirmDraft}}</text>
+                    </view>
+                  </view>
+
+                  <view class="message-bubble assistant-bubble result-bubble" wx:if="{{item.kind === 'crud_result'}}">
+                    <text class="result-title">{{item.title}}</text>
+                    <text class="result-summary">{{item.content}}</text>
+                    <view class="crud-item-list" wx:if="{{item.items.length}}">
+                      <view class="crud-item" wx:for="{{item.items}}" wx:key="id">
+                        <text class="crud-item-title">{{item.title}}</text>
+                        <text class="crud-item-subtitle">{{item.subtitle}}</text>
+                      </view>
+                    </view>
+                  </view>
+
+                  <view class="message-bubble assistant-bubble result-bubble" wx:if="{{item.kind === 'crud_confirm'}}">
+                    <text class="result-title">{{item.title}}</text>
+                    <text class="result-summary">{{item.content}}</text>
+                    <view class="crud-item-list" wx:if="{{item.items.length}}">
+                      <view class="crud-item" wx:for="{{item.items}}" wx:key="id">
+                        <text class="crud-item-title">{{item.title}}</text>
+                        <text class="crud-item-subtitle">{{item.subtitle}}</text>
+                      </view>
+                    </view>
+                    <view class="crud-actions">
+                      <view class="crud-action secondary" bindtap="cancelCrudExecution">
+                        <text class="crud-action-text secondary">{{text.cancelExecute}}</text>
+                      </view>
+                      <view class="crud-action primary" bindtap="confirmCrudExecution">
+                        <text class="crud-action-text">{{text.confirmExecute}}</text>
+                      </view>
+                    </view>
+                  </view>
+
+                  <view class="message-bubble assistant-bubble result-bubble" wx:if="{{item.kind === 'crud_select'}}">
+                    <text class="result-title">{{item.title}}</text>
+                    <text class="result-summary">{{item.content}}</text>
+                    <view class="crud-item-list" wx:if="{{item.items.length}}">
+                      <view
+                        class="crud-item selectable"
+                        wx:for="{{item.items}}"
+                        wx:for-item="candidate"
+                        wx:key="id"
+                      >
+                        <view class="crud-item-main">
+                          <text class="crud-item-title">{{candidate.title}}</text>
+                          <text class="crud-item-subtitle">{{candidate.subtitle}}</text>
+                        </view>
+                      </view>
+                    </view>
+                    <view class="crud-item-list" wx:if="{{item.items.length}}">
+                      <view
+                        class="crud-pick"
+                        wx:for="{{item.items}}"
+                        wx:for-item="candidate"
+                        wx:key="id"
+                        data-item="{{candidate}}"
+                        data-payload-base="{{candidate.payloadBase}}"
+                        bindtap="selectCrudItem"
+                      >
+                        <text class="crud-pick-title">{{candidate.title}}</text>
+                        <text class="crud-pick-action">{{text.useThisOne}}</text>
+                      </view>
                     </view>
                   </view>
 
@@ -109,6 +171,17 @@
                 </view>
               </view>
             </view>
+
+            <view class="message-item" wx:if="{{isCrudExecuting}}" id="msg-crud-executing">
+              <view class="message-row">
+                <view class="message-avatar assistant-avatar">AI</view>
+                <view class="message-content">
+                  <view class="message-bubble assistant-bubble loading-bubble">
+                    <text class="loading-text">{{text.executingAction}}</text>
+                  </view>
+                </view>
+              </view>
+            </view>
           </view>
 
           <view class="empty-chat" wx:else>
@@ -142,7 +215,7 @@
         adjust-position="{{true}}"
         cursor-spacing="20"
       />
-      <view class="composer-send {{inputValue.trim() ? 'active' : ''}}" bindtap="onSend">
+      <view class="composer-send {{inputValue ? 'active' : ''}}" bindtap="onSend">
         <text class="composer-send-text">{{text.send}}</text>
       </view>
     </view>

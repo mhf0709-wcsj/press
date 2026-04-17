@@ -2,6 +2,7 @@ const cloud = require('wx-server-sdk')
 const https = require('https')
 const { getKnowledgeBase, getRelevantKnowledge } = require('./knowledge')
 const { buildVector, cosine, chunkText, formatDateTime } = require('./rag')
+const { createCrudHandlers } = require('./crud')
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -9,6 +10,7 @@ cloud.init({
 
 const db = cloud.database()
 const _ = db.command
+const { planCrudAction, executeCrudAction } = createCrudHandlers({ db, _, formatDateTime })
 const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY || 'sk-251b049bb72449b787ea51fac48cf2b5'
 const DASHSCOPE_MODEL = process.env.DASHSCOPE_MODEL || 'qwen3.5-flash'
 const DASHSCOPE_ENDPOINT = process.env.DASHSCOPE_ENDPOINT || 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions'
@@ -41,6 +43,20 @@ exports.main = async (event, context) => {
 
     // 解析用户权限
     const permission = parsePermission(userType, userInfo, openid)
+
+    if (action === 'crudPlan') {
+      return await planCrudAction({
+        question: String(question || ''),
+        permission
+      })
+    }
+
+    if (action === 'crudExecute') {
+      return await executeCrudAction({
+        payload: event.payload || {},
+        permission
+      })
+    }
     
     // 1. 检测问题意图
     const intent = detectIntent(question)
