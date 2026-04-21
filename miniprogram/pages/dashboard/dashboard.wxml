@@ -52,7 +52,7 @@
           <view class="enterprise-focus" wx:if="{{expiryEnterprises.length}}">
             <view class="enterprise-focus-header">
               <text class="focus-title">{{text.enterpriseRiskTitle}}</text>
-              <text class="focus-action" bindtap="goToEnterpriseList">{{text.viewAll}}</text>
+              <text class="focus-action" bindtap="openRiskEnterpriseList">{{text.viewAll}}</text>
             </view>
             <swiper
               class="focus-swiper"
@@ -63,14 +63,14 @@
               duration="500"
             >
               <swiper-item wx:for="{{expiryEnterprises}}" wx:key="enterpriseName">
-                <view class="list-cell focus-cell" bindtap="goToEnterpriseList">
+                <view class="list-cell focus-cell" bindtap="openRiskEnterpriseList">
                   <view>
                     <text class="cell-title">{{item.enterpriseName}}</text>
                     <text class="cell-subtitle">{{item.phone || text.noPhone}}</text>
                   </view>
                   <view class="focus-meta">
-                    <text class="focus-tag danger" wx:if="{{item.expiredCount > 0}}">{{item.expiredCount}}\u8fc7\u671f</text>
-                    <text class="focus-tag warning" wx:if="{{item.expiringCount > 0}}">{{item.expiringCount}}\u5373\u5c06\u5230\u671f</text>
+                    <text class="focus-tag danger" wx:if="{{item.expiredCount > 0}}">{{item.expiredCount}}过期</text>
+                    <text class="focus-tag warning" wx:if="{{item.expiringCount > 0}}">{{item.expiringCount}}即将到期</text>
                   </view>
                 </view>
               </swiper-item>

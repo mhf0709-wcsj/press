@@ -1,12 +1,5 @@
-/**
- * 压力表检定记录表单验证工具
- */
-
 const { formatDate } = require('./helpers/date')
 
-/**
- * 验证规则定义
- */
 const VALIDATION_RULES = {
   factoryNo: {
     required: true,
@@ -26,7 +19,7 @@ const VALIDATION_RULES = {
   },
   instrumentName: {
     required: false,
-    message: '计量器具名称格式不正确'
+    message: '仪表名称格式不正确'
   },
   conclusion: {
     required: false,
@@ -34,15 +27,10 @@ const VALIDATION_RULES = {
   }
 }
 
-/**
- * 验证检定记录表单
- * @param {Object} formData 表单数据
- * @returns {Object} 验证结果 { valid: boolean, errors: Array }
- */
 function validateRecordForm(formData) {
   const errors = []
 
-  if (!formData.factoryNo || !formData.factoryNo.trim()) {
+  if (!formData.factoryNo || !String(formData.factoryNo).trim()) {
     errors.push(VALIDATION_RULES.factoryNo.message)
   }
 
@@ -60,18 +48,11 @@ function validateRecordForm(formData) {
   }
 }
 
-/**
- * 验证图片上传
- * @param {string} imagePath 图片路径
- * @param {string} installPhotoPath 安装照片路径
- * @param {string} mode 模式 'ocr' 或 'manual'
- * @returns {Object} 验证结果
- */
 function validateImageUpload(imagePath, installPhotoPath, mode, gaugeStatus) {
   const errors = []
 
   if (mode === 'manual' && !imagePath) {
-    errors.push('请上传检定表图片')
+    errors.push('请上传检定证书照片')
   }
 
   if (gaugeStatus === '在用' && !installPhotoPath) {
@@ -84,11 +65,6 @@ function validateImageUpload(imagePath, installPhotoPath, mode, gaugeStatus) {
   }
 }
 
-/**
- * 验证用户登录状态
- * @param {Object} enterpriseUser 企业用户信息
- * @returns {Object} 验证结果
- */
 function validateUserLogin(enterpriseUser) {
   if (!enterpriseUser || !enterpriseUser.companyName) {
     return {
@@ -96,18 +72,14 @@ function validateUserLogin(enterpriseUser) {
       error: '请先登录'
     }
   }
+
   return { valid: true }
 }
 
-/**
- * 验证设备信息
- * @param {Object} newDevice 新设备信息
- * @returns {Object} 验证结果
- */
 function validateDevice(newDevice) {
   const errors = []
 
-  if (!newDevice.deviceName || !newDevice.deviceName.trim()) {
+  if (!newDevice.deviceName || !String(newDevice.deviceName).trim()) {
     errors.push('请输入设备名称')
   }
 
@@ -117,32 +89,22 @@ function validateDevice(newDevice) {
   }
 }
 
-/**
- * 验证日期有效性
- * @param {string} dateStr 日期字符串
- * @returns {boolean} 是否有效
- */
 function isValidDate(dateStr) {
   if (!dateStr) return false
   const date = new Date(dateStr)
   return !isNaN(date.getTime())
 }
 
-/**
- * 验证日期范围（检定日期不能晚于今天）
- * @param {string} verificationDate 检定日期
- * @returns {Object} 验证结果
- */
 function validateDateRange(verificationDate) {
   const today = formatDate(new Date())
-  
+
   if (verificationDate > today) {
     return {
       valid: false,
       error: '检定日期不能晚于今天'
     }
   }
-  
+
   return { valid: true }
 }
 

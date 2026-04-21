@@ -1,4 +1,4 @@
-<view class="page-shell enterprise-page">
+﻿<view class="page-shell enterprise-page">
   <scroll-view scroll-y class="enterprise-scroll">
     <view class="content-wrapper enterprise-wrapper">
       <view class="panel hero-panel">
@@ -41,3 +41,4 @@
     </view>
   </scroll-view>
 </view>
+

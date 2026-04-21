@@ -266,6 +266,10 @@ Page({
     })
   },
 
+  openRiskEnterpriseList() {
+    this.goToRiskEnterpriseList()
+  },
+
   goToDistrictList() {
     if (!this.data.isAdmin) {
       this.goToLedger()

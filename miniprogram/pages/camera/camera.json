@@ -1,1 +1,6 @@
-{"usingComponents":{"privacy":"/components/privacy/privacy"},"navigationBarTitleText":"AI识别录入"}
+{
+  "usingComponents": {
+    "privacy": "/components/privacy/privacy"
+  },
+  "navigationBarTitleText": "确认并保存"
+}

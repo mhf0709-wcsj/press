@@ -51,7 +51,7 @@ Page({
   },
 
   onLoad() {
-    this.loadEnterpriseUser()
+    wx.switchTab({ url: '/pages/workbench/workbench' })
   },
 
   onShow() {
@@ -67,11 +67,11 @@ Page({
   handleQuickAction(e) {
     const { key } = e.currentTarget.dataset
     if (key === 'camera') {
-      wx.navigateTo({ url: '/pages/camera/camera' })
+      wx.switchTab({ url: '/pages/ai-assistant/ai-assistant' })
       return
     }
     if (key === 'manual') {
-      wx.navigateTo({ url: '/pages/camera/camera?tab=manual' })
+      wx.switchTab({ url: '/pages/ai-assistant/ai-assistant' })
       return
     }
     if (key === 'equipment') {

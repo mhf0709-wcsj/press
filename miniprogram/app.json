@@ -2,9 +2,9 @@
   "pages": [
     "pages/ai-assistant/ai-assistant",
     "pages/workbench/workbench",
-    "pages/task-center/task-center",
     "pages/archive/archive",
     "pages/user/user",
+    "pages/task-center/task-center",
     "pages/camera/camera",
     "pages/detail/detail",
     "pages/device-list/device-list",
@@ -44,12 +44,6 @@
         "text": "\u8bbe\u5907\u4e2d\u5fc3",
         "iconPath": "images/icons/goods.png",
         "selectedIconPath": "images/icons/goods-active.png"
-      },
-      {
-        "pagePath": "pages/task-center/task-center",
-        "text": "\u5de5\u4f5c\u53f0",
-        "iconPath": "images/icons/home.png",
-        "selectedIconPath": "images/icons/home-active.png"
       },
       {
         "pagePath": "pages/user/user",

@@ -1,4 +1,5 @@
 const { SUBSCRIBE_TEMPLATE_IDS } = require('../../constants/index')
+const expiryReminderService = require('../../services/expiry-reminder-service')
 
 const TEXT = {
   title: '\u6211\u7684',
@@ -9,8 +10,18 @@ const TEXT = {
   companyName: '\u4f01\u4e1a\u540d\u79f0',
   creditCode: '\u4fe1\u7528\u4ee3\u7801',
   phone: '\u8054\u7cfb\u7535\u8bdd',
+  reminderSettings: '\u63d0\u9192\u8bbe\u7f6e',
   subscribe: '\u8ba2\u9605\u5230\u671f\u9884\u8b66\u901a\u77e5',
+  subscribeOn: '\u5df2\u5f00\u542f',
+  subscribeOff: '\u672a\u5f00\u542f',
+  subscribeHintOn: '\u5fae\u4fe1\u8ba2\u9605\u6d88\u606f\u5df2\u6388\u6743',
+  subscribeHintOff: '\u5efa\u8bae\u5f00\u542f\u540e\u83b7\u53d6\u5230\u671f\u901a\u77e5',
+  subscribeFallbackTitle: '\u5df2\u5f00\u542f\u7ad9\u5185\u63d0\u9192',
+  subscribeFallbackContent: '\u5f53\u524d\u8fd8\u6ca1\u6709\u914d\u7f6e\u5fae\u4fe1\u8ba2\u9605\u6d88\u606f\u6a21\u677f\uff0c\u6211\u5df2\u5148\u4e3a\u4f60\u5f00\u542f\u7ad9\u5185\u5230\u671f\u63d0\u9192\u3002\u540e\u7eed\u53ea\u9700\u8865\u914d\u6a21\u677f ID\uff0c\u5c31\u80fd\u518d\u5f00\u542f\u5fae\u4fe1\u63a8\u9001\u3002',
+  lastSubscribeTime: '\u6700\u8fd1\u6388\u6743',
+  assets: '\u6863\u6848\u5165\u53e3',
   archive: '\u8bbe\u5907\u6863\u6848',
+  gauges: '\u538b\u529b\u8868\u6863\u6848',
   clearCache: '\u6e05\u7406\u7f13\u5b58',
   logout: '\u9000\u51fa\u767b\u5f55',
   version: '\u538b\u529b\u8868\u68c0\u5b9a\u667a\u80fd\u4f53 v1.2.0'
@@ -19,7 +30,8 @@ const TEXT = {
 Page({
   data: {
     text: TEXT,
-    enterpriseUser: null
+    enterpriseUser: null,
+    alertSettings: null
   },
 
   onLoad() {
@@ -30,9 +42,28 @@ Page({
     this.loadEnterpriseInfo()
   },
 
-  loadEnterpriseInfo() {
+  async loadEnterpriseInfo() {
     const enterpriseUser = wx.getStorageSync('enterpriseUser')
     this.setData({ enterpriseUser })
+
+    if (enterpriseUser) {
+      await this.loadAlertSettings(enterpriseUser)
+      return
+    }
+
+    this.setData({ alertSettings: null })
+  },
+
+  async loadAlertSettings(enterpriseUser) {
+    const res = await expiryReminderService.getEnterpriseExpiryDashboard(enterpriseUser, 30)
+    if (!res || !res.success) {
+      this.setData({ alertSettings: null })
+      return
+    }
+
+    this.setData({
+      alertSettings: res.data?.subscription || null
+    })
   },
 
   clearCache() {
@@ -53,36 +84,73 @@ Page({
     wx.navigateTo({ url: '/pages/archive/archive' })
   },
 
+  goToGaugeLibrary() {
+    wx.navigateTo({ url: '/pages/device-list/device-list' })
+  },
+
   goToLogin() {
     wx.reLaunch({ url: '/pages/login/login' })
   },
 
-  subscribeAlert() {
+  async subscribeAlert() {
+    const enterpriseUser = this.data.enterpriseUser
+    if (!enterpriseUser) {
+      this.goToLogin()
+      return
+    }
+
     const appConfig = wx.getStorageSync('appConfig') || {}
     const tmplId = appConfig.deviceExpiryTemplateId || SUBSCRIBE_TEMPLATE_IDS.DEVICE_EXPIRY
     if (!tmplId) {
+      await expiryReminderService.saveAlertSettings(enterpriseUser, {
+        alertEnabled: true,
+        channels: {
+          wxSubscribe: false,
+          inApp: true,
+          sms: false
+        },
+        strategy: {
+          dailyDigestEnabled: true,
+          expiredEnabled: true,
+          expiringDays: [30]
+        }
+      })
+      await this.loadAlertSettings(enterpriseUser)
       wx.showModal({
-        title: '\u672a\u914d\u7f6e\u6a21\u677f',
-        content: '\u8bf7\u5148\u914d\u7f6e\u8bbe\u5907\u5230\u671f\u63d0\u9192\u6a21\u677f\u540e\u518d\u8bd5\u3002',
+        title: TEXT.subscribeFallbackTitle,
+        content: TEXT.subscribeFallbackContent,
         showCancel: false
       })
       return
     }
 
-    wx.requestSubscribeMessage({
-      tmplIds: [tmplId],
-      success(res) {
-        if (res[tmplId] === 'accept') {
-          wx.showToast({ title: '\u8ba2\u9605\u6210\u529f', icon: 'success' })
-          return
-        }
-        wx.showToast({ title: '\u5df2\u53d6\u6d88\u8ba2\u9605', icon: 'none' })
-      },
-      fail(err) {
-        console.error('订阅消息授权失败', err)
-        wx.showToast({ title: '\u8ba2\u9605\u5931\u8d25', icon: 'none' })
+    try {
+      const res = await expiryReminderService.requestSubscribeMessage([tmplId])
+      if (res[tmplId] === 'accept') {
+        await expiryReminderService.confirmWxSubscription(enterpriseUser, tmplId)
+        await expiryReminderService.saveAlertSettings(enterpriseUser, {
+          alertEnabled: true,
+          channels: {
+            wxSubscribe: true,
+            inApp: true,
+            sms: false
+          },
+          strategy: {
+            dailyDigestEnabled: true,
+            expiredEnabled: true,
+            expiringDays: [30]
+          }
+        })
+        await this.loadAlertSettings(enterpriseUser)
+        wx.showToast({ title: '\u8ba2\u9605\u6210\u529f', icon: 'success' })
+        return
       }
-    })
+
+      wx.showToast({ title: '\u5df2\u53d6\u6d88\u8ba2\u9605', icon: 'none' })
+    } catch (err) {
+      console.error('subscribe message auth failed', err)
+      wx.showToast({ title: '\u8ba2\u9605\u5931\u8d25', icon: 'none' })
+    }
   },
 
   logout() {
@@ -91,7 +159,7 @@ Page({
       content: '\u786e\u8ba4\u9000\u51fa\u5f53\u524d\u4f01\u4e1a\u8d26\u53f7\uff1f',
       success: (res) => {
         if (!res.confirm) return
-        this.setData({ enterpriseUser: null })
+        this.setData({ enterpriseUser: null, alertSettings: null })
         wx.clearStorageSync()
         wx.showToast({ title: '\u5df2\u9000\u51fa', icon: 'success' })
         setTimeout(() => {

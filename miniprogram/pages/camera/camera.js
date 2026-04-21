@@ -1,4 +1,4 @@
-
+﻿
 
 const ocrService = require('../../services/ocr-service')
 const aiExtractService = require('../../services/ai-extract-service')
@@ -9,6 +9,7 @@ const recordService = require('../../services/record-service')
 const formValidator = require('../../utils/form-validator')
 const { formatDate, formatDateTime, calculateExpiryDate } = require('../../utils/helpers/date')
 const { SUBSCRIBE_TEMPLATE_IDS } = require('../../constants/index')
+const debugLog = () => {}
 
 Page({
   data: {
@@ -50,9 +51,12 @@ Page({
   },
 
   onLoad(options) {
-    console.log('=== 数据填报页面启动 ===')
+    debugLog('camera confirm page load')
     if (options && options.tab === 'manual') {
-      this.setData({ activeTab: 'manual' })
+      this.setData({
+        activeTab: 'manual',
+        showEditForm: true
+      })
     }
     this.initPage(options)
   },
@@ -110,7 +114,7 @@ Page({
     if (
       instrumentName.includes('pressure') ||
       instrumentName.includes('gauge') ||
-      instrumentName.includes('压力') ||
+      instrumentName.includes('鍘嬪姏') ||
       instrumentName.includes('表') ||
       combined.includes('mpa') ||
       combined.includes('kpa') ||
@@ -131,7 +135,7 @@ Page({
   buildAiSummarySafe(sourceData = {}, category = {}, match = null) {
     const certNo = sourceData.certNo ? `证书号 ${sourceData.certNo}` : 'AI 已完成证书文本读取'
     const factoryNo = sourceData.factoryNo ? `出厂编号 ${sourceData.factoryNo}` : '出厂编号待确认'
-    const categoryText = category?.label ? `识别为${category.label}` : '已完成设备识别'
+    const categoryText = category?.label ? `识别为 ${category.label}` : '已完成设备识别'
 
     if (match && match.name) {
       return `${certNo}，${factoryNo}，${categoryText}，并建议归档到“${match.name}”。`
@@ -206,7 +210,7 @@ Page({
     return rawTokens
       .filter(Boolean)
       .map((item) => String(item).trim().toLowerCase())
-      .reduce((result, item) => result.concat(item.split(/[\s/(),，。_-]+/)), [])
+      .reduce((result, item) => result.concat(item.split(/[\s/(),锛屻€俖-]+/)), [])
       .filter((item) => item && item.length >= 2)
       .slice(0, 12)
   },
@@ -245,7 +249,7 @@ Page({
     if (adminUser) {
       this.setData({
         enterpriseUser: {
-          companyName: '管理端录入',
+          companyName: '\u7ba1\u7406\u7aef\u5f55\u5165',
           contact: adminUser.username,
           isAdmin: true,
           district: adminUser.district || null
@@ -282,7 +286,7 @@ Page({
         }
       })
     } catch (err) {
-      console.error('加载设备库失败:', err)
+      console.error('load equipment list failed:', err)
     }
   },
 
@@ -359,7 +363,7 @@ Page({
     }
 
     if (draft.extractedData.conclusion) {
-      const conclusions = ['合格', '不合格']
+      const conclusions = ['\u5408\u683c', '\u4e0d\u5408\u683c']
       const conclusionIndex = conclusions.indexOf(draft.extractedData.conclusion)
       if (conclusionIndex > -1) {
         nextData.conclusionIndex = conclusionIndex
@@ -369,7 +373,7 @@ Page({
     if (draft.extractedData.verificationDate) {
       const expiryDateStr = calculateExpiryDate(draft.extractedData.verificationDate)
       const expiryDate = new Date(expiryDateStr)
-      nextData.expiryDateText = `${expiryDate.getFullYear()}年${expiryDate.getMonth() + 1}月${expiryDate.getDate()}日`
+      nextData.expiryDateText = formatDate(expiryDate)
     }
 
     this.setData(nextData, () => {
@@ -383,7 +387,7 @@ Page({
       const today = formatDate(new Date())
       const expiryDateStr = calculateExpiryDate(today)
       const expiryDate = new Date(expiryDateStr)
-      const expiryText = `${expiryDate.getFullYear()}年${expiryDate.getMonth()+1}月${expiryDate.getDate()}日`
+      const expiryText = formatDate(expiryDate)
       this.setData({
         'formData.verificationDate': today,
         expiryDateText: expiryText
@@ -397,7 +401,7 @@ Page({
       const imagePath = await ocrService.chooseImage()
       this.setData({ imagePath })
     } catch (err) {
-      console.error('选择图片失败:', err)
+      console.error('choose image failed:', err)
     }
   },
 
@@ -419,7 +423,7 @@ Page({
 
   async startAIExtract() {
     if (!this.data.imagePath) {
-      wx.showToast({ title: '璇峰厛鎷嶆憚鍥剧墖', icon: 'none' })
+      wx.showToast({ title: '\u8bf7\u5148\u4e0a\u4f20\u56fe\u7247', icon: 'none' })
       return
     }
 
@@ -442,7 +446,7 @@ Page({
       })
       wx.showToast({ title: 'AI 分析完成', icon: 'success' })
     } catch (err) {
-      console.error('AI鎻愬彇澶辫触:', err)
+      console.error('AI extract failed:', err)
       wx.showToast({ title: err.message || 'AI 分析失败', icon: 'none', duration: 3000 })
     } finally {
       wx.hideLoading()
@@ -461,7 +465,7 @@ Page({
     })
 
     if (ocrData.conclusion) {
-      const conclusions = ['合格', '不合格']
+      const conclusions = ['\u5408\u683c', '\u4e0d\u5408\u683c']
       const index = conclusions.indexOf(ocrData.conclusion)
       if (index > -1) {
         this.setData({ conclusionIndex: index })
@@ -471,7 +475,7 @@ Page({
     if (ocrData.verificationDate) {
       const expiryDateStr = calculateExpiryDate(ocrData.verificationDate)
       const expiryDate = new Date(expiryDateStr)
-      const expiryText = `${expiryDate.getFullYear()}年${expiryDate.getMonth()+1}月${expiryDate.getDate()}日`
+      const expiryText = formatDate(expiryDate)
       this.setData({ expiryDateText: expiryText })
     }
 
@@ -486,7 +490,7 @@ Page({
       const imagePath = await ocrService.chooseImage()
       this.setData({ imagePath })
     } catch (err) {
-      console.error('上传图片失败:', err)
+      console.error('upload image failed:', err)
     }
   },
 
@@ -496,7 +500,7 @@ Page({
       const installPhotoPath = await ocrService.chooseImage()
       this.setData({ installPhotoPath })
     } catch (err) {
-      console.error('上传安装照片失败:', err)
+      console.error('upload install photo failed:', err)
     }
   },
 
@@ -548,7 +552,7 @@ Page({
   
   onConclusionChange(e) {
     const index = e.detail.value
-    const conclusions = ['合格', '不合格']
+    const conclusions = ['\u5408\u683c', '\u4e0d\u5408\u683c']
     this.setData({
       conclusionIndex: index,
       'formData.conclusion': conclusions[index]
@@ -560,7 +564,7 @@ Page({
     const date = e.detail.value
     const expiryDateStr = calculateExpiryDate(date)
     const expiryDate = new Date(expiryDateStr)
-    const expiryText = `${expiryDate.getFullYear()}年${expiryDate.getMonth()+1}月${expiryDate.getDate()}日`
+    const expiryText = formatDate(expiryDate)
     this.setData({
       'formData.verificationDate': date,
       expiryDateText: expiryText
@@ -592,16 +596,7 @@ Page({
 
   
   goBack() {
-    const { activeTab } = this.data
-    if (activeTab === 'manual') {
-      this.setData({ activeTab: 'ocr' })
-    } else {
-      this.setData({
-        showEditForm: false,
-        imagePath: '',
-        qualityScore: 0
-      })
-    }
+    wx.navigateBack()
   },
 
   
@@ -675,12 +670,12 @@ Page({
     }
 
     if ((formData.conclusion || '').trim() !== '合格') {
-      wx.showToast({ title: '仅支持检定合格的压力表生成压力表码', icon: 'none' })
+      wx.showToast({ title: '\u4ec5\u652f\u6301\u68c0\u5b9a\u5408\u683c\u7684\u538b\u529b\u8868\u751f\u6210\u538b\u529b\u8868\u7801', icon: 'none' })
       return
     }
 
     if (!selectedEquipmentId) {
-      wx.showToast({ title: '请先选择设备（必选）', icon: 'none' })
+      wx.showToast({ title: '请先选择所属设备', icon: 'none' })
       return
     }
 
@@ -711,7 +706,7 @@ Page({
       await deviceService.updateRecordCount(gauge._id)
 
       wx.hideLoading()
-      wx.showToast({ title: '✓ 存档成功', icon: 'success', duration: 1500 })
+      wx.showToast({ title: '存档成功', icon: 'success', duration: 1500 })
       this.resetForm()
 
       if (!fromAdmin) {
@@ -729,7 +724,7 @@ Page({
         url: `/pages/equipment-detail/equipment-detail?id=${equipmentId}&highlightGaugeId=${gauge._id}`
       })
     } catch (err) {
-      console.error('保存记录失败:', err)
+      console.error('save record failed:', err)
       wx.hideLoading()
       this.setData({ saving: false })
       wx.showToast({ title: err?.message || '保存失败', icon: 'none', duration: 2000 })
@@ -757,19 +752,50 @@ Page({
   async requestSubscribeMessage() {
     const appConfig = wx.getStorageSync('appConfig') || {}
     const tmplId = appConfig.deviceExpiryTemplateId || SUBSCRIBE_TEMPLATE_IDS.DEVICE_EXPIRY
-    if (!tmplId) return
+    if (!tmplId) {
+      const enterpriseUser = wx.getStorageSync('enterpriseUser')
+      if (enterpriseUser) {
+        await expiryReminderService.saveAlertSettings(enterpriseUser, {
+          alertEnabled: true,
+          channels: {
+            wxSubscribe: false,
+            inApp: true,
+            sms: false
+          },
+          strategy: {
+            dailyDigestEnabled: true,
+            expiredEnabled: true,
+            expiringDays: [30]
+          }
+        })
+      }
+      return
+    }
     const templateIds = [tmplId]
 
     try {
       const res = await expiryReminderService.requestSubscribeMessage(templateIds)
       if (res[templateIds[0]] === 'accept') {
         const enterpriseUser = wx.getStorageSync('enterpriseUser')
-        if (enterpriseUser && enterpriseUser._id) {
-          await expiryReminderService.saveSubscribeStatus(enterpriseUser._id, true)
+        if (enterpriseUser) {
+          await expiryReminderService.confirmWxSubscription(enterpriseUser, templateIds[0])
+          await expiryReminderService.saveAlertSettings(enterpriseUser, {
+            alertEnabled: true,
+            channels: {
+              wxSubscribe: true,
+              inApp: true,
+              sms: false
+            },
+            strategy: {
+              dailyDigestEnabled: true,
+              expiredEnabled: true,
+              expiringDays: [30]
+            }
+          })
         }
       }
     } catch (err) {
-      console.log('订阅消息授权失败:', err)
+      debugLog('subscribe message auth failed', err)
     }
   },
 
@@ -823,3 +849,5 @@ Page({
     wx.navigateTo({ url: '/pages/archive/archive' })
   }
 })
+
+

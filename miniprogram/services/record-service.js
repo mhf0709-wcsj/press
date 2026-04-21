@@ -1,25 +1,22 @@
-/**
- * 记录保存服务模块
- * 负责检定记录的保存和管理
- */
+﻿/**
+ * 璁板綍淇濆瓨鏈嶅姟妯″潡
+ * 璐熻矗妫€瀹氳褰曠殑淇濆瓨鍜岀鐞? */
 
 const db = wx.cloud.database()
 const { formatDate, formatDateTime } = require('../utils/helpers/date')
 
 /**
- * 记录保存服务类
- */
+ * 璁板綍淇濆瓨鏈嶅姟绫? */
 class RecordService {
   /**
-   * 保存检定记录
-   * @param {Object} recordData 记录数据
-   * @param {Object} options 选项
-   * @returns {Promise<Object>} 保存结果
+   * 淇濆瓨妫€瀹氳褰?   * @param {Object} recordData 璁板綍鏁版嵁
+   * @param {Object} options 閫夐」
+   * @returns {Promise<Object>} 淇濆瓨缁撴灉
    */
   async saveRecord(recordData, options = {}) {
     const { imagePath, installPhotoPath, fromAdmin, enterpriseUser, selectedDeviceId } = options
     if (!selectedDeviceId) {
-      throw new Error('必须选择压力表（且必须关联设备）')
+      throw new Error('蹇呴』閫夋嫨鍘嬪姏琛紙涓斿繀椤诲叧鑱旇澶囷級')
     }
 
     const verifyDate = new Date(recordData.verificationDate)
@@ -30,10 +27,10 @@ class RecordService {
     const deviceRes = await db.collection('devices').doc(selectedDeviceId).get()
     const device = deviceRes.data
     if (!device) {
-      throw new Error('所选压力表不存在')
+      throw new Error('\u6240\u9009\u538b\u529b\u8868\u4e0d\u5b58\u5728')
     }
     if (!device.equipmentId) {
-      throw new Error('所选压力表未关联设备，请先在设备库绑定')
+      throw new Error('鎵€閫夊帇鍔涜〃鏈叧鑱旇澶囷紝璇峰厛鍦ㄨ澶囧簱缁戝畾')
     }
 
     if (recordData.district) {
@@ -85,16 +82,16 @@ class RecordService {
       
       return result
     } catch (err) {
-      console.error('保存记录失败:', err)
+      console.error('淇濆瓨璁板綍澶辫触:', err)
       throw err
     }
   }
 
   /**
-   * 上传安装照片
-   * @param {string} filePath 文件路径
-   * @param {string} factoryNo 出厂编号
-   * @returns {Promise<string>} 文件ID
+   * 涓婁紶瀹夎鐓х墖
+   * @param {string} filePath 鏂囦欢璺緞
+   * @param {string} factoryNo 鍑哄巶缂栧彿
+   * @returns {Promise<string>} 鏂囦欢ID
    */
   async uploadInstallPhoto(filePath, factoryNo) {
     const cloudPath = `install-photos/${factoryNo}_${Date.now()}.jpg`
@@ -110,10 +107,10 @@ class RecordService {
   }
 
   /**
-   * 上传证书图片
-   * @param {string} filePath 文件路径
-   * @param {string} factoryNo 出厂编号
-   * @returns {Promise<string>} 文件ID
+   * 涓婁紶璇佷功鍥剧墖
+   * @param {string} filePath 鏂囦欢璺緞
+   * @param {string} factoryNo 鍑哄巶缂栧彿
+   * @returns {Promise<string>} 鏂囦欢ID
    */
   async uploadCertificateImage(filePath, factoryNo) {
     const cloudPath = `pressure-certificates/${factoryNo}_${Date.now()}.jpg`
@@ -129,29 +126,28 @@ class RecordService {
   }
 
   /**
-   * 保存到数据库
-   * @param {Object} data 数据
-   * @returns {Promise<Object>} 保存结果
+   * 淇濆瓨鍒版暟鎹簱
+   * @param {Object} data 鏁版嵁
+   * @returns {Promise<Object>} 淇濆瓨缁撴灉
    */
   async saveToDB(data) {
     try {
       const res = await db.collection('pressure_records').add({ data })
-      console.log('✓ 存档成功:', res._id)
       
       return {
         _id: res._id,
         success: true
       }
     } catch (err) {
-      console.error('✗ 保存失败:', err)
+      console.error('鉁?淇濆瓨澶辫触:', err)
       throw err
     }
   }
 
   /**
-   * 获取记录列表
-   * @param {Object} options 查询选项
-   * @returns {Promise<Array>} 记录列表
+   * 鑾峰彇璁板綍鍒楄〃
+   * @param {Object} options 鏌ヨ閫夐」
+   * @returns {Promise<Array>} 璁板綍鍒楄〃
    */
   async getRecords(options = {}) {
     const { enterpriseName, district, status, limit = 100 } = options
@@ -179,30 +175,30 @@ class RecordService {
       
       return res.data
     } catch (err) {
-      console.error('获取记录失败:', err)
+      console.error('鑾峰彇璁板綍澶辫触:', err)
       throw err
     }
   }
 
   /**
-   * 获取记录详情
-   * @param {string} recordId 记录ID
-   * @returns {Promise<Object>} 记录详情
+   * 鑾峰彇璁板綍璇︽儏
+   * @param {string} recordId 璁板綍ID
+   * @returns {Promise<Object>} 璁板綍璇︽儏
    */
   async getRecordById(recordId) {
     try {
       const res = await db.collection('pressure_records').doc(recordId).get()
       return res.data
     } catch (err) {
-      console.error('获取记录详情失败:', err)
+      console.error('鑾峰彇璁板綍璇︽儏澶辫触:', err)
       throw err
     }
   }
 
   /**
-   * 更新记录
-   * @param {string} recordId 记录ID
-   * @param {Object} data 更新数据
+   * 鏇存柊璁板綍
+   * @param {string} recordId 璁板綍ID
+   * @param {Object} data 鏇存柊鏁版嵁
    * @returns {Promise<void>}
    */
   async updateRecord(recordId, data) {
@@ -214,30 +210,29 @@ class RecordService {
         }
       })
     } catch (err) {
-      console.error('更新记录失败:', err)
+      console.error('鏇存柊璁板綍澶辫触:', err)
       throw err
     }
   }
 
   /**
-   * 删除记录
-   * @param {string} recordId 记录ID
+   * 鍒犻櫎璁板綍
+   * @param {string} recordId 璁板綍ID
    * @returns {Promise<void>}
    */
   async deleteRecord(recordId) {
     try {
       await db.collection('pressure_records').doc(recordId).remove()
     } catch (err) {
-      console.error('删除记录失败:', err)
+      console.error('鍒犻櫎璁板綍澶辫触:', err)
       throw err
     }
   }
 
   /**
-   * 搜索记录
-   * @param {string} keyword 关键词
-   * @param {Object} options 选项
-   * @returns {Promise<Array>} 搜索结果
+   * 鎼滅储璁板綍
+   * @param {string} keyword 鍏抽敭璇?   * @param {Object} options 閫夐」
+   * @returns {Promise<Array>} 鎼滅储缁撴灉
    */
   async searchRecords(keyword, options = {}) {
     const { enterpriseName, limit = 50 } = options
@@ -268,10 +263,12 @@ class RecordService {
       
       return res.data
     } catch (err) {
-      console.error('搜索记录失败:', err)
+      console.error('鎼滅储璁板綍澶辫触:', err)
       throw err
     }
   }
 }
 
 module.exports = new RecordService()
+
+

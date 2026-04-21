@@ -114,7 +114,7 @@ Page({
     if (!name) return
 
     wx.navigateTo({
-      url: `/pages/admin/admin?view=equipments&enterprise=${encodeURIComponent(name)}&from=dashboard&filter=expiry`
+      url: `/pages/admin/admin?view=equipments&enterprise=${encodeURIComponent(name)}&from=dashboard&filter=${this.data.mode === 'risk' ? 'risk' : 'expiry'}`
     })
   }
 })

@@ -48,13 +48,35 @@
 
     <view class="profile-section panel">
       <view class="panel-section">
+        <view class="section-title" wx:if="{{enterpriseUser}}">{{text.reminderSettings}}</view>
         <view class="profile-menu-list">
           <view class="list-cell" bindtap="subscribeAlert" wx:if="{{enterpriseUser}}">
-            <view class="cell-title">{{text.subscribe}}</view>
-            <view class="cell-meta">></view>
+            <view class="profile-info-copy">
+              <view class="cell-title">{{text.subscribe}}</view>
+              <view class="cell-subtitle">{{alertSettings && alertSettings.wxSubscribed ? text.subscribeHintOn : text.subscribeHintOff}}</view>
+            </view>
+            <view class="cell-meta">{{alertSettings && alertSettings.wxSubscribed ? text.subscribeOn : text.subscribeOff}}</view>
           </view>
+          <view class="list-cell" wx:if="{{enterpriseUser && alertSettings && alertSettings.lastSubscribeTime}}">
+            <view class="profile-info-copy">
+              <view class="cell-subtitle">{{text.lastSubscribeTime}}</view>
+              <view class="cell-title">{{alertSettings.lastSubscribeTime}}</view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="profile-section panel">
+      <view class="panel-section">
+        <view class="section-title" wx:if="{{enterpriseUser}}">{{text.assets}}</view>
+        <view class="profile-menu-list">
           <view class="list-cell" bindtap="goToEquipmentLibrary" wx:if="{{enterpriseUser}}">
             <view class="cell-title">{{text.archive}}</view>
+            <view class="cell-meta">></view>
+          </view>
+          <view class="list-cell" bindtap="goToGaugeLibrary" wx:if="{{enterpriseUser}}">
+            <view class="cell-title">{{text.gauges}}</view>
             <view class="cell-meta">></view>
           </view>
           <view class="list-cell" bindtap="clearCache">

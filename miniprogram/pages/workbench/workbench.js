@@ -1,13 +1,24 @@
 const db = wx.cloud.database()
 const _ = db.command
+const expiryReminderService = require('../../services/expiry-reminder-service')
 
 const TEXT = {
   eyebrow: '\u8bbe\u5907\u4e2d\u5fc3',
   title: '\u8bbe\u5907\u4e2d\u5fc3',
-  companyFallback: '\u672a\u767b\u5f55\u4f01\u4e1a',
-  companyTag: '\u4f01\u4e1a\u7aef',
   dashboardTitle: '\u4eea\u8868\u76d8',
   dashboardNote: '\u70b9\u51fb\u5361\u7247\u53ef\u67e5\u770b\u76f8\u5e94\u660e\u7ec6',
+  createEquipment: '\u65b0\u5efa\u8bbe\u5907',
+  reminderTitle: '\u5230\u671f\u63d0\u9192',
+  reminderManage: '\u7ba1\u7406\u63d0\u9192',
+  reminderSummary: '\u60a8\u6709 {expired} \u53f0\u5df2\u8fc7\u671f\uff0c{expiring} \u53f0\u5c06\u5728 30 \u5929\u5185\u5230\u671f',
+  reminderEmpty: '\u6682\u65f6\u6ca1\u6709\u9700\u8981\u5904\u7406\u7684\u5230\u671f\u63d0\u9192',
+  reminderExpired: '\u67e5\u770b\u5df2\u8fc7\u671f',
+  reminderExpiring: '\u67e5\u770b\u5373\u5c06\u5230\u671f',
+  reminderSubscribeOn: '\u5fae\u4fe1\u63d0\u9192\u5df2\u5f00\u542f',
+  reminderInAppOn: '\u7ad9\u5185\u63d0\u9192\u5df2\u5f00\u542f',
+  reminderSubscribeOff: '\u672a\u5f00\u542f\u5fae\u4fe1\u63d0\u9192',
+  reminderMetaExpired: '\u5df2\u8fc7\u671f',
+  reminderMetaExpiring: '\u5373\u5c06\u5230\u671f',
   recentTitle: '\u6700\u8fd1\u5f55\u5165',
   recentMore: '\u5168\u90e8',
   recentEmpty: '\u6682\u65e0\u6700\u8fd1\u8bb0\u5f55',
@@ -26,6 +37,7 @@ Page({
     text: TEXT,
     enterpriseUser: null,
     summaryCards: [],
+    expiryReminder: null,
     recentRecords: [],
     loading: false
   },
@@ -57,6 +69,7 @@ Page({
     try {
       await Promise.all([
         this.loadDashboard(enterpriseUser),
+        this.loadExpiryReminder(enterpriseUser),
         this.loadRecentRecords(enterpriseUser)
       ])
     } catch (error) {
@@ -111,6 +124,40 @@ Page({
     })
   },
 
+  async loadExpiryReminder(enterpriseUser) {
+    const res = await expiryReminderService.getEnterpriseExpiryDashboard(enterpriseUser, 30)
+    if (!res || !res.success) {
+      this.setData({ expiryReminder: null })
+      return
+    }
+
+    const data = res.data || {}
+    const expiredCount = data.expiredCount || 0
+    const expiringCount = data.expiringCount || 0
+    const summary = TEXT.reminderSummary
+      .replace('{expired}', String(expiredCount))
+      .replace('{expiring}', String(expiringCount))
+
+    const items = (data.recentItems || []).map((item) => ({
+      _id: item._id,
+      title: item.factoryNo || item.instrumentName || TEXT.fallbackRecordTitle,
+      subtitle: item.instrumentName || TEXT.fallbackRecordSubtitle,
+      meta: item.expiryDate || '',
+      statusText: item.expiryStatus === 'expired' ? TEXT.reminderMetaExpired : TEXT.reminderMetaExpiring
+    }))
+
+    this.setData({
+      expiryReminder: {
+        expiredCount,
+        expiringCount,
+        summary,
+        items,
+        wxSubscribed: !!data.subscription?.wxSubscribed,
+        inAppEnabled: data.subscription?.alertEnabled !== false
+      }
+    })
+  },
+
   onTapDashboardCard(e) {
     const { key } = e.currentTarget.dataset
     if (key === 'gauge') {
@@ -118,6 +165,28 @@ Page({
       return
     }
     wx.navigateTo({ url: '/pages/archive/archive' })
+  },
+
+  goToAlertSettings() {
+    wx.switchTab({ url: '/pages/user/user' })
+  },
+
+  goToExpiredRecords() {
+    wx.navigateTo({ url: '/pages/archive/archive?filter=expired' })
+  },
+
+  goToExpiringRecords() {
+    wx.navigateTo({ url: '/pages/archive/archive?filter=expiring' })
+  },
+
+  openExpiryRecord(e) {
+    const { id } = e.currentTarget.dataset
+    if (!id) return
+    wx.navigateTo({ url: `/pages/detail/detail?id=${id}` })
+  },
+
+  goToCreateEquipment() {
+    wx.navigateTo({ url: '/pages/equipment-detail/equipment-detail?mode=create' })
   },
 
   openRecord(e) {

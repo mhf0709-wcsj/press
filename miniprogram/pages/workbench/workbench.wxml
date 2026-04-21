@@ -4,17 +4,18 @@
       <view class="panel-section">
         <view class="eyebrow">{{text.eyebrow}}</view>
         <view class="page-title device-title">{{text.title}}</view>
-        <view class="device-identity glass-card">
-          <view class="device-company">{{enterpriseUser.companyName || text.companyFallback}}</view>
-          <view class="device-tag">{{text.companyTag}}</view>
-        </view>
       </view>
     </view>
 
     <view class="device-section panel">
       <view class="panel-section">
-        <view class="section-title">{{text.dashboardTitle}}</view>
-        <view class="section-note">{{text.dashboardNote}}</view>
+        <view class="device-section-head">
+          <view>
+            <view class="section-title">{{text.dashboardTitle}}</view>
+            <view class="section-note">{{text.dashboardNote}}</view>
+          </view>
+          <view class="device-create" bindtap="goToCreateEquipment">{{text.createEquipment}}</view>
+        </view>
 
         <view class="device-grid">
           <view
@@ -26,6 +27,52 @@
           >
             <text class="device-stat-value">{{item.value}}</text>
             <text class="device-stat-label">{{item.label}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="device-section panel">
+      <view class="panel-section">
+        <view class="device-section-head">
+          <view>
+            <view class="section-title">{{text.reminderTitle}}</view>
+            <view class="section-note">{{expiryReminder ? expiryReminder.summary : text.reminderEmpty}}</view>
+          </view>
+          <view class="device-more" bindtap="goToAlertSettings">{{text.reminderManage}}</view>
+        </view>
+
+        <view class="reminder-overview" wx:if="{{expiryReminder}}">
+          <view class="reminder-pill danger" bindtap="goToExpiredRecords">
+            <text class="reminder-pill-value">{{expiryReminder.expiredCount}}</text>
+            <text class="reminder-pill-label">{{text.reminderExpired}}</text>
+          </view>
+          <view class="reminder-pill warning" bindtap="goToExpiringRecords">
+            <text class="reminder-pill-value">{{expiryReminder.expiringCount}}</text>
+            <text class="reminder-pill-label">{{text.reminderExpiring}}</text>
+          </view>
+        </view>
+
+        <view class="reminder-subscribe" wx:if="{{expiryReminder}}">
+          <text class="reminder-subscribe-text">{{expiryReminder.wxSubscribed ? text.reminderSubscribeOn : (expiryReminder.inAppEnabled ? text.reminderInAppOn : text.reminderSubscribeOff)}}</text>
+        </view>
+
+        <view class="device-record-list" wx:if="{{expiryReminder && expiryReminder.items.length > 0}}">
+          <view
+            class="list-cell"
+            wx:for="{{expiryReminder.items}}"
+            wx:key="_id"
+            data-id="{{item._id}}"
+            bindtap="openExpiryRecord"
+          >
+            <view class="device-cell-copy">
+              <view class="cell-title">{{item.title}}</view>
+              <view class="cell-subtitle">{{item.subtitle}}</view>
+            </view>
+            <view class="reminder-cell-meta">
+              <text class="cell-meta">{{item.meta}}</text>
+              <text class="reminder-cell-tag {{item.statusText === text.reminderExpired ? 'danger' : 'warning'}}">{{item.statusText}}</text>
+            </view>
           </view>
         </view>
       </view>

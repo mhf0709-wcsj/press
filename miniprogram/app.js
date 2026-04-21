@@ -1,7 +1,9 @@
-const { CLOUD_CONFIG, ROUTES } = require('./constants/index.js')
+﻿const { CLOUD_CONFIG, ROUTES } = require('./constants/index.js')
 const { storage } = require('./utils/index.js')
 const { cache } = require('./utils/cache.js')
 const { ErrorHandler } = require('./utils/error-handler.js')
+
+const debugLog = () => {}
 
 App({
   globalData: {
@@ -12,7 +14,7 @@ App({
   },
 
   onLaunch() {
-    console.log('[App] launch')
+    debugLog('[App] launch')
     this.initCloud()
     this.getSystemInfo()
     this.watchNetworkStatus()
@@ -21,11 +23,11 @@ App({
   },
 
   onShow() {
-    console.log('[App] show')
+    debugLog('[App] show')
   },
 
   onHide() {
-    console.log('[App] hide')
+    debugLog('[App] hide')
   },
 
   onError(msg) {
@@ -49,14 +51,14 @@ App({
       traceUser: CLOUD_CONFIG.TRACE_USER
     })
 
-    console.log('[Cloud] init success')
+    debugLog('[Cloud] init success')
   },
 
   getSystemInfo() {
     try {
       const res = wx.getSystemInfoSync()
       this.globalData.systemInfo = res
-      console.log('[App] system:', res.model, res.system)
+      debugLog('[App] system:', res.model, res.system)
       cache.set('systemInfo', res, 24 * 60 * 60 * 1000)
     } catch (error) {
       console.error('[App] getSystemInfo failed:', error)
@@ -74,7 +76,7 @@ App({
           duration: 2000
         })
       } else {
-        console.log('[Network] restored:', res.networkType)
+        debugLog('[Network] restored:', res.networkType)
       }
     })
 
@@ -86,7 +88,7 @@ App({
   },
 
   async preloadCriticalData() {
-    console.log('[App] preload config')
+    debugLog('[App] preload config')
 
     try {
       const config = await this.fetchConfig()
@@ -111,7 +113,7 @@ App({
     const adminUser = storage.getAdminUser()
 
     if (enterpriseUser) {
-      console.log('[Auth] enterprise login:', enterpriseUser.companyName)
+      debugLog('[Auth] enterprise login:', enterpriseUser.companyName)
       this.globalData.userInfo = enterpriseUser
       this.globalData.isLogin = true
       wx.switchTab({ url: ROUTES.AI_ASSISTANT })
@@ -119,14 +121,14 @@ App({
     }
 
     if (adminUser) {
-      console.log('[Auth] admin login')
+      debugLog('[Auth] admin login')
       this.globalData.userInfo = adminUser
       this.globalData.isLogin = true
       wx.redirectTo({ url: ROUTES.DASHBOARD })
       return
     }
 
-    console.log('[Auth] no login')
+    debugLog('[Auth] no login')
     this.globalData.userInfo = null
     this.globalData.isLogin = false
     wx.reLaunch({ url: ROUTES.LOGIN })
@@ -149,3 +151,4 @@ App({
     return ErrorHandler.handle(error, options)
   }
 })
+

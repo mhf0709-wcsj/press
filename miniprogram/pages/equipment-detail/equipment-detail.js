@@ -261,7 +261,7 @@ Page({
       id: equipmentId,
       name: equipment.equipmentName || ''
     })
-    wx.switchTab({ url: '/pages/camera/camera' })
+    wx.switchTab({ url: '/pages/ai-assistant/ai-assistant' })
   },
 
   goGaugeDetail(e) {

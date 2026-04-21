@@ -12,32 +12,6 @@
   margin-top: var(--space-4);
 }
 
-.device-identity {
-  margin-top: var(--space-5);
-  padding: var(--space-5);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.device-company {
-  flex: 1;
-  min-width: 0;
-  font-size: var(--font-size-callout);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-main);
-}
-
-.device-tag {
-  flex-shrink: 0;
-  padding: 10rpx 18rpx;
-  border-radius: var(--radius-pill);
-  background: var(--color-fill-soft);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-caption);
-}
-
 .device-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -91,11 +65,100 @@
   font-weight: var(--font-weight-medium);
 }
 
+.device-create {
+  flex-shrink: 0;
+  min-height: 64rpx;
+  padding: 0 26rpx;
+  border-radius: var(--radius-pill);
+  background: var(--color-brand);
+  color: var(--color-text-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+}
+
 .device-record-list {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   margin-top: var(--space-5);
+}
+
+.reminder-overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.reminder-pill {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  background: rgba(17, 24, 39, 0.04);
+}
+
+.reminder-pill.warning {
+  background: var(--color-warning-soft);
+}
+
+.reminder-pill.danger {
+  background: var(--color-danger-soft);
+}
+
+.reminder-pill-value {
+  font-size: 44rpx;
+  line-height: 1;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-main);
+}
+
+.reminder-pill-label {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+}
+
+.reminder-subscribe {
+  margin-top: var(--space-4);
+  padding: 18rpx 20rpx;
+  border-radius: 18rpx;
+  background: rgba(17, 24, 39, 0.03);
+}
+
+.reminder-subscribe-text {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+}
+
+.reminder-cell-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8rpx;
+}
+
+.reminder-cell-tag {
+  min-height: 44rpx;
+  padding: 0 18rpx;
+  border-radius: var(--radius-pill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22rpx;
+  color: var(--color-text-main);
+  background: rgba(17, 24, 39, 0.06);
+}
+
+.reminder-cell-tag.warning {
+  background: var(--color-warning-soft);
+}
+
+.reminder-cell-tag.danger {
+  background: var(--color-danger-soft);
 }
 
 .device-cell-copy {

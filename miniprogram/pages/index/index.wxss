@@ -1,118 +1,29 @@
-/**index.wxss**/
 page {
-  background-color: #F3F4F6;
-  padding-bottom: 60rpx;
+  background: #f5f7fb;
 }
 
-.header {
-  margin: 40rpx 0 60rpx;
-  text-align: center;
+.legacy-page {
+  min-height: 100vh;
+  padding: 120rpx 32rpx;
+  box-sizing: border-box;
 }
 
-.header-title {
-  font-size: 48rpx;
+.legacy-card {
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 32rpx;
+  padding: 48rpx 40rpx;
+  box-shadow: 0 20rpx 60rpx rgba(31, 54, 88, 0.08);
+}
+
+.legacy-title {
+  font-size: 40rpx;
   font-weight: 600;
-  color: #1F2937;
-  margin-bottom: 16rpx;
+  color: #1f2937;
 }
 
-.header-subtitle {
+.legacy-subtitle {
+  margin-top: 18rpx;
   font-size: 28rpx;
-  color: #6B7280;
-}
-
-.power-list {
-  width: 100%;
-  max-width: 680rpx;
-}
-
-.power-card {
-  padding: 0 !important; /* Override default card padding to control inner layout */
-  margin-bottom: 32rpx;
-  transition: all 0.3s ease;
-}
-
-.power-header {
-  padding: 40rpx;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.power-info {
-  flex: 1;
-}
-
-.power-title {
-  font-size: 34rpx;
-  font-weight: 600;
-  color: #111827;
-  margin-bottom: 8rpx;
-  display: flex;
-  align-items: center;
-}
-
-.tag {
-  margin-left: 16rpx;
-  background-color: #FEF2F2;
-  color: #EF4444;
-  padding: 4rpx 12rpx;
-  font-size: 22rpx;
-  border-radius: 8rpx;
-  font-weight: 500;
-}
-
-.power-desc {
-  font-size: 26rpx;
-  color: #6B7280;
-}
-
-.arrow-icon {
-  width: 32rpx;
-  height: 32rpx;
-  transition: transform 0.3s ease;
-  opacity: 0.4;
-}
-
-.arrow-icon.expanded {
-  transform: rotate(90deg);
-}
-
-.power-content {
-  overflow: hidden;
-  max-height: 0;
-  transition: max-height 0.3s ease-out;
-}
-
-.power-content.show {
-  max-height: 500rpx; /* Approximate max height */
-}
-
-.divider {
-  height: 2rpx;
-  background-color: #F3F4F6;
-  margin: 0 40rpx;
-}
-
-.sub-item {
-  padding: 32rpx 40rpx;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  transition: background-color 0.2s;
-}
-
-.sub-item:active {
-  background-color: #F9FAFB;
-}
-
-.sub-item-title {
-  font-size: 28rpx;
-  color: #374151;
-}
-
-.sub-item-arrow {
-  width: 24rpx;
-  height: 24rpx;
-  opacity: 0.3;
+  line-height: 1.7;
+  color: #6b7280;
 }

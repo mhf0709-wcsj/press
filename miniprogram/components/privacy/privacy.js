@@ -5,10 +5,8 @@ Component({
 
   lifetimes: {
     attached() {
-      // 监听隐私协议弹窗
       if (wx.onNeedPrivacyAuthorization) {
-        wx.onNeedPrivacyAuthorization((resolve, eventInfo) => {
-          console.log('触发隐私授权弹窗', eventInfo)
+        wx.onNeedPrivacyAuthorization((resolve) => {
           this.setData({ showPrivacy: true })
           this.resolvePrivacyAuthorization = resolve
         })
@@ -17,12 +15,9 @@ Component({
   },
 
   methods: {
-    // 打开隐私协议
     openPrivacyContract() {
       wx.openPrivacyContract({
-        success: (res) => {
-          console.log('打开隐私协议成功', res)
-        },
+        success: () => {},
         fail: (err) => {
           console.error('打开隐私协议失败', err)
           wx.showToast({ title: '打开失败', icon: 'none' })
@@ -30,7 +25,6 @@ Component({
       })
     },
 
-    // 同意隐私协议
     handleAgree() {
       this.setData({ showPrivacy: false })
       if (this.resolvePrivacyAuthorization) {
@@ -39,7 +33,6 @@ Component({
       }
     },
 
-    // 拒绝隐私协议
     handleDisagree() {
       this.setData({ showPrivacy: false })
       if (this.resolvePrivacyAuthorization) {

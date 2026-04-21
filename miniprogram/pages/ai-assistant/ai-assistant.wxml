@@ -1,4 +1,4 @@
-<view class="page-shell ai-page">
+﻿<view class="page-shell ai-page">
   <scroll-view
     scroll-y
     class="page-scroll"
@@ -20,12 +20,12 @@
             <view class="soft-button ai-action" bindtap="onUploadVisionImage">
               <text class="ai-action-text">{{visionDraft ? text.uploadAgain : text.uploadCta}}</text>
             </view>
-            <view class="primary-button ai-action {{visionDraft ? 'is-active' : 'is-disabled'}}" bindtap="goToDraftConfirm">
-              <text class="ai-action-text is-primary">{{text.confirmDraft}}</text>
+            <view class="soft-button ai-action" bindtap="goToManualEntry">
+              <text class="ai-action-text">{{text.manualEntry}}</text>
             </view>
           </view>
 
-          <view class="message-list" wx:if="{{messages.length > 0 || isLoading || isVisionLoading || isCrudExecuting}}">
+          <view class="message-list" wx:if="{{messages.length > 0 || isLoading || isVisionLoading || isCrudExecuting || isDirectSaving}}">
             <view
               class="message-item"
               wx:for="{{messages}}"
@@ -64,6 +64,15 @@
                   <view class="message-bubble assistant-bubble result-bubble" wx:if="{{item.kind === 'crud_result'}}">
                     <text class="result-title">{{item.title}}</text>
                     <text class="result-summary">{{item.content}}</text>
+                    <view class="debug-toggle" wx:if="{{item.interpretation || item.queryLog}}" data-id="{{item.id}}" bindtap="toggleDebugPanel">
+                      <text class="debug-toggle-text">{{debugExpandedMap[item.id] ? text.debugCollapse : text.debugToggle}}</text>
+                      <text class="debug-toggle-arrow">{{debugExpandedMap[item.id] ? '收起' : '展开'}}</text>
+                    </view>
+                    <view class="debug-card" wx:if="{{debugExpandedMap[item.id] && (item.interpretation || item.queryLog)}}">
+                      <text class="debug-title">排查信息</text>
+                      <text class="debug-line" wx:if="{{item.interpretation}}">{{item.interpretation}}</text>
+                      <text class="debug-line" wx:if="{{item.queryLog}}">{{item.queryLog}}</text>
+                    </view>
                     <view class="crud-item-list" wx:if="{{item.items.length}}">
                       <view class="crud-item" wx:for="{{item.items}}" wx:key="id">
                         <text class="crud-item-title">{{item.title}}</text>
@@ -75,6 +84,15 @@
                   <view class="message-bubble assistant-bubble result-bubble" wx:if="{{item.kind === 'crud_confirm'}}">
                     <text class="result-title">{{item.title}}</text>
                     <text class="result-summary">{{item.content}}</text>
+                    <view class="debug-toggle" wx:if="{{item.interpretation || item.queryLog}}" data-id="{{item.id}}" bindtap="toggleDebugPanel">
+                      <text class="debug-toggle-text">{{debugExpandedMap[item.id] ? text.debugCollapse : text.debugToggle}}</text>
+                      <text class="debug-toggle-arrow">{{debugExpandedMap[item.id] ? '收起' : '展开'}}</text>
+                    </view>
+                    <view class="debug-card" wx:if="{{debugExpandedMap[item.id] && (item.interpretation || item.queryLog)}}">
+                      <text class="debug-title">排查信息</text>
+                      <text class="debug-line" wx:if="{{item.interpretation}}">{{item.interpretation}}</text>
+                      <text class="debug-line" wx:if="{{item.queryLog}}">{{item.queryLog}}</text>
+                    </view>
                     <view class="crud-item-list" wx:if="{{item.items.length}}">
                       <view class="crud-item" wx:for="{{item.items}}" wx:key="id">
                         <text class="crud-item-title">{{item.title}}</text>
@@ -94,6 +112,15 @@
                   <view class="message-bubble assistant-bubble result-bubble" wx:if="{{item.kind === 'crud_select'}}">
                     <text class="result-title">{{item.title}}</text>
                     <text class="result-summary">{{item.content}}</text>
+                    <view class="debug-toggle" wx:if="{{item.interpretation || item.queryLog}}" data-id="{{item.id}}" bindtap="toggleDebugPanel">
+                      <text class="debug-toggle-text">{{debugExpandedMap[item.id] ? text.debugCollapse : text.debugToggle}}</text>
+                      <text class="debug-toggle-arrow">{{debugExpandedMap[item.id] ? '收起' : '展开'}}</text>
+                    </view>
+                    <view class="debug-card" wx:if="{{debugExpandedMap[item.id] && (item.interpretation || item.queryLog)}}">
+                      <text class="debug-title">排查信息</text>
+                      <text class="debug-line" wx:if="{{item.interpretation}}">{{item.interpretation}}</text>
+                      <text class="debug-line" wx:if="{{item.queryLog}}">{{item.queryLog}}</text>
+                    </view>
                     <view class="crud-item-list" wx:if="{{item.items.length}}">
                       <view
                         class="crud-item selectable"
@@ -182,6 +209,17 @@
                 </view>
               </view>
             </view>
+
+            <view class="message-item" wx:if="{{isDirectSaving}}" id="msg-direct-saving">
+              <view class="message-row">
+                <view class="message-avatar assistant-avatar">AI</view>
+                <view class="message-content">
+                  <view class="message-bubble assistant-bubble loading-bubble">
+                    <text class="loading-text">{{text.savingDraft}}</text>
+                  </view>
+                </view>
+              </view>
+            </view>
           </view>
 
           <view class="empty-chat" wx:else>
@@ -197,8 +235,11 @@
 
   <view class="composer">
     <view class="composer-tools">
-      <view class="composer-upload" bindtap="onUploadVisionImage">
+      <view class="composer-tool" bindtap="onUploadVisionImage">
         <text class="composer-upload-text">{{text.uploadCta}}</text>
+      </view>
+      <view class="composer-tool" bindtap="goToManualEntry">
+        <text class="composer-upload-text">{{text.manualEntry}}</text>
       </view>
     </view>
     <view class="composer-inner">
@@ -226,3 +267,5 @@
 
   <privacy />
 </view>
+
+
