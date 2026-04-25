@@ -8,7 +8,8 @@
 
       <view class="register-copy">
         <view class="register-title">{{bindMode ? text.title : text.manualTitle}}</view>
-        <view class="register-desc">{{bindMode ? text.desc : text.manualDesc}}</view>
+        <view class="register-desc" wx:if="{{bindMode ? text.desc : text.manualDesc}}">{{bindMode ? text.desc : text.manualDesc}}</view>
+        <view class="register-desc" wx:if="{{text.setupHint}}">{{text.setupHint}}</view>
       </view>
 
       <view class="register-form">

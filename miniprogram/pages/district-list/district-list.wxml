@@ -5,7 +5,7 @@
         <view class="panel-section">
           <view class="eyebrow">{{text.heroTopline}}</view>
           <view class="page-title hero-title">{{text.heroTitle}}</view>
-          <view class="page-subtitle">{{text.heroDesc}}</view>
+          <view class="page-subtitle" wx:if="{{text.heroDesc}}">{{text.heroDesc}}</view>
         </view>
       </view>
 
@@ -13,7 +13,7 @@
         <view class="panel-section">
           <text class="section-title">{{text.summaryTitle}}</text>
           <text class="summary-number">{{totalEquipments}}</text>
-          <text class="section-note">{{text.summaryDesc}}</text>
+          <text class="section-note" wx:if="{{text.summaryDesc}}">{{text.summaryDesc}}</text>
         </view>
       </view>
 

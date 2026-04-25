@@ -8,7 +8,7 @@
 
       <view class="admin-copy">
         <view class="admin-title">{{text.title}}</view>
-        <view class="admin-desc">{{text.desc}}</view>
+        <view class="admin-desc" wx:if="{{text.desc}}">{{text.desc}}</view>
       </view>
 
       <view class="admin-form">

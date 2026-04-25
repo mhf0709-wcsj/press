@@ -1,36 +1,40 @@
 const db = wx.cloud.database()
 
 const TEXT = {
-  heroTopline: 'Regulatory Home',
-  heroTitle: '\u76d1\u7ba1\u9996\u9875',
-  heroDesc: '\u5728\u8fd9\u91cc\u67e5\u770b\u5168\u5c40\u603b\u89c8\u3001\u98ce\u9669\u63d0\u9192\u548c\u5feb\u6377\u5165\u53e3\uff0c\u628a\u9996\u9875\u4fdd\u6301\u5728\u8f7b\u91cf\u51b3\u7b56\u5c42\u3002',
+  heroTitle: '\u9884\u89c8\u5e73\u53f0',
+  heroDesc: '',
+  switchPreview: '\u9884\u89c8\u5e73\u53f0',
+  switchWorkbench: '\u7ba1\u7406\u5de5\u4f5c\u53f0',
   summaryTitle: '\u6838\u5fc3\u603b\u89c8',
-  summaryDesc: '\u70b9\u51fb\u6570\u5b57\u53ef\u7ee7\u7eed\u4e0b\u94bb\u5230\u53f0\u8d26\u6216\u7ba1\u7406\u5217\u8868',
+  summaryDesc: '',
+  districtStatsTitle: '\u8f96\u533a\u7edf\u8ba1',
+  districtStatsDesc: '\u6309\u8bbe\u5907\u6240\u5c5e\u8f96\u533a\u6c47\u603b',
+  emptyDistrictStats: '\u6682\u65e0\u8f96\u533a\u6570\u636e',
   riskTitle: '\u98ce\u9669\u63d0\u9192',
-  riskDesc: '\u4f18\u5148\u5904\u7406\u8fc7\u671f\u548c 30 \u5929\u5185\u5230\u671f\u8bbe\u5907',
-  entryTitle: '\u5feb\u6377\u5165\u53e3',
-  entryDesc: '\u7ba1\u7406\u7aef\u7684\u5e38\u7528\u64cd\u4f5c\u90fd\u4ece\u8fd9\u91cc\u8fdb',
+  riskDesc: '',
   enterpriseRiskTitle: '\u91cd\u70b9\u4f01\u4e1a',
-  emptyRisk: '\u6682\u65f6\u6ca1\u6709\u9700\u8981\u4f18\u5148\u5904\u7406\u7684\u4f01\u4e1a',
-  filteredEnterpriseTitle: '\u98ce\u9669\u4f01\u4e1a',
+  emptyRisk: '\u6682\u65e0',
   totalRecords: '\u68c0\u5b9a\u8bb0\u5f55',
-  totalEnterprises: '\u4f01\u4e1a\u6570',
-  totalDistricts: '\u8f96\u533a\u6570',
   expiredCount: '\u5df2\u8fc7\u671f',
   expiringCount: '30\u5929\u5185\u5230\u671f',
   enterpriseCount: '\u6d89\u53ca\u4f01\u4e1a',
+  focusExpiredSuffix: '\u8fc7\u671f',
+  focusExpiringSuffix: '\u5373\u5c06\u5230\u671f',
   viewAll: '\u67e5\u770b\u5168\u90e8',
-  noPhone: '\u672a\u7559\u8054\u7cfb\u65b9\u5f0f',
-  loading: '\u52a0\u8f7d\u4e2d...'
+  noPhone: '-',
+  loading: '\u52a0\u8f7d\u4e2d...',
+  entryReminderTitle: '\u4eca\u65e5\u76d1\u7ba1\u98ce\u9669',
+  entryReminderConfirm: '\u53bb\u5904\u7406',
+  entryReminderCancel: '\u7a0d\u540e\u5904\u7406',
+  entryReminderBadge: '\u5230\u671f\u63d0\u9192',
+  entryReminderFallbackSubtitle: ''
 }
 
 Page({
   data: {
     text: TEXT,
     overviewData: {
-      totalRecords: 0,
-      totalEnterprises: 0,
-      totalDistricts: 0
+      totalRecords: 0
     },
     expirySummary: {
       expiredCount: 0,
@@ -38,11 +42,18 @@ Page({
       enterpriseCount: 0
     },
     expiryEnterprises: [],
+    districtStats: [],
+    totalDistrictEquipments: 0,
     adminName: '',
     adminDistrict: '',
     isAdmin: true,
     loading: true,
-    quickEntries: []
+    reminderVisible: false,
+    reminderCard: {
+      title: '',
+      summary: '',
+      items: []
+    }
   },
 
   onLoad() {
@@ -56,10 +67,9 @@ Page({
   },
 
   onPullDownRefresh() {
-    this.loadAllData()
-      .finally(() => {
-        wx.stopPullDownRefresh()
-      })
+    this.loadAllData().finally(() => {
+      wx.stopPullDownRefresh()
+    })
   },
 
   checkAdminType() {
@@ -75,51 +85,10 @@ Page({
     this.setData({
       isAdmin: !isDistrictAdmin,
       adminDistrict: isDistrictAdmin ? adminInfo.district : '',
-      adminName: isDistrictAdmin ? `${adminInfo.district}\u8f96\u533a` : '\u603b\u7ba1\u7406\u7aef',
-      quickEntries: this.buildQuickEntries(!isDistrictAdmin)
+      adminName: isDistrictAdmin ? `${adminInfo.district}\u8f96\u533a` : '\u603b\u7ba1\u7406\u7aef'
     }, () => {
       this.loadAllData()
     })
-  },
-
-  buildQuickEntries(isAdmin) {
-    const entries = [
-      {
-        key: 'ledger',
-        title: '\u53f0\u8d26\u4e2d\u5fc3',
-        subtitle: '\u67e5\u770b\u8bb0\u5f55\u3001\u8bbe\u5907\u548c\u7b5b\u9009\u7ed3\u679c',
-        action: 'goToLedger'
-      },
-      {
-        key: 'enterprise',
-        title: '\u4f01\u4e1a\u7ba1\u7406',
-        subtitle: '\u67e5\u770b\u4f01\u4e1a\u8d26\u53f7\u3001\u8054\u7cfb\u4eba\u548c\u8f96\u533a',
-        action: 'goToEnterpriseList'
-      },
-      {
-        key: 'enforcement',
-        title: '\u73b0\u573a\u6838\u9a8c',
-        subtitle: '\u626b\u7801\u6838\u9a8c\u3001\u62cd\u7167\u53d6\u8bc1\u548c\u7559\u75d5',
-        action: 'goToEnforcement'
-      },
-      {
-        key: 'settings',
-        title: '\u8d26\u53f7\u8bbe\u7f6e',
-        subtitle: '\u67e5\u770b\u7ba1\u7406\u7aef\u8d26\u53f7\u548c\u5b89\u5168\u8bbe\u7f6e',
-        action: 'goToAccountSettings'
-      }
-    ]
-
-    if (isAdmin) {
-      entries.splice(2, 0, {
-        key: 'district',
-        title: '\u8f96\u533a\u7edf\u8ba1',
-        subtitle: '\u6309\u8f96\u533a\u67e5\u770b\u8bbe\u5907\u548c\u8bb0\u5f55\u5206\u5e03',
-        action: 'goToDistrictList'
-      })
-    }
-
-    return entries
   },
 
   async loadAllData() {
@@ -127,10 +96,23 @@ Page({
     wx.showLoading({ title: TEXT.loading })
 
     try {
-      await Promise.all([
+      await this.syncDeletedDeviceRecords()
+      const tasks = [
         this.loadOverviewData(),
         this.loadExpiryData()
-      ])
+      ]
+
+      if (this.data.isAdmin) {
+        tasks.push(this.loadDistrictStats())
+      } else {
+        this.setData({
+          districtStats: [],
+          totalDistrictEquipments: 0
+        })
+      }
+
+      await Promise.all(tasks)
+      this.maybeOpenAdminReminder()
     } catch (error) {
       console.error('Dashboard load failed:', error)
       wx.showToast({
@@ -143,30 +125,22 @@ Page({
     }
   },
 
-  async loadOverviewData() {
-    const recordsQuery = this.buildScopedRecordQuery()
-    const countRes = await recordsQuery.count()
-
-    const listRes = await this.buildScopedRecordQuery()
-      .field({
-        enterpriseName: true,
-        district: true
+  async syncDeletedDeviceRecords() {
+    try {
+      await wx.cloud.callFunction({
+        name: 'expiryReminder',
+        data: {
+          action: 'syncDeletedDeviceRecords',
+          district: this.data.adminDistrict || ''
+        }
       })
-      .limit(1000)
-      .get()
+    } catch (error) {}
+  },
 
-    const enterpriseSet = new Set()
-    const districtSet = new Set()
-
-    ;(listRes.data || []).forEach((item) => {
-      if (item.enterpriseName) enterpriseSet.add(item.enterpriseName)
-      if (item.district) districtSet.add(item.district)
-    })
-
+  async loadOverviewData() {
+    const countRes = await this.buildScopedRecordQuery().count()
     this.setData({
-      'overviewData.totalRecords': countRes.total || 0,
-      'overviewData.totalEnterprises': enterpriseSet.size,
-      'overviewData.totalDistricts': districtSet.size
+      'overviewData.totalRecords': countRes.total || 0
     })
   },
 
@@ -174,7 +148,12 @@ Page({
     let query = db.collection('pressure_records')
     if (this.data.adminDistrict) {
       query = query.where({
-        district: this.data.adminDistrict
+        district: this.data.adminDistrict,
+        isDeleted: db.command.neq(true)
+      })
+    } else {
+      query = query.where({
+        isDeleted: db.command.neq(true)
       })
     }
     return query
@@ -212,21 +191,113 @@ Page({
     })
   },
 
-  onTapSummary(e) {
-    const type = e.currentTarget.dataset.type
-    if (type === 'records') {
-      this.goToLedger()
+  async loadDistrictStats() {
+    try {
+      const res = await db.collection('equipments')
+        .where({
+          isDeleted: db.command.neq(true)
+        })
+        .field({
+          district: true
+        })
+        .limit(1000)
+        .get()
+
+      const equipments = res.data || []
+      const total = equipments.length
+      const districtMap = {}
+
+      equipments.forEach((item) => {
+        const district = item.district || '\u672a\u8bbe\u7f6e'
+        districtMap[district] = (districtMap[district] || 0) + 1
+      })
+
+      const districtStats = Object.keys(districtMap)
+        .map((district) => ({
+          district,
+          count: districtMap[district],
+          percent: total > 0 ? Math.round(districtMap[district] / total * 100) : 0
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 6)
+
+      this.setData({
+        districtStats,
+        totalDistrictEquipments: total
+      })
+    } catch (error) {
+      console.error('District stats load failed:', error)
+      this.setData({
+        districtStats: [],
+        totalDistrictEquipments: 0
+      })
+    }
+  },
+
+  buildAdminReminderStorageKey() {
+    return `adminRiskReminder_${this.data.adminDistrict || 'all'}`
+  },
+
+  hasDeferredAdminReminderToday() {
+    return wx.getStorageSync(this.buildAdminReminderStorageKey()) === this.formatDate(new Date())
+  },
+
+  deferAdminReminderToday() {
+    wx.setStorageSync(this.buildAdminReminderStorageKey(), this.formatDate(new Date()))
+  },
+
+  maybeOpenAdminReminder() {
+    const app = typeof getApp === 'function' ? getApp() : null
+    const token = app?.globalData?.entryReminderToken || 0
+
+    if (token && app?.globalData?.entryReminderHandledToken === token) {
       return
     }
 
-    if (type === 'enterprises') {
-      this.goToEnterpriseList()
+    if (this.hasDeferredAdminReminderToday()) {
+      if (app?.globalData && token) {
+        app.globalData.entryReminderHandledToken = token
+      }
       return
     }
 
-    if (type === 'districts') {
-      this.goToDistrictList()
+    const expiredCount = Number(this.data.expirySummary.expiredCount || 0)
+    const expiringCount = Number(this.data.expirySummary.expiringCount || 0)
+    const enterpriseCount = Number(this.data.expirySummary.enterpriseCount || 0)
+
+    if (expiredCount + expiringCount <= 0) return
+
+    const scope = this.data.adminDistrict
+      ? `${this.data.adminDistrict}\u8f96\u533a`
+      : '\u5f53\u524d\u5e73\u53f0'
+    const summary = `${scope}\u6709 ${enterpriseCount} \u5bb6\u91cd\u70b9\u4f01\u4e1a\u9700\u8981\u8ddf\u8fdb\uff0c\u5176\u4e2d ${expiredCount} \u53f0\u5df2\u8fc7\u671f\uff0c${expiringCount} \u53f0\u5c06\u5728 30 \u5929\u5185\u5230\u671f\u3002`
+
+    if (app?.globalData && token) {
+      app.globalData.entryReminderHandledToken = token
     }
+
+    this.setData({
+      reminderVisible: true,
+      reminderCard: {
+        title: TEXT.entryReminderTitle,
+        summary,
+        items: this.data.expiryEnterprises || []
+      }
+    })
+  },
+
+  closeReminderCard() {
+    this.deferAdminReminderToday()
+    this.setData({ reminderVisible: false })
+  },
+
+  confirmReminderCard() {
+    this.setData({ reminderVisible: false })
+    this.goToRiskEnterpriseList()
+  },
+
+  onTapSummary() {
+    this.goToLedger()
   },
 
   onTapRisk(e) {
@@ -235,15 +306,10 @@ Page({
       this.goToRiskEnterpriseList()
       return
     }
+
     wx.navigateTo({
       url: `/pages/admin/admin?from=dashboard&filter=${filter}`
     })
-  },
-
-  onTapEntry(e) {
-    const action = e.currentTarget.dataset.action
-    if (!action || typeof this[action] !== 'function') return
-    this[action]()
   },
 
   goToLedger() {
@@ -252,9 +318,9 @@ Page({
     })
   },
 
-  goToEnterpriseList() {
-    wx.navigateTo({
-      url: '/pages/enterprise-list/enterprise-list'
+  goToAdminWorkbench() {
+    wx.redirectTo({
+      url: '/pages/admin-workbench/admin-workbench'
     })
   },
 
@@ -270,26 +336,14 @@ Page({
     this.goToRiskEnterpriseList()
   },
 
-  goToDistrictList() {
-    if (!this.data.isAdmin) {
-      this.goToLedger()
-      return
-    }
-
+  openDistrictList() {
+    if (!this.data.isAdmin) return
     wx.navigateTo({
       url: '/pages/district-list/district-list'
     })
   },
 
-  goToEnforcement() {
-    wx.navigateTo({
-      url: '/pages/enforcement/enforcement'
-    })
-  },
-
-  goToAccountSettings() {
-    wx.navigateTo({
-      url: '/pages/account-settings/account-settings'
-    })
+  formatDate(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
   }
 })

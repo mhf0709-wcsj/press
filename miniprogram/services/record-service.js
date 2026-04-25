@@ -1,22 +1,12 @@
-﻿/**
- * 璁板綍淇濆瓨鏈嶅姟妯″潡
- * 璐熻矗妫€瀹氳褰曠殑淇濆瓨鍜岀鐞? */
-
 const db = wx.cloud.database()
+const _ = db.command
 const { formatDate, formatDateTime } = require('../utils/helpers/date')
 
-/**
- * 璁板綍淇濆瓨鏈嶅姟绫? */
 class RecordService {
-  /**
-   * 淇濆瓨妫€瀹氳褰?   * @param {Object} recordData 璁板綍鏁版嵁
-   * @param {Object} options 閫夐」
-   * @returns {Promise<Object>} 淇濆瓨缁撴灉
-   */
   async saveRecord(recordData, options = {}) {
     const { imagePath, installPhotoPath, fromAdmin, enterpriseUser, selectedDeviceId } = options
     if (!selectedDeviceId) {
-      throw new Error('蹇呴』閫夋嫨鍘嬪姏琛紙涓斿繀椤诲叧鑱旇澶囷級')
+      throw new Error('请选择所属压力表')
     }
 
     const verifyDate = new Date(recordData.verificationDate)
@@ -27,28 +17,24 @@ class RecordService {
     const deviceRes = await db.collection('devices').doc(selectedDeviceId).get()
     const device = deviceRes.data
     if (!device) {
-      throw new Error('\u6240\u9009\u538b\u529b\u8868\u4e0d\u5b58\u5728')
+      throw new Error('所选压力表不存在')
+    }
+    if (device.isDeleted) {
+      throw new Error('所选压力表已删除，请重新选择')
     }
     if (!device.equipmentId) {
-      throw new Error('鎵€閫夊帇鍔涜〃鏈叧鑱旇澶囷紝璇峰厛鍦ㄨ澶囧簱缁戝畾')
+      throw new Error('所选压力表未绑定设备，请先在设备中心完成绑定')
     }
 
-    if (recordData.district) {
-      try {
-        const eqRes = await db.collection('equipments').doc(device.equipmentId).field({ district: true }).get()
-        const eq = eqRes.data
-        if (eq && !eq.district) {
-          await db.collection('equipments').doc(device.equipmentId).update({
-            data: { district: recordData.district }
-          })
-        }
-      } catch (e) {}
-    }
+    await this.syncEquipmentDistrict(device.equipmentId, recordData.district)
 
     const mainData = {
       ...recordData,
       expiryDate: formatDate(expiryDate),
       status: 'valid',
+      isDeleted: false,
+      deletedAt: '',
+      deletedBy: '',
       createTime: formatDateTime(new Date()),
       updateTime: formatDateTime(new Date()),
       ocrSource: recordData.ocrSource || 'manual',
@@ -67,35 +53,31 @@ class RecordService {
       deviceStatus: device.status || '在用'
     }
 
-    try {
-      if (installPhotoPath) {
-        const installPhotoFileID = await this.uploadInstallPhoto(installPhotoPath, recordData.factoryNo)
-        mainData.installPhotoFileID = installPhotoFileID
-      }
-
-      if (imagePath) {
-        const fileID = await this.uploadCertificateImage(imagePath, recordData.factoryNo)
-        mainData.fileID = fileID
-      }
-
-      const result = await this.saveToDB(mainData)
-      
-      return result
-    } catch (err) {
-      console.error('淇濆瓨璁板綍澶辫触:', err)
-      throw err
+    if (installPhotoPath) {
+      mainData.installPhotoFileID = await this.uploadInstallPhoto(installPhotoPath, recordData.factoryNo)
     }
+    if (imagePath) {
+      mainData.fileID = await this.uploadCertificateImage(imagePath, recordData.factoryNo)
+    }
+
+    return await this.saveToDB(mainData)
   }
 
-  /**
-   * 涓婁紶瀹夎鐓х墖
-   * @param {string} filePath 鏂囦欢璺緞
-   * @param {string} factoryNo 鍑哄巶缂栧彿
-   * @returns {Promise<string>} 鏂囦欢ID
-   */
+  async syncEquipmentDistrict(equipmentId, district) {
+    if (!equipmentId || !district) return
+    try {
+      const eqRes = await db.collection('equipments').doc(equipmentId).field({ district: true }).get()
+      const eq = eqRes.data
+      if (eq && !eq.district) {
+        await db.collection('equipments').doc(equipmentId).update({
+          data: { district }
+        })
+      }
+    } catch (error) {}
+  }
+
   async uploadInstallPhoto(filePath, factoryNo) {
     const cloudPath = `install-photos/${factoryNo}_${Date.now()}.jpg`
-    
     return new Promise((resolve, reject) => {
       wx.cloud.uploadFile({
         cloudPath,
@@ -106,15 +88,8 @@ class RecordService {
     })
   }
 
-  /**
-   * 涓婁紶璇佷功鍥剧墖
-   * @param {string} filePath 鏂囦欢璺緞
-   * @param {string} factoryNo 鍑哄巶缂栧彿
-   * @returns {Promise<string>} 鏂囦欢ID
-   */
   async uploadCertificateImage(filePath, factoryNo) {
     const cloudPath = `pressure-certificates/${factoryNo}_${Date.now()}.jpg`
-    
     return new Promise((resolve, reject) => {
       wx.cloud.uploadFile({
         cloudPath,
@@ -125,150 +100,110 @@ class RecordService {
     })
   }
 
-  /**
-   * 淇濆瓨鍒版暟鎹簱
-   * @param {Object} data 鏁版嵁
-   * @returns {Promise<Object>} 淇濆瓨缁撴灉
-   */
   async saveToDB(data) {
-    try {
-      const res = await db.collection('pressure_records').add({ data })
-      
-      return {
-        _id: res._id,
-        success: true
-      }
-    } catch (err) {
-      console.error('鉁?淇濆瓨澶辫触:', err)
-      throw err
+    const res = await db.collection('pressure_records').add({ data })
+    return {
+      _id: res._id,
+      success: true
     }
   }
 
-  /**
-   * 鑾峰彇璁板綍鍒楄〃
-   * @param {Object} options 鏌ヨ閫夐」
-   * @returns {Promise<Array>} 璁板綍鍒楄〃
-   */
   async getRecords(options = {}) {
     const { enterpriseName, district, status, limit = 100 } = options
-    
-    let whereCondition = {}
-    
-    if (enterpriseName) {
-      whereCondition.enterpriseName = enterpriseName
-    }
-    
-    if (district) {
-      whereCondition.district = district
-    }
-    
-    if (status) {
-      whereCondition.status = status
+    const whereCondition = {
+      isDeleted: _.neq(true)
     }
 
-    try {
-      const res = await db.collection('pressure_records')
-        .where(whereCondition)
-        .orderBy('createTime', 'desc')
-        .limit(limit)
-        .get()
-      
-      return res.data
-    } catch (err) {
-      console.error('鑾峰彇璁板綍澶辫触:', err)
-      throw err
-    }
+    if (enterpriseName) whereCondition.enterpriseName = enterpriseName
+    if (district) whereCondition.district = district
+    if (status) whereCondition.status = status
+
+    const res = await db.collection('pressure_records')
+      .where(whereCondition)
+      .orderBy('createTime', 'desc')
+      .limit(limit)
+      .get()
+
+    return res.data || []
   }
 
-  /**
-   * 鑾峰彇璁板綍璇︽儏
-   * @param {string} recordId 璁板綍ID
-   * @returns {Promise<Object>} 璁板綍璇︽儏
-   */
   async getRecordById(recordId) {
-    try {
-      const res = await db.collection('pressure_records').doc(recordId).get()
-      return res.data
-    } catch (err) {
-      console.error('鑾峰彇璁板綍璇︽儏澶辫触:', err)
-      throw err
-    }
+    const res = await db.collection('pressure_records').doc(recordId).get()
+    return res.data
   }
 
-  /**
-   * 鏇存柊璁板綍
-   * @param {string} recordId 璁板綍ID
-   * @param {Object} data 鏇存柊鏁版嵁
-   * @returns {Promise<void>}
-   */
   async updateRecord(recordId, data) {
+    await db.collection('pressure_records').doc(recordId).update({
+      data: {
+        ...data,
+        updateTime: formatDateTime(new Date())
+      }
+    })
+  }
+
+  async deleteRecord(recordId, options = {}) {
+    const recordRes = await db.collection('pressure_records').doc(recordId).get()
+    const record = recordRes.data
+    if (!record) throw new Error('记录不存在')
+
+    const deleteTime = formatDateTime(new Date())
+    const deletedBy = options.deletedBy || record.enterpriseName || '企业用户'
+
+    await db.collection('pressure_records').doc(recordId).update({
+      data: {
+        isDeleted: true,
+        deletedAt: deleteTime,
+        deletedBy,
+        updateTime: deleteTime
+      }
+    })
+
     try {
-      await db.collection('pressure_records').doc(recordId).update({
+      await db.collection('deletion_logs').add({
         data: {
-          ...data,
-          updateTime: formatDateTime(new Date())
+          entityType: 'pressure_record',
+          entityId: recordId,
+          entityName: record.factoryNo || record.certNo || '检定记录',
+          enterpriseName: record.enterpriseName || deletedBy,
+          district: record.district || '',
+          equipmentId: record.equipmentId || '',
+          equipmentName: record.equipmentName || '',
+          factoryNo: record.factoryNo || '',
+          deviceNo: record.deviceNo || '',
+          certNo: record.certNo || '',
+          deletedAt: deleteTime,
+          deletedBy,
+          deletedById: options.deletedById || '',
+          snapshot: record,
+          createTime: deleteTime
         }
       })
-    } catch (err) {
-      console.error('鏇存柊璁板綍澶辫触:', err)
-      throw err
-    }
+    } catch (error) {}
   }
 
-  /**
-   * 鍒犻櫎璁板綍
-   * @param {string} recordId 璁板綍ID
-   * @returns {Promise<void>}
-   */
-  async deleteRecord(recordId) {
-    try {
-      await db.collection('pressure_records').doc(recordId).remove()
-    } catch (err) {
-      console.error('鍒犻櫎璁板綍澶辫触:', err)
-      throw err
-    }
-  }
-
-  /**
-   * 鎼滅储璁板綍
-   * @param {string} keyword 鍏抽敭璇?   * @param {Object} options 閫夐」
-   * @returns {Promise<Array>} 鎼滅储缁撴灉
-   */
   async searchRecords(keyword, options = {}) {
     const { enterpriseName, limit = 50 } = options
-    
     if (!keyword || !keyword.trim()) {
       return this.getRecords(options)
     }
-    
-    const _ = db.command
-    
-    let whereCondition = {
+
+    const whereCondition = {
+      isDeleted: _.neq(true),
       factoryNo: db.RegExp({
         regexp: keyword,
         options: 'i'
       })
     }
-    
-    if (enterpriseName) {
-      whereCondition.enterpriseName = enterpriseName
-    }
+    if (enterpriseName) whereCondition.enterpriseName = enterpriseName
 
-    try {
-      const res = await db.collection('pressure_records')
-        .where(whereCondition)
-        .orderBy('createTime', 'desc')
-        .limit(limit)
-        .get()
-      
-      return res.data
-    } catch (err) {
-      console.error('鎼滅储璁板綍澶辫触:', err)
-      throw err
-    }
+    const res = await db.collection('pressure_records')
+      .where(whereCondition)
+      .orderBy('createTime', 'desc')
+      .limit(limit)
+      .get()
+
+    return res.data || []
   }
 }
 
 module.exports = new RecordService()
-
-

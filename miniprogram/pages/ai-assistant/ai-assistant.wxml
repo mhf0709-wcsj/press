@@ -10,21 +10,12 @@
         <view class="panel-section">
           <view class="eyebrow">{{text.heroTopline}}</view>
           <view class="page-title ai-title">{{text.heroTitle}}</view>
-          <view class="page-subtitle">{{text.heroDesc}}</view>
+          <view class="page-subtitle" wx:if="{{text.heroDesc}}">{{text.heroDesc}}</view>
         </view>
       </view>
 
       <view class="ai-chat panel">
         <view class="panel-section">
-          <view class="ai-actions">
-            <view class="soft-button ai-action" bindtap="onUploadVisionImage">
-              <text class="ai-action-text">{{visionDraft ? text.uploadAgain : text.uploadCta}}</text>
-            </view>
-            <view class="soft-button ai-action" bindtap="goToManualEntry">
-              <text class="ai-action-text">{{text.manualEntry}}</text>
-            </view>
-          </view>
-
           <view class="message-list" wx:if="{{messages.length > 0 || isLoading || isVisionLoading || isCrudExecuting || isDirectSaving}}">
             <view
               class="message-item"
@@ -33,7 +24,13 @@
               id="msg-{{item.id}}"
             >
               <view class="message-row" wx:if="{{item.role === 'assistant'}}">
-                <view class="message-avatar assistant-avatar">AI</view>
+                <view class="message-avatar assistant-avatar">
+                  <view class="bot-face">
+                    <view class="bot-eye left"></view>
+                    <view class="bot-eye right"></view>
+                    <view class="bot-mouth"></view>
+                  </view>
+                </view>
                 <view class="message-content">
                   <view class="message-bubble assistant-bubble" wx:if="{{item.kind === 'text'}}">
                     <text class="message-text" user-select>{{item.content}}</text>
@@ -179,7 +176,13 @@
 
             <view class="message-item" wx:if="{{isVisionLoading}}" id="msg-vision-loading">
               <view class="message-row">
-                <view class="message-avatar assistant-avatar">AI</view>
+                <view class="message-avatar assistant-avatar">
+                  <view class="bot-face">
+                    <view class="bot-eye left"></view>
+                    <view class="bot-eye right"></view>
+                    <view class="bot-mouth"></view>
+                  </view>
+                </view>
                 <view class="message-content">
                   <view class="message-bubble assistant-bubble loading-bubble">
                     <text class="loading-text">{{text.uploadReceived}}</text>
@@ -190,7 +193,13 @@
 
             <view class="message-item" wx:if="{{isLoading}}" id="msg-loading">
               <view class="message-row">
-                <view class="message-avatar assistant-avatar">AI</view>
+                <view class="message-avatar assistant-avatar">
+                  <view class="bot-face">
+                    <view class="bot-eye left"></view>
+                    <view class="bot-eye right"></view>
+                    <view class="bot-mouth"></view>
+                  </view>
+                </view>
                 <view class="message-content">
                   <view class="message-bubble assistant-bubble loading-bubble">
                     <text class="loading-text">{{text.loadingAnswer}}</text>
@@ -201,7 +210,13 @@
 
             <view class="message-item" wx:if="{{isCrudExecuting}}" id="msg-crud-executing">
               <view class="message-row">
-                <view class="message-avatar assistant-avatar">AI</view>
+                <view class="message-avatar assistant-avatar">
+                  <view class="bot-face">
+                    <view class="bot-eye left"></view>
+                    <view class="bot-eye right"></view>
+                    <view class="bot-mouth"></view>
+                  </view>
+                </view>
                 <view class="message-content">
                   <view class="message-bubble assistant-bubble loading-bubble">
                     <text class="loading-text">{{text.executingAction}}</text>
@@ -212,7 +227,13 @@
 
             <view class="message-item" wx:if="{{isDirectSaving}}" id="msg-direct-saving">
               <view class="message-row">
-                <view class="message-avatar assistant-avatar">AI</view>
+                <view class="message-avatar assistant-avatar">
+                  <view class="bot-face">
+                    <view class="bot-eye left"></view>
+                    <view class="bot-eye right"></view>
+                    <view class="bot-mouth"></view>
+                  </view>
+                </view>
                 <view class="message-content">
                   <view class="message-bubble assistant-bubble loading-bubble">
                     <text class="loading-text">{{text.savingDraft}}</text>
@@ -224,7 +245,7 @@
 
           <view class="empty-chat" wx:else>
             <text class="empty-chat-title">{{text.emptyChatTitle}}</text>
-            <text class="empty-chat-desc">{{text.emptyChatDesc}}</text>
+            <text class="empty-chat-desc" wx:if="{{text.emptyChatDesc}}">{{text.emptyChatDesc}}</text>
           </view>
         </view>
       </view>
@@ -260,10 +281,23 @@
         <text class="composer-send-text">{{text.send}}</text>
       </view>
     </view>
-    <view class="composer-tip">
+    <view class="composer-tip" wx:if="{{text.composerTip}}">
       <text>{{text.composerTip}}</text>
     </view>
   </view>
+
+  <expiry-reminder-card
+    visible="{{reminderVisible}}"
+    title="{{reminderCard.title}}"
+    summary="{{reminderCard.summary}}"
+    items="{{reminderCard.items}}"
+    badge-text="到期提醒"
+    fallback-subtitle="请尽快处理"
+    confirm-text="去处理"
+    cancel-text="稍后处理"
+    bind:confirm="confirmReminderCard"
+    bind:cancel="closeReminderCard"
+  />
 
   <privacy />
 </view>

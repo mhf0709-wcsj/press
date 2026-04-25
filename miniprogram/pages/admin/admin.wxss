@@ -72,6 +72,48 @@
   margin-top: var(--space-4);
 }
 
+.scope-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: var(--space-4);
+}
+
+.scope-chip {
+  min-height: 64rpx;
+  padding: 0 22rpx;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.8);
+  border: 1rpx solid rgba(17, 24, 39, 0.06);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+}
+
+.scope-chip.active {
+  color: var(--color-text-main);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: var(--shadow-sm);
+}
+
+.scope-chip.active.danger {
+  background: linear-gradient(180deg, rgba(255, 239, 239, 0.98), rgba(255, 225, 225, 0.96));
+  color: #b42318;
+  border-color: rgba(239, 68, 68, 0.18);
+}
+
+.scope-chip.active.warning {
+  background: rgba(255, 247, 237, 0.94);
+  color: #b45309;
+}
+
+.scope-chip.active.calm {
+  background: rgba(239, 246, 255, 0.94);
+  color: var(--color-brand);
+}
+
 .filter-row {
   display: flex;
   gap: var(--space-3);

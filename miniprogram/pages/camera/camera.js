@@ -114,7 +114,7 @@ Page({
     if (
       instrumentName.includes('pressure') ||
       instrumentName.includes('gauge') ||
-      instrumentName.includes('鍘嬪姏') ||
+      instrumentName.includes('压力') ||
       instrumentName.includes('表') ||
       combined.includes('mpa') ||
       combined.includes('kpa') ||
@@ -122,26 +122,26 @@ Page({
     ) {
       return {
         label: '压力表',
-        reason: 'AI 根据仪表名称和量程信息，判断这是一块压力表'
+        reason: '压力表'
       }
     }
 
     return {
       label: '通用仪表',
-      reason: 'AI 已读取证书字段，但设备类型还需要你再确认一次'
+      reason: '待确认'
     }
   },
 
   buildAiSummarySafe(sourceData = {}, category = {}, match = null) {
-    const certNo = sourceData.certNo ? `证书号 ${sourceData.certNo}` : 'AI 已完成证书文本读取'
+    const certNo = sourceData.certNo ? `证书号 ${sourceData.certNo}` : '证书号待确认'
     const factoryNo = sourceData.factoryNo ? `出厂编号 ${sourceData.factoryNo}` : '出厂编号待确认'
     const categoryText = category?.label ? `识别为 ${category.label}` : '已完成设备识别'
 
     if (match && match.name) {
-      return `${certNo}，${factoryNo}，${categoryText}，并建议归档到“${match.name}”。`
+      return `${certNo}，${factoryNo}，${categoryText}。`
     }
 
-    return `${certNo}，${factoryNo}，${categoryText}，暂未找到明确的归属设备。`
+    return `${certNo}，${factoryNo}，${categoryText}。`
   },
 
   findBestEquipmentMatchSafe(sourceData = {}) {
@@ -149,7 +149,7 @@ Page({
     if (!equipments.length) {
       return {
         status: 'empty',
-        statusText: '当前设备库还没有可匹配的设备，AI 暂时不能自动归类',
+        statusText: '无可选设备',
         score: 0
       }
     }
@@ -183,7 +183,7 @@ Page({
     if (!best || best.score <= 0) {
       return {
         status: 'unmatched',
-        statusText: 'AI 已完成字段识别，但还需要你确认所属设备',
+        statusText: '待确认所属设备',
         score: 0
       }
     }
@@ -194,8 +194,8 @@ Page({
       status: autoSelected ? 'matched' : 'suggested',
       autoSelected,
       statusText: autoSelected
-        ? `AI 已自动匹配到设备“${best.name}”`
-        : `AI 推荐归到设备“${best.name}”，请你确认`
+        ? `已匹配“${best.name}”`
+        : `推荐“${best.name}”`
     }
   },
 
@@ -210,7 +210,7 @@ Page({
     return rawTokens
       .filter(Boolean)
       .map((item) => String(item).trim().toLowerCase())
-      .reduce((result, item) => result.concat(item.split(/[\s/(),锛屻€俖-]+/)), [])
+      .reduce((result, item) => result.concat(item.split(/[\s/(),，。；-]+/)), [])
       .filter((item) => item && item.length >= 2)
       .slice(0, 12)
   },
@@ -613,8 +613,9 @@ Page({
     const wantedStatus = this.data.gaugeStatus || '在用'
 
     const db = wx.cloud.database()
+    const _ = db.command
     const existed = await db.collection('devices')
-      .where({ equipmentId, factoryNo })
+      .where({ equipmentId, factoryNo, isDeleted: _.neq(true) })
       .limit(1)
       .get()
 
@@ -669,11 +670,6 @@ Page({
       return
     }
 
-    if ((formData.conclusion || '').trim() !== '合格') {
-      wx.showToast({ title: '\u4ec5\u652f\u6301\u68c0\u5b9a\u5408\u683c\u7684\u538b\u529b\u8868\u751f\u6210\u538b\u529b\u8868\u7801', icon: 'none' })
-      return
-    }
-
     if (!selectedEquipmentId) {
       wx.showToast({ title: '请先选择所属设备', icon: 'none' })
       return
@@ -713,8 +709,6 @@ Page({
         this.requestSubscribeMessage()
       }
 
-      await this.generateGaugeQRCodeIfNeeded(gauge._id, gauge.qrCodeImage)
-
       if (fromAdmin) {
         wx.navigateBack()
         return
@@ -728,23 +722,6 @@ Page({
       wx.hideLoading()
       this.setData({ saving: false })
       wx.showToast({ title: err?.message || '保存失败', icon: 'none', duration: 2000 })
-    }
-  },
-
-  async generateGaugeQRCodeIfNeeded(deviceId, qrCodeImage) {
-    if (qrCodeImage) return qrCodeImage
-    try {
-      const res = await wx.cloud.callFunction({
-        name: 'generateQRCode',
-        data: {
-          deviceId,
-          page: 'pages/device-detail/device-detail'
-        }
-      })
-
-      return res.result?.success ? (res.result.fileID || '') : ''
-    } catch (e) {
-      return ''
     }
   },
 

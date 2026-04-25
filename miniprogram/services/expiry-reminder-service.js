@@ -1,13 +1,86 @@
-﻿/**
- * 鍒版湡鎻愰啋鏈嶅姟妯″潡
- * 璐熻矗妫€鏌ュ拰鍙戦€佸埌鏈熸彁閱? */
-
 const { formatDate } = require('../utils/helpers/date')
+const { STORAGE_KEYS } = require('../constants/index')
 const debugLog = () => {}
 
-/**
- * 鍒版湡鎻愰啋鏈嶅姟绫? */
 class ExpiryReminderService {
+  buildDeferredStorageKey(enterpriseUser) {
+    const identity = enterpriseUser?._id || enterpriseUser?.companyName || 'default'
+    return `${STORAGE_KEYS.LAST_REMINDER_DATE}_${identity}_deferred`
+  }
+
+  hasDeferredToday(enterpriseUser) {
+    const today = formatDate(new Date())
+    return wx.getStorageSync(this.buildDeferredStorageKey(enterpriseUser)) === today
+  }
+
+  deferTodayReminder(enterpriseUser) {
+    wx.setStorageSync(this.buildDeferredStorageKey(enterpriseUser), formatDate(new Date()))
+  }
+
+  buildEntryReminderContent(data = {}) {
+    const expiredCount = Number(data.expiredCount || 0)
+    const expiringCount = Number(data.expiringCount || 0)
+    const lines = [`您有 ${expiredCount} 台已过期，${expiringCount} 台将在 30 天内到期。`]
+    const items = Array.isArray(data.recentItems) ? data.recentItems.slice(0, 3) : []
+
+    items.forEach((item) => {
+      const title = item.factoryNo || item.instrumentName || '压力表'
+      const suffix = item.expiryStatus === 'expired' ? '已过期' : `到期：${item.expiryDate || '-'}`
+      lines.push(`• ${title} ${suffix}`)
+    })
+
+    return lines.join('\n')
+  }
+
+  async maybeShowEntryReminder(page, enterpriseUser, days = 30) {
+    if (!page || !enterpriseUser) return null
+
+    const app = typeof getApp === 'function' ? getApp() : null
+    const token = app?.globalData?.entryReminderToken || 0
+
+    if (token && app?.globalData?.entryReminderHandledToken === token) {
+      return null
+    }
+
+    if (this.hasDeferredToday(enterpriseUser)) {
+      if (app?.globalData && token) {
+        app.globalData.entryReminderHandledToken = token
+      }
+      return null
+    }
+
+    const res = await this.getEnterpriseExpiryDashboard(enterpriseUser, days)
+    if (!res || !res.success) return null
+
+    const data = res.data || {}
+    const expiredCount = Number(data.expiredCount || 0)
+    const expiringCount = Number(data.expiringCount || 0)
+    if (expiredCount + expiringCount <= 0) return null
+
+    if (app?.globalData && token) {
+      app.globalData.entryReminderHandledToken = token
+    }
+
+    return new Promise((resolve) => {
+      wx.showModal({
+        title: '压力表到期提醒',
+        content: this.buildEntryReminderContent(data),
+        confirmText: '去处理',
+        cancelText: '稍后处理',
+        success: (modalRes) => {
+          if (modalRes.cancel) {
+            this.deferTodayReminder(enterpriseUser)
+            resolve({ shown: true, action: 'later', data })
+            return
+          }
+
+          resolve({ shown: true, action: 'confirm', data })
+        },
+        fail: () => resolve(null)
+      })
+    })
+  }
+
   async getEnterpriseExpiryDashboard(enterpriseUser, days = 30) {
     if (!enterpriseUser || (!enterpriseUser._id && !enterpriseUser.companyName)) {
       return null
@@ -33,11 +106,6 @@ class ExpiryReminderService {
     }
   }
 
-  /**
-   * 妫€鏌ュ埌鏈熸彁閱?   * @param {string} enterpriseName 浼佷笟鍚嶇О
-   * @param {number} days 鎻愬墠澶╂暟
-   * @returns {Promise<Object>} 鎻愰啋鏁版嵁
-   */
   async checkExpiryReminder(enterpriseName, days = 30) {
     if (!enterpriseName) {
       return null
@@ -45,7 +113,7 @@ class ExpiryReminderService {
 
     const today = formatDate(new Date())
     const lastReminderDate = wx.getStorageSync('lastReminderDate')
-    
+
     if (lastReminderDate === today) {
       debugLog('skip reminder for today')
       return null
@@ -63,7 +131,7 @@ class ExpiryReminderService {
 
       if (res.result.success) {
         const { expired, expiring, totalCount } = res.result.data
-        
+
         if (totalCount > 0) {
           return {
             expiredCount: expired.length,
@@ -74,26 +142,19 @@ class ExpiryReminderService {
           }
         }
       }
-      
+
       return null
     } catch (err) {
-      console.error('鏌ヨ鍒版湡鎻愰啋澶辫触:', err)
+      console.error('查询到期提醒失败:', err)
       return null
     }
   }
 
-  /**
-   * 鏍囪浠婃棩宸叉彁閱?   */
   markTodayReminded() {
     const today = formatDate(new Date())
     wx.setStorageSync('lastReminderDate', today)
   }
 
-  /**
-   * 鑾峰彇鎵€鏈夊埌鏈熻褰曪紙绠＄悊鍛樼敤锛?   * @param {number} days 鎻愬墠澶╂暟
-   * @param {string} district 杈栧尯
-   * @returns {Promise<Object>} 鍒版湡鏁版嵁
-   */
   async getAllExpiring(days = 30, district = null) {
     try {
       const res = await wx.cloud.callFunction({
@@ -107,15 +168,11 @@ class ExpiryReminderService {
 
       return res.result
     } catch (err) {
-      console.error('鑾峰彇鎵€鏈夊埌鏈熻褰曞け璐?', err)
+      console.error('获取到期记录失败:', err)
       throw err
     }
   }
 
-  /**
-   * 鑾峰彇鍒版湡姹囨€荤粺璁★紙绠＄悊鍛樼敤锛?   * @param {number} days 鎻愬墠澶╂暟
-   * @param {string} district 杈栧尯
-   * @returns {Promise<Object>} 姹囨€绘暟鎹?   */
   async getExpiringSummary(days = 30, district = null) {
     try {
       const res = await wx.cloud.callFunction({
@@ -129,14 +186,11 @@ class ExpiryReminderService {
 
       return res.result
     } catch (err) {
-      console.error('鑾峰彇鍒版湡姹囨€诲け璐?', err)
+      console.error('获取到期汇总失败:', err)
       throw err
     }
   }
 
-  /**
-   * 鍙戦€佸井淇¤闃呮秷鎭?   * @param {Object} options 鍙戦€侀€夐」
-   * @returns {Promise<Object>} 鍙戦€佺粨鏋?   */
   async sendWxSubscribeMessage(options) {
     const { touser, templateId, page, data } = options
 
@@ -154,16 +208,11 @@ class ExpiryReminderService {
 
       return res.result
     } catch (err) {
-      console.error('鍙戦€佽闃呮秷鎭け璐?', err)
+      console.error('发送订阅消息失败:', err)
       throw err
     }
   }
 
-  /**
-   * 鎵归噺鍙戦€佹彁閱?   * @param {Array} users 鐢ㄦ埛鍒楄〃
-   * @param {string} templateId 妯℃澘ID
-   * @param {string} message 娑堟伅鍐呭
-   * @returns {Promise<Object>} 鍙戦€佺粨鏋?   */
   async batchSendReminder(users, templateId, message) {
     try {
       const res = await wx.cloud.callFunction({
@@ -178,7 +227,7 @@ class ExpiryReminderService {
 
       return res.result
     } catch (err) {
-      console.error('鎵归噺鍙戦€佹彁閱掑け璐?', err)
+      console.error('批量发送提醒失败:', err)
       throw err
     }
   }
@@ -233,11 +282,6 @@ class ExpiryReminderService {
     }
   }
 
-  /**
-   * 璇锋眰璁㈤槄娑堟伅鎺堟潈
-   * @param {Array} templateIds 妯℃澘ID鍒楄〃
-   * @returns {Promise<Object>} 鎺堟潈缁撴灉
-   */
   async requestSubscribeMessage(templateIds) {
     return new Promise((resolve, reject) => {
       wx.requestSubscribeMessage({
@@ -254,14 +298,9 @@ class ExpiryReminderService {
     })
   }
 
-  /**
-   * 淇濆瓨璁㈤槄鐘舵€?   * @param {string} enterpriseId 浼佷笟ID
-   * @param {boolean} subscribed 鏄惁璁㈤槄
-   * @returns {Promise<void>}
-   */
   async saveSubscribeStatus(enterpriseId, subscribed) {
     const db = wx.cloud.database()
-    
+
     try {
       await db.collection('enterprises').doc(enterpriseId).update({
         data: {
@@ -270,10 +309,9 @@ class ExpiryReminderService {
         }
       })
     } catch (err) {
-      console.error('淇濆瓨璁㈤槄鐘舵€佸け璐?', err)
+      console.error('保存订阅状态失败:', err)
     }
   }
 }
 
 module.exports = new ExpiryReminderService()
-

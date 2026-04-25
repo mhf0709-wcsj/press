@@ -1,0 +1,43 @@
+<view class="page-shell admin-workbench-page">
+  <scroll-view scroll-y class="admin-workbench-scroll">
+    <view class="content-wrapper admin-workbench-wrapper">
+      <view class="panel hero-panel">
+        <view class="panel-section">
+          <view class="eyebrow">{{adminName}}</view>
+          <view class="page-title hero-title">{{text.heroTitle}}</view>
+        </view>
+      </view>
+
+      <view class="panel">
+        <view class="panel-section">
+          <text class="section-title">{{text.sectionTitle}}</text>
+          <view class="entry-list">
+            <view
+              class="list-cell entry-cell"
+              wx:for="{{entries}}"
+              wx:key="key"
+              data-action="{{item.action}}"
+              bindtap="onTapEntry"
+            >
+              <view>
+                <text class="cell-title">{{item.title}}</text>
+              </view>
+              <text class="entry-arrow">></text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <view class="admin-bottom-switch">
+    <view class="mode-switch">
+      <view class="mode-pill" bindtap="goToPreviewPlatform">
+        <text>{{text.switchPreview}}</text>
+      </view>
+      <view class="mode-pill active">
+        <text>{{text.switchWorkbench}}</text>
+      </view>
+    </view>
+  </view>
+</view>

@@ -4,7 +4,6 @@
     "pages/workbench/workbench",
     "pages/archive/archive",
     "pages/user/user",
-    "pages/task-center/task-center",
     "pages/camera/camera",
     "pages/detail/detail",
     "pages/device-list/device-list",
@@ -15,8 +14,8 @@
     "pages/admin-login/admin-login",
     "pages/dashboard/dashboard",
     "pages/admin/admin",
+    "pages/admin-workbench/admin-workbench",
     "pages/account-settings/account-settings",
-    "pages/enforcement/enforcement",
     "pages/enterprise-list/enterprise-list",
     "pages/district-list/district-list",
     "pages/index/index"
@@ -35,7 +34,7 @@
     "list": [
       {
         "pagePath": "pages/ai-assistant/ai-assistant",
-        "text": "\u0041\u0049\u7ba1\u5bb6",
+        "text": "\u667a\u80fd\u7ba1\u5bb6",
         "iconPath": "images/icons/examples.png",
         "selectedIconPath": "images/icons/examples-active.png"
       },

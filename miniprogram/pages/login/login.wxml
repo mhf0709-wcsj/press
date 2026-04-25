@@ -8,7 +8,7 @@
 
       <view class="login-copy">
         <view class="login-title">{{text.title}}</view>
-        <view class="login-desc">{{text.desc}}</view>
+        <view class="login-desc" wx:if="{{text.desc}}">{{text.desc}}</view>
       </view>
 
       <button
@@ -19,7 +19,7 @@
         <text>{{loading ? text.wechatSubmitting : text.wechatSubmit}}</text>
       </button>
 
-      <view class="wechat-hint">{{text.wechatHint}}</view>
+      <view class="wechat-hint" wx:if="{{text.wechatHint}}">{{text.wechatHint}}</view>
 
       <view class="manual-toggle" bindtap="toggleManualLogin">
         <text>{{text.manualToggle}}</text>

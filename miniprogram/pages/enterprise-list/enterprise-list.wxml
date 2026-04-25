@@ -5,7 +5,7 @@
         <view class="panel-section">
           <view class="eyebrow">{{text.heroTopline}}</view>
           <view class="page-title hero-title">{{mode === 'risk' ? text.riskTitle : text.heroTitle}}</view>
-          <view class="page-subtitle">{{mode === 'risk' ? text.riskDesc : text.heroDesc}}</view>
+          <view class="page-subtitle" wx:if="{{mode === 'risk' ? text.riskDesc : text.heroDesc}}">{{mode === 'risk' ? text.riskDesc : text.heroDesc}}</view>
         </view>
       </view>
 

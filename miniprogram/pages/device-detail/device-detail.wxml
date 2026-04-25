@@ -3,54 +3,107 @@
     <view class="device-hero panel">
       <view class="panel-section">
         <text class="eyebrow">压力表档案</text>
-        <view class="page-title device-title">{{device.deviceName || '压力表详情'}}</view>
-        <view class="page-subtitle" wx:if="{{device.qrCode}}">识别码 {{device.qrCode}}</view>
-        <view class="device-hero-action" bindtap="showQRCode" wx:if="{{mode !== 'create'}}">查看设备码</view>
+        <view class="page-title device-title">{{device.deviceName || text.detailTitle}}</view>
       </view>
     </view>
 
     <view class="device-card panel">
       <view class="panel-section">
         <view class="section-title">基础信息</view>
-        <view class="detail-row" wx:if="{{device.equipmentName}}"><text class="detail-label">所属设备</text><text class="detail-static">{{device.equipmentName}}</text></view>
-        <view class="detail-row"><text class="detail-label">设备编号</text><input class="detail-input" value="{{device.deviceNo}}" bindinput="onInput" data-field="deviceNo" placeholder="请输入设备编号" /></view>
-        <view class="detail-row"><text class="detail-label">设备名称</text><input class="detail-input" value="{{device.deviceName}}" bindinput="onInput" data-field="deviceName" placeholder="请输入设备名称" /></view>
-        <view class="detail-row"><text class="detail-label">出厂编号</text><input class="detail-input" value="{{device.factoryNo}}" bindinput="onInput" data-field="factoryNo" placeholder="请输入出厂编号" /></view>
-        <view class="detail-row"><text class="detail-label">制造单位</text><input class="detail-input" value="{{device.manufacturer}}" bindinput="onInput" data-field="manufacturer" placeholder="请输入制造单位" /></view>
-        <view class="detail-row no-border"><text class="detail-label">规格型号</text><input class="detail-input" value="{{device.modelSpec}}" bindinput="onInput" data-field="modelSpec" placeholder="请输入规格型号" /></view>
+
+        <picker mode="selector" range="{{equipments}}" range-key="equipmentName" value="{{equipmentIndex}}" bindchange="onEquipmentChange">
+          <view class="detail-row">
+            <text class="detail-label">所属设备</text>
+            <view class="detail-picker">
+              <text class="detail-picker-value">{{device.equipmentName || '请选择'}}</text>
+              <text class="detail-picker-arrow">></text>
+            </view>
+          </view>
+        </picker>
+
+        <view class="detail-row">
+          <text class="detail-label">压力表编号</text>
+          <input class="detail-input" value="{{device.deviceNo}}" bindinput="onInput" data-field="deviceNo" placeholder="请输入压力表编号" />
+        </view>
+
+        <view class="detail-row">
+          <text class="detail-label">压力表名称</text>
+          <input class="detail-input" value="{{device.deviceName}}" bindinput="onInput" data-field="deviceName" placeholder="请输入压力表名称" />
+        </view>
+
+        <view class="detail-row">
+          <text class="detail-label">出厂编号</text>
+          <input class="detail-input" value="{{device.factoryNo}}" bindinput="onInput" data-field="factoryNo" placeholder="请输入出厂编号" />
+        </view>
+
+        <view class="detail-row">
+          <text class="detail-label">制造单位</text>
+          <input class="detail-input" value="{{device.manufacturer}}" bindinput="onInput" data-field="manufacturer" placeholder="请输入制造单位" />
+        </view>
+
+        <view class="detail-row no-border">
+          <text class="detail-label">型号规格</text>
+          <input class="detail-input" value="{{device.modelSpec}}" bindinput="onInput" data-field="modelSpec" placeholder="请输入型号规格" />
+        </view>
       </view>
     </view>
 
     <view class="device-card panel">
       <view class="panel-section">
         <view class="section-title">状态与位置</view>
-        <picker mode="selector" range="{{statusOptions}}" bindchange="onStatusChange"><view class="detail-row"><text class="detail-label">当前状态</text><view class="detail-picker"><text class="detail-picker-value">{{device.status || '请选择'}}</text><text class="detail-picker-arrow">></text></view></view></picker>
-        <view class="detail-row no-border"><text class="detail-label">安装位置</text><input class="detail-input" value="{{device.installLocation}}" bindinput="onInput" data-field="installLocation" placeholder="请输入安装位置" /></view>
+
+        <picker mode="selector" range="{{statusOptions}}" value="{{statusIndex}}" bindchange="onStatusChange">
+          <view class="detail-row">
+            <text class="detail-label">当前状态</text>
+            <view class="detail-picker">
+              <text class="detail-picker-value">{{device.status || '请选择'}}</text>
+              <text class="detail-picker-arrow">></text>
+            </view>
+          </view>
+        </picker>
+
+        <view class="detail-row no-border">
+          <text class="detail-label">安装位置</text>
+          <input class="detail-input" value="{{device.installLocation}}" bindinput="onInput" data-field="installLocation" placeholder="请输入安装位置" />
+        </view>
       </view>
     </view>
 
     <view class="device-card panel" wx:if="{{mode !== 'create'}}">
       <view class="panel-section">
-        <view class="section-title">存档记录</view>
+        <view class="section-title">检定记录</view>
         <view class="record-list" wx:if="{{archiveRecords.length > 0}}">
           <view class="record-item" wx:for="{{archiveRecords}}" wx:key="_id" bindtap="goRecordDetail" data-id="{{item._id}}">
-            <view class="record-copy"><text class="record-title">{{item.factoryNo || item.deviceNo || '未填写'}}</text><text class="record-sub">证书 {{item.certNo || '-'}}</text></view>
-            <view class="record-side"><text class="record-meta">{{item.verificationDate || '-'}}</text><text class="record-meta">{{item.ocrSource === 'baidu' || item.ocrSource === 'ai_extract' ? 'AI识别' : '手动录入'}}</text><text class="record-arrow">></text></view>
+            <view class="record-copy">
+              <text class="record-title">{{item.factoryNo || item.deviceNo || '-'}}</text>
+              <text class="record-sub">证书 {{item.certNo || '-'}}</text>
+            </view>
+            <view class="record-side">
+              <text class="record-meta">{{item.verificationDate || '-'}}</text>
+              <text class="record-meta">{{item.ocrSource === 'baidu' || item.ocrSource === 'ai_extract' ? text.aiExtract : text.manualInput}}</text>
+              <text class="record-arrow">></text>
+            </view>
           </view>
         </view>
-        <view class="empty-note" wx:else>暂无存档记录</view>
+        <view class="empty-note" wx:else>暂无检定记录</view>
       </view>
     </view>
 
-    <view class="device-card panel" wx:if="{{logs && logs.length > 0}}">
+    <view class="device-card panel" wx:if="{{logs.length > 0}}">
       <view class="panel-section">
-        <view class="section-title">生命周期</view>
+        <view class="section-title">操作记录</view>
         <view class="timeline">
           <view class="timeline-item" wx:for="{{logs}}" wx:key="_id">
             <view class="timeline-dot"></view>
             <view class="timeline-content">
-              <view class="timeline-head"><text class="timeline-action">{{item.action}}</text><text class="timeline-time">{{item.createTime}}</text></view>
-              <view class="timeline-body"><text class="timeline-meta">操作人 {{item.operator}}</text><text class="timeline-meta" wx:if="{{item.remark}}">{{item.remark}}</text></view>
+              <view class="timeline-head">
+                <text class="timeline-action">{{item.action}}</text>
+                <text class="timeline-time">{{item.createTime}}</text>
+              </view>
+              <view class="timeline-body">
+                <text class="timeline-meta">操作人：{{item.operator}}</text>
+                <text class="timeline-meta" wx:if="{{item.remark}}">{{item.remark}}</text>
+              </view>
             </view>
           </view>
         </view>
@@ -58,5 +111,7 @@
     </view>
   </view>
 
-  <view class="device-bottom-bar"><button class="bottom-primary" bindtap="saveDevice">保存压力表档案</button></view>
+  <view class="device-bottom-bar">
+    <button class="bottom-primary" bindtap="saveDevice">保存压力表档案</button>
+  </view>
 </view>

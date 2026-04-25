@@ -2,5 +2,7 @@
   "navigationBarTitleText": "\u8bbe\u5907\u4e2d\u5fc3",
   "enablePullDownRefresh": true,
   "backgroundTextStyle": "dark",
-  "usingComponents": {}
+  "usingComponents": {
+    "expiry-reminder-card": "/components/expiry-reminder-card/expiry-reminder-card"
+  }
 }

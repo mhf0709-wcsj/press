@@ -17,7 +17,7 @@ const DISTRICT_ADMINS = [
 const TEXT = {
   brandName: '\u7ba1\u7406\u63a7\u5236\u53f0',
   title: '\u7ba1\u7406\u7aef\u767b\u5f55',
-  desc: '\u7ee7\u7eed\u8fdb\u5165\u540e\u53f0\u5de5\u4f5c\u53f0',
+  desc: '',
   usernameLabel: '\u7528\u6237\u540d',
   usernamePlaceholder: '\u8bf7\u8f93\u5165\u7528\u6237\u540d',
   passwordLabel: '\u5bc6\u7801',

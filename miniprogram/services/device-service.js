@@ -1,220 +1,251 @@
-/**
- * 设备管理服务模块
- * 负责设备的查询、创建和更新
- */
-
-const db = wx.cloud.database()
+﻿const db = wx.cloud.database()
+const _ = db.command
 const { formatDateTime } = require('../utils/helpers/date')
 const lifecycleService = require('./lifecycle-service')
 const equipmentService = require('./equipment-service')
 
-/**
- * 设备管理服务类
- */
+const TEXT = {
+  defaultType: '\u538b\u529b\u8868',
+  adminCreateSource: '\u7ba1\u7406\u7aef\u5f55\u5165',
+  system: '\u7cfb\u7edf',
+  createAction: '\u5165\u5e93',
+  createRemark: '\u538b\u529b\u8868\u9996\u6b21\u5efa\u6863',
+  createRemarkWithEquipment: '\u538b\u529b\u8868\u9996\u6b21\u5efa\u6863\uff08\u6240\u5c5e\u8bbe\u5907\uff1a{equipment}\uff09',
+  deleteAction: '\u5220\u9664',
+  deleteRemark: '\u538b\u529b\u8868\u5df2\u5220\u9664\uff0c\u5173\u8054\u8bb0\u5f55 {count} \u6761',
+  deletionLogMissing: '\u5220\u9664\u7559\u75d5\u96c6\u5408\u4e0d\u5b58\u5728\uff0c\u5df2\u81ea\u52a8\u964d\u7ea7\u4e3a\u751f\u547d\u5468\u671f\u8bb0\u5f55',
+  missingId: '\u7f3a\u5c11\u538b\u529b\u8868ID',
+  notFound: '\u672a\u627e\u5230\u8be5\u538b\u529b\u8868',
+  alreadyDeleted: '\u8be5\u538b\u529b\u8868\u5df2\u5220\u9664',
+  deleteOperator: '\u4f01\u4e1a\u7528\u6237',
+  defaultName: '\u538b\u529b\u8868'
+}
+
 class DeviceService {
-  /**
-   * 加载设备列表
-   * @param {Object} options 查询选项
-   * @returns {Promise<Array>} 设备列表
-   */
-  async loadDevices(options = {}) {
+  buildWhereCondition(options = {}) {
     const { enterpriseUser, fromAdmin, district } = options
-    
-    if (!enterpriseUser) {
-      return []
+
+    if (!enterpriseUser && !fromAdmin) return null
+
+    const whereCondition = {
+      isDeleted: _.neq(true)
     }
-    
-    let whereCondition = {}
-    
+
     if (fromAdmin) {
-      if (district) {
-        whereCondition.district = district
-      }
-    } else {
+      if (district) whereCondition.district = district
+    } else if (enterpriseUser?.companyName) {
       whereCondition.enterpriseName = enterpriseUser.companyName
     }
-    
-    try {
-      const res = await db.collection('devices')
-        .where(whereCondition)
-        .orderBy('createTime', 'desc')
-        .limit(100)
-        .get()
-      
-      return res.data
-    } catch (err) {
-      console.error('加载设备失败:', err)
-      throw err
-    }
+
+    return whereCondition
   }
 
-  /**
-   * 创建新设备
-   * @param {Object} deviceData 设备数据
-   * @param {Object} options 选项
-   * @returns {Promise<Object>} 创建结果
-   */
+  async loadDevices(options = {}) {
+    const whereCondition = this.buildWhereCondition(options)
+    if (!whereCondition) return []
+
+    const res = await db.collection('devices')
+      .where(whereCondition)
+      .orderBy('createTime', 'desc')
+      .limit(100)
+      .get()
+
+    return res.data || []
+  }
+
   async createDevice(deviceData, options = {}) {
     const { enterpriseUser, fromAdmin, district } = options
-    
+    const now = formatDateTime(new Date())
+
     const newDevice = {
       deviceNo: deviceData.deviceNo || `DEV-${Date.now()}`,
       deviceName: deviceData.deviceName,
-      deviceType: deviceData.deviceType || '压力表',
-      enterpriseId: enterpriseUser._id || enterpriseUser.companyName,
-      enterpriseName: fromAdmin ? '管理端录入' : enterpriseUser.companyName,
-      district: district || '',
+      deviceType: deviceData.deviceType || TEXT.defaultType,
+      enterpriseId: enterpriseUser?._id || enterpriseUser?.companyName || '',
+      enterpriseName: fromAdmin ? (deviceData.enterpriseName || TEXT.adminCreateSource) : (enterpriseUser?.companyName || ''),
+      district: district || deviceData.district || '',
       factoryNo: deviceData.factoryNo || '',
       equipmentId: deviceData.equipmentId || '',
       equipmentName: deviceData.equipmentName || '',
-      status: deviceData.status || '在用', // 在用, 备用, 送检, 停用, 报废
-      qrCode: `QR-${Date.now()}-${Math.floor(Math.random()*1000)}`, // 自动分配一表一码
+      status: deviceData.status || '\u5728\u7528',
       manufacturer: deviceData.manufacturer || '',
       modelSpec: deviceData.modelSpec || '',
       installLocation: deviceData.installLocation || '',
-      createTime: formatDateTime(new Date()),
-      updateTime: formatDateTime(new Date()),
-      recordCount: 0
+      recordCount: 0,
+      isDeleted: false,
+      deletedAt: '',
+      deletedBy: '',
+      deletedById: '',
+      createTime: now,
+      updateTime: now
     }
-    
-    try {
-      const res = await db.collection('devices').add({
-        data: newDevice
-      })
-      
-      // 自动记录“入库”生命周期事件
-      await lifecycleService.logEvent({
-        deviceId: res._id,
-        action: '入库',
-        operator: enterpriseUser.companyName || '系统',
-        operatorId: enterpriseUser._id || 'system',
-        remark: newDevice.equipmentName ? `压力表首次建档赋码（所属设备：${newDevice.equipmentName}）` : '压力表首次建档赋码'
-      }).catch(e => console.error('记录入库事件失败', e));
 
-      if (newDevice.equipmentId) {
-        equipmentService.updateGaugeCount(newDevice.equipmentId).catch(() => {})
-      }
-      
-      return {
-        _id: res._id,
-        ...newDevice
-      }
-    } catch (err) {
-      console.error('创建设备失败:', err)
-      throw err
+    const res = await db.collection('devices').add({ data: newDevice })
+
+    lifecycleService.logEvent({
+      deviceId: res._id,
+      action: TEXT.createAction,
+      operator: enterpriseUser?.companyName || TEXT.system,
+      operatorId: enterpriseUser?._id || 'system',
+      remark: newDevice.equipmentName
+        ? TEXT.createRemarkWithEquipment.replace('{equipment}', newDevice.equipmentName)
+        : TEXT.createRemark
+    }).catch(() => {})
+
+    if (newDevice.equipmentId) {
+      equipmentService.updateGaugeCount(newDevice.equipmentId).catch(() => {})
     }
+
+    return { _id: res._id, ...newDevice }
   }
 
-  /**
-   * 更新设备记录数
-   * @param {string} deviceId 设备ID
-   * @returns {Promise<void>}
-   */
   async updateRecordCount(deviceId) {
     try {
       const countRes = await db.collection('pressure_records')
         .where({ deviceId })
         .count()
-      
+
       await db.collection('devices').doc(deviceId).update({
         data: {
           recordCount: countRes.total,
           updateTime: formatDateTime(new Date())
         }
       })
-    } catch (err) {
-      console.error('更新设备记录数失败:', err)
+    } catch (error) {
+      console.error('update record count failed:', error)
     }
   }
 
-  /**
-   * 根据ID获取设备
-   * @param {string} deviceId 设备ID
-   * @returns {Promise<Object>} 设备信息
-   */
   async getDeviceById(deviceId) {
-    try {
-      const res = await db.collection('devices').doc(deviceId).get()
-      return res.data
-    } catch (err) {
-      console.error('获取设备失败:', err)
-      throw err
-    }
+    const res = await db.collection('devices').doc(deviceId).get()
+    return res.data
   }
 
-  /**
-   * 更新设备信息
-   * @param {string} deviceId 设备ID
-   * @param {Object} data 更新数据
-   * @returns {Promise<void>}
-   */
   async updateDevice(deviceId, data) {
-    try {
-      const safeData = sanitizeUpdateData(data)
-      await db.collection('devices').doc(deviceId).update({
-        data: {
-          ...safeData,
-          updateTime: formatDateTime(new Date())
-        }
-      })
-    } catch (err) {
-      console.error('更新设备失败:', err)
-      throw err
-    }
+    const safeData = sanitizeUpdateData(data)
+    await db.collection('devices').doc(deviceId).update({
+      data: {
+        ...safeData,
+        updateTime: formatDateTime(new Date())
+      }
+    })
   }
 
-  /**
-   * 删除设备
-   * @param {string} deviceId 设备ID
-   * @returns {Promise<void>}
-   */
   async deleteDevice(deviceId) {
-    try {
-      await db.collection('devices').doc(deviceId).remove()
-    } catch (err) {
-      console.error('删除设备失败:', err)
-      throw err
-    }
+    throw new Error('请使用 softDeleteDevice 删除压力表')
   }
 
-  /**
-   * 搜索设备
-   * @param {string} keyword 关键词
-   * @param {Object} options 选项
-   * @returns {Promise<Array>} 搜索结果
-   */
   async searchDevices(keyword, options = {}) {
-    const { enterpriseUser, fromAdmin } = options
-    
+    const baseCondition = this.buildWhereCondition(options)
+    if (!baseCondition) return []
+
     if (!keyword || !keyword.trim()) {
       return this.loadDevices(options)
     }
-    
-    const db = wx.cloud.database()
-    const _ = db.command
-    
-    let whereCondition = {
-      deviceName: db.RegExp({
-        regexp: keyword,
-        options: 'i'
+
+    const res = await db.collection('devices')
+      .where({
+        ...baseCondition,
+        deviceName: db.RegExp({
+          regexp: keyword,
+          options: 'i'
+        })
       })
+      .orderBy('createTime', 'desc')
+      .limit(50)
+      .get()
+
+    return res.data || []
+  }
+
+  async softDeleteDevice(deviceId, options = {}) {
+    const { enterpriseUser } = options
+    if (!deviceId) throw new Error(TEXT.missingId)
+
+    const current = await this.getDeviceById(deviceId)
+    if (!current) throw new Error(TEXT.notFound)
+    if (current.isDeleted) throw new Error(TEXT.alreadyDeleted)
+
+    const operatorName = enterpriseUser?.companyName || TEXT.deleteOperator
+    const operatorId = enterpriseUser?._id || ''
+    const deleteTime = formatDateTime(new Date())
+
+    const relatedRecordRes = await db.collection('pressure_records')
+      .where({ deviceId })
+      .count()
+    const relatedRecordCount = Number(relatedRecordRes.total || 0)
+
+    await db.collection('devices').doc(deviceId).update({
+      data: {
+        isDeleted: true,
+        deletedAt: deleteTime,
+        deletedBy: operatorName,
+        deletedById: operatorId,
+        updateTime: deleteTime
+      }
+    })
+
+    if (relatedRecordCount > 0) {
+      await db.collection('pressure_records')
+        .where({
+          deviceId,
+          isDeleted: _.neq(true)
+        })
+        .update({
+          data: {
+            isDeleted: true,
+            deletedAt: deleteTime,
+            deletedBy: operatorName,
+            deletedById: operatorId,
+            updateTime: deleteTime
+          }
+        })
     }
-    
-    if (!fromAdmin && enterpriseUser) {
-      whereCondition.enterpriseName = enterpriseUser.companyName
-    }
-    
+
+    let logStored = true
     try {
-      const res = await db.collection('devices')
-        .where(whereCondition)
-        .orderBy('createTime', 'desc')
-        .limit(50)
-        .get()
-      
-      return res.data
-    } catch (err) {
-      console.error('搜索设备失败:', err)
-      throw err
+      await db.collection('deletion_logs').add({
+        data: {
+          entityType: 'device',
+          entityId: deviceId,
+          entityName: current.deviceName || current.factoryNo || TEXT.defaultName,
+          enterpriseName: current.enterpriseName || operatorName,
+          district: current.district || '',
+          equipmentId: current.equipmentId || '',
+          equipmentName: current.equipmentName || '',
+          factoryNo: current.factoryNo || '',
+          deviceNo: current.deviceNo || '',
+          relatedRecordCount,
+          deletedAt: deleteTime,
+          deletedBy: operatorName,
+          deletedById: operatorId,
+          snapshot: current,
+          createTime: deleteTime
+        }
+      })
+    } catch (error) {
+      logStored = false
+    }
+
+    lifecycleService.logEvent({
+      deviceId,
+      action: TEXT.deleteAction,
+      operator: operatorName,
+      operatorId,
+      remark: logStored
+        ? TEXT.deleteRemark.replace('{count}', String(relatedRecordCount))
+        : `${TEXT.deleteRemark.replace('{count}', String(relatedRecordCount))}，${TEXT.deletionLogMissing}`
+    }).catch(() => {})
+
+    if (current.equipmentId) {
+      equipmentService.updateGaugeCount(current.equipmentId).catch(() => {})
+    }
+
+    return {
+      success: true,
+      relatedRecordCount,
+      deletedAt: deleteTime,
+      logStored
     }
   }
 }
@@ -232,3 +263,4 @@ function sanitizeUpdateData(data = {}) {
 }
 
 module.exports = new DeviceService()
+

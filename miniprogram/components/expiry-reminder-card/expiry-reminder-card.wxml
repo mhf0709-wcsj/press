@@ -1,0 +1,53 @@
+<view class="reminder-overlay" wx:if="{{visible}}" bindtap="onClose">
+  <view class="reminder-dialog" catchtap="stopPropagation">
+    <view class="reminder-glow"></view>
+
+    <view class="reminder-priority {{hasExpired ? 'danger' : 'warning'}}">
+      <view class="reminder-priority-main">
+        <text class="reminder-priority-dot"></text>
+        <text class="reminder-priority-text">{{priorityText}}</text>
+      </view>
+      <text class="reminder-priority-note">{{priorityNote}}</text>
+    </view>
+
+    <view class="reminder-header">
+      <view class="reminder-badge">{{badgeText}}</view>
+      <view class="reminder-close" bindtap="onClose">x</view>
+    </view>
+
+    <view class="reminder-title">{{title}}</view>
+    <view class="reminder-summary">{{summary}}</view>
+
+    <view class="reminder-list" wx:if="{{items.length}}">
+      <view class="reminder-section">
+        <text class="reminder-section-title">{{listTitle}}</text>
+        <text class="reminder-section-hint">{{listHint}}</text>
+      </view>
+
+      <view class="reminder-item" wx:for="{{items}}" wx:key="index">
+        <view class="reminder-item-main">
+          <view class="reminder-item-top">
+            <text class="reminder-item-title">{{item.enterpriseName || item.title}}</text>
+          </view>
+
+          <text class="reminder-item-subtitle">{{item.phone || item.subtitle || fallbackSubtitle}}</text>
+
+          <view class="reminder-item-meta">
+            <text class="reminder-meta-chip danger" wx:if="{{item.expiredCount > 0}}">{{expiredHint}}</text>
+            <text class="reminder-meta-chip warning" wx:elif="{{item.expiringCount > 0}}">{{expiringHint}}</text>
+          </view>
+        </view>
+
+        <view class="reminder-item-side desktop">
+          <text class="reminder-tag danger" wx:if="{{item.expiredCount > 0}}">{{item.expiredCount}}{{expiredSuffix}}</text>
+          <text class="reminder-tag warning" wx:if="{{item.expiringCount > 0}}">{{item.expiringCount}}{{expiringSuffix}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="reminder-actions">
+      <view class="reminder-action secondary" bindtap="onCancel">{{cancelText}}</view>
+      <view class="reminder-action primary" bindtap="onConfirm">{{confirmText}}</view>
+    </view>
+  </view>
+</view>

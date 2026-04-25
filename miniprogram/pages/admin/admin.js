@@ -1,24 +1,32 @@
-const { CLOUD_CONFIG } = require('../../constants/index')
+﻿const { CLOUD_CONFIG } = require('../../constants/index')
+const deletionLogService = require('../../services/deletion-log-service')
 
 let db = null
 
 const TEXT = {
-  heroTopline: 'Ledger Center',
+  heroTopline: '台账',
   heroTitle: '\u53f0\u8d26\u4e2d\u5fc3',
-  heroDesc: '\u4fdd\u7559\u67e5\u770b\u3001\u7b5b\u9009\u3001\u8fdb\u8be6\u60c5\u8fd9\u4e09\u4ef6\u4e8b\uff0c\u8ba9\u53f0\u8d26\u7ba1\u7406\u66f4\u6e05\u695a\u3002',
-  searchRecords: '\u641c\u7d22\u8bc1\u4e66\u7f16\u53f7 / \u51fa\u5382\u7f16\u53f7 / \u9001\u68c0\u5355\u4f4d',
-  searchEquipments: '\u641c\u7d22\u8bbe\u5907\u540d\u79f0 / \u7f16\u53f7 / \u4f01\u4e1a',
+  heroDesc: '',
+  searchRecords: '\u641c\u7d22\u8bb0\u5f55',
+  searchEquipments: '\u641c\u7d22\u8bbe\u5907',
+  searchDeletions: '\u641c\u7d22\u5220\u9664\u8bb0\u5f55',
   allDistricts: '\u5168\u90e8\u8f96\u533a',
   allEnterprises: '\u5168\u90e8\u4f01\u4e1a',
   modeRecords: '\u68c0\u5b9a\u8bb0\u5f55',
   modeEquipments: '\u8bbe\u5907\u6863\u6848',
+  modeDeletions: '\u5220\u9664\u7559\u75d5',
   refresh: '\u5237\u65b0',
-  aiEntry: 'AI\u5f55\u5165',
   fromDashboard: '\u8fd4\u56de\u9996\u9875',
-  emptyRecords: '\u6682\u65f6\u6ca1\u6709\u7b26\u5408\u6761\u4ef6\u7684\u8bb0\u5f55',
-  emptyEquipments: '\u6682\u65f6\u6ca1\u6709\u7b26\u5408\u6761\u4ef6\u7684\u8bbe\u5907',
+  scopeAll: '\u5168\u90e8\u8bb0\u5f55',
+  scopeExpired: '\u5df2\u8fc7\u671f',
+  scopeExpiring: '30\u5929\u5185\u5230\u671f',
+  scopeRisk: '\u98ce\u9669\u8bb0\u5f55',
+  emptyRecords: '\u6682\u65e0\u8bb0\u5f55',
+  emptyEquipments: '\u6682\u65e0\u8bbe\u5907',
+  emptyDeletions: '\u6682\u65e0\u7559\u75d5',
   passValue: '\u5408\u683c',
   countUnit: '\u53f0',
+  deletedTag: '\u5df2\u5220\u9664',
   fields: {
     certNo: '\u8bc1\u4e66\u7f16\u53f7',
     enterprise: '\u4f01\u4e1a',
@@ -27,18 +35,21 @@ const TEXT = {
     verificationDate: '\u68c0\u5b9a\u65e5\u671f',
     expiryDate: '\u5230\u671f\u65e5\u671f',
     equipmentNo: '\u8bbe\u5907\u7f16\u53f7',
-    location: '\u4f4d\u7f6e'
+    location: '\u4f4d\u7f6e',
+    deletedAt: '\u5220\u9664\u65f6\u95f4',
+    deletedBy: '\u5220\u9664\u4e3b\u4f53',
+    relatedRecordCount: '\u5173\u8054\u8bb0\u5f55'
   }
 }
 
 const DISTRICTS = [
   '\u5168\u90e8\u8f96\u533a',
-  '\u5927\u7898\u6240',
-  '\u73ad\u6eaa\u6240',
+  '\u5927\u5cef\u6240',
+  '\u73ca\u6eaa\u6240',
   '\u5de8\u5c7f\u6240',
-  '\u5ce1\u53e3\u6240',
-  '\u9ec4\u575b\u6240',
-  '\u897f\u5761\u6240',
+  '\u5cef\u53e3\u6240',
+  '\u9ec4\u5766\u6240',
+  '\u897f\u5751\u6240',
   '\u7389\u58f6\u6240',
   '\u5357\u7530\u6240',
   '\u767e\u4e08\u6f88\u6240'
@@ -50,6 +61,7 @@ Page({
     viewMode: 'records',
     records: [],
     equipments: [],
+    deletionLogs: [],
     enterprises: [{ companyName: TEXT.allEnterprises }],
     districtOptions: DISTRICTS,
     selectedDistrict: TEXT.allDistricts,
@@ -63,25 +75,13 @@ Page({
     selectedConclusion: ''
   },
 
-  onLoad(options) {
-    if (options.view) {
-      this.setData({ viewMode: options.view })
-    }
-    if (options.filter) {
-      this.setData({ filterType: options.filter })
-    }
-    if (options.enterprise) {
-      this.setData({ selectedEnterprise: decodeURIComponent(options.enterprise) })
-    }
-    if (options.district) {
-      this.setData({ selectedDistrict: decodeURIComponent(options.district) })
-    }
-    if (options.conclusion) {
-      this.setData({ selectedConclusion: decodeURIComponent(options.conclusion) })
-    }
-    if (options.from === 'dashboard') {
-      this.setData({ fromDashboard: true })
-    }
+  onLoad(options = {}) {
+    if (options.view) this.setData({ viewMode: options.view })
+    if (options.filter) this.setData({ filterType: options.filter })
+    if (options.enterprise) this.setData({ selectedEnterprise: decodeURIComponent(options.enterprise) })
+    if (options.district) this.setData({ selectedDistrict: decodeURIComponent(options.district) })
+    if (options.conclusion) this.setData({ selectedConclusion: decodeURIComponent(options.conclusion) })
+    if (options.from === 'dashboard') this.setData({ fromDashboard: true })
     if (options.deviceId) {
       this.deviceIdFilter = options.deviceId
       this.setData({ viewMode: 'records' })
@@ -96,6 +96,12 @@ Page({
           icon: 'none'
         })
       })
+  },
+
+  onShow() {
+    if (this.hasLoadedOnce) {
+      this.loadAllData()
+    }
   },
 
   initCloudContext() {
@@ -128,8 +134,7 @@ Page({
   },
 
   onPullDownRefresh() {
-    this.loadAllData()
-      .finally(() => wx.stopPullDownRefresh())
+    this.loadAllData().finally(() => wx.stopPullDownRefresh())
   },
 
   async loadAllData() {
@@ -137,9 +142,10 @@ Page({
     wx.showLoading({ title: '\u52a0\u8f7d\u4e2d...' })
 
     try {
+      await this.syncDeletedDeviceRecords()
       await Promise.all([
         this.loadEnterprises(),
-        this.data.viewMode === 'records' ? this.loadRecords() : this.loadEquipments()
+        this.loadCurrentView()
       ])
     } catch (error) {
       console.error('Admin page load failed:', error)
@@ -148,9 +154,28 @@ Page({
         icon: 'none'
       })
     } finally {
+      this.hasLoadedOnce = true
       wx.hideLoading()
       this.setData({ loading: false })
     }
+  },
+
+  async syncDeletedDeviceRecords() {
+    try {
+      await wx.cloud.callFunction({
+        name: 'expiryReminder',
+        data: {
+          action: 'syncDeletedDeviceRecords',
+          district: this.data.adminDistrict || ''
+        }
+      })
+    } catch (error) {}
+  },
+
+  loadCurrentView() {
+    if (this.data.viewMode === 'records') return this.loadRecords()
+    if (this.data.viewMode === 'equipments') return this.loadEquipments()
+    return this.loadDeletionLogs()
   },
 
   async loadEnterprises() {
@@ -181,16 +206,17 @@ Page({
       .limit(100)
       .get()
 
-    const records = this.filterRecordsByKeyword(res.data || [])
-    this.setData({ records })
+    this.setData({
+      records: this.filterRecordsByKeyword(res.data || [])
+    })
   },
 
   buildRecordWhereCondition() {
-    const condition = {}
-
-    if (this.deviceIdFilter) {
-      condition.deviceId = this.deviceIdFilter
+    const condition = {
+      isDeleted: db.command.neq(true)
     }
+
+    if (this.deviceIdFilter) condition.deviceId = this.deviceIdFilter
 
     if (this.data.adminDistrict) {
       condition.district = this.data.adminDistrict
@@ -207,16 +233,16 @@ Page({
     }
 
     if (this.data.filterType) {
-      const _ = db.command
+      const command = db.command
       const today = this.formatDate(new Date())
       const future = this.formatDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))
 
       if (this.data.filterType === 'expired') {
-        condition.expiryDate = _.lt(today)
+        condition.expiryDate = command.lt(today)
       } else if (this.data.filterType === 'expiring') {
-        condition.expiryDate = _.and([_.gte(today), _.lte(future)])
-      } else if (this.data.filterType === 'expiry') {
-        condition.expiryDate = _.lte(future)
+        condition.expiryDate = command.and([command.gte(today), command.lte(future)])
+      } else if (this.data.filterType === 'expiry' || this.data.filterType === 'risk') {
+        condition.expiryDate = command.lte(future)
       }
     }
 
@@ -253,12 +279,15 @@ Page({
       .limit(100)
       .get()
 
-    const equipments = this.filterEquipmentsByKeyword(res.data || [])
-    this.setData({ equipments })
+    this.setData({
+      equipments: this.filterEquipmentsByKeyword(res.data || [])
+    })
   },
 
   buildEquipmentWhereCondition() {
-    const condition = {}
+    const condition = {
+      isDeleted: db.command.neq(true)
+    }
 
     if (this.data.adminDistrict) {
       condition.district = this.data.adminDistrict
@@ -288,6 +317,15 @@ Page({
     })
   },
 
+  async loadDeletionLogs() {
+    const logs = await deletionLogService.loadLogs({
+      enterpriseName: this.data.selectedEnterprise,
+      district: this.data.adminDistrict || this.data.selectedDistrict,
+      keyword: this.data.searchKeyword
+    })
+    this.setData({ deletionLogs: logs })
+  },
+
   onSearch(e) {
     this.setData({
       searchKeyword: e.detail.value || ''
@@ -301,25 +339,24 @@ Page({
 
   onDistrictChange(e) {
     const district = this.data.districtOptions[e.detail.value]
-    this.setData({
-      selectedDistrict: district
-    }, () => this.loadAllData())
+    this.setData({ selectedDistrict: district }, () => this.loadAllData())
   },
 
   onEnterpriseChange(e) {
     const enterprise = this.data.enterprises[e.detail.value]
-    this.setData({
-      selectedEnterprise: enterprise.companyName
-    }, () => this.loadAllData())
+    this.setData({ selectedEnterprise: enterprise.companyName }, () => this.loadAllData())
   },
 
   switchViewMode(e) {
     const mode = e.currentTarget.dataset.mode
     if (!mode || mode === this.data.viewMode) return
+    this.setData({ viewMode: mode }, () => this.loadAllData())
+  },
 
-    this.setData({
-      viewMode: mode
-    }, () => this.loadAllData())
+  setQuickFilter(e) {
+    const filter = e.currentTarget.dataset.filter
+    if (filter === this.data.filterType) return
+    this.setData({ filterType: filter || '' }, () => this.loadAllData())
   },
 
   refreshData() {
@@ -330,26 +367,16 @@ Page({
     wx.navigateBack()
   },
 
-  goToAiEntry() {
-    wx.navigateTo({
-      url: '/pages/ai-assistant/ai-assistant'
-    })
-  },
-
   viewRecordDetail(e) {
     const id = e.currentTarget.dataset.id
     if (!id) return
-    wx.navigateTo({
-      url: `/pages/detail/detail?id=${id}`
-    })
+    wx.navigateTo({ url: `/pages/detail/detail?id=${id}` })
   },
 
   viewEquipmentDetail(e) {
     const id = e.currentTarget.dataset.id
     if (!id) return
-    wx.navigateTo({
-      url: `/pages/equipment-detail/equipment-detail?id=${id}&adminView=1`
-    })
+    wx.navigateTo({ url: `/pages/equipment-detail/equipment-detail?id=${id}&adminView=1` })
   },
 
   formatDate(date) {

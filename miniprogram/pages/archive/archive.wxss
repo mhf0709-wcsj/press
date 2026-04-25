@@ -101,16 +101,20 @@
   margin-bottom: 20rpx;
   overflow: hidden;
   border-radius: var(--radius-xl);
+  width: 100%;
 }
 
 .swipe-content {
   position: relative;
   z-index: 2;
+  width: 100%;
+  display: block;
   transition: transform 180ms ease;
+  will-change: transform;
 }
 
 .swipe-content.swiped {
-  transform: translateX(-136rpx);
+  transform: translateX(-148rpx);
 }
 
 .swipe-delete {
@@ -118,16 +122,35 @@
   top: 0;
   right: 0;
   bottom: 0;
-  width: 136rpx;
+  width: 0;
+  opacity: 0;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 1;
+  pointer-events: none;
+  transition: width 180ms ease, opacity 180ms ease;
+}
+
+.swipe-delete.open {
+  width: 148rpx;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.swipe-delete::before {
+  content: '';
+  position: absolute;
+  inset: 0;
   border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
-  background: rgba(255, 59, 48, 0.12);
+  background: linear-gradient(180deg, #ef4444, #d92d20);
 }
 
 .swipe-delete-text {
-  color: var(--color-danger);
+  position: relative;
+  z-index: 1;
+  color: #fff;
   font-size: var(--font-size-footnote);
   font-weight: var(--font-weight-semibold);
 }

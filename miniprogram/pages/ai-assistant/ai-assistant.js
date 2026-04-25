@@ -4,6 +4,7 @@ const aiExtractService = require('../../services/ai-extract-service')
 const recordService = require('../../services/record-service')
 const deviceService = require('../../services/device-service')
 const equipmentService = require('../../services/equipment-service')
+const expiryReminderService = require('../../services/expiry-reminder-service')
 const formValidator = require('../../utils/form-validator')
 const { calculateExpiryDate } = require('../../utils/helpers/date')
 
@@ -11,18 +12,18 @@ const DRAFT_STATUS_OPTIONS = ['在用', '备用', '送检', '停用', '报废']
 const DRAFT_DISTRICT_OPTIONS = ['大峃所', '珊溪所', '峃口所', '黄坦所', '西坑所', '玉壶所', '南田所', '百丈漈所']
 
 const TEXT = {
-  heroTopline: '智能管家首页',
-  heroTitle: 'AI智能管家',
-  heroDesc: '在这里直接向 AI 管家提问，或上传压力表照片，用对话方式完成识别、建档和问答。',
+  heroTopline: '智能管家',
+  heroTitle: '压力表智能管家',
+  heroDesc: '',
   guest: '访客',
-  emptyChatTitle: '等你开始对话',
-  emptyChatDesc: '点“上传照片”，AI 管家就会开始引导你进行识别、录入或台账操作。',
-  loadingAnswer: 'AI 管家正在整理答案...',
-  executingAction: 'AI 管家正在执行操作...',
-  savingDraft: 'AI 管家正在直接存档...',
+  emptyChatTitle: '开始对话',
+  emptyChatDesc: '上传照片开始识别，或直接输入问题。',
+  loadingAnswer: '正在整理答案...',
+  executingAction: '正在执行操作...',
+  savingDraft: '正在存档...',
   uploadCta: '上传照片',
   uploadAgain: '重新上传',
-  manualEntry: '手动录入',
+  manualEntry: '手动建档',
   confirmDraft: '去确认并保存',
   confirmExecute: '确认执行',
   cancelExecute: '取消',
@@ -31,19 +32,19 @@ const TEXT = {
   debugCollapse: '收起排查信息',
   operationResultTitle: '操作结果',
   candidateTitle: '候选记录',
-  inputPlaceholder: '继续向 AI 管家提问，或者直接上传压力表照片',
+  inputPlaceholder: '向压力表智能管家提问',
   send: '发送',
-  composerTip: '对话可用于识别建档、知识问答和台账操作，涉及检定结论请以正式记录为准。',
+  composerTip: '',
   me: '我',
-  uploadPrompt: '请上传压力表检定证书或仪表照片，我会先帮你识别关键信息，再自动判断设备分类。',
-  uploadReceived: '我已收到图片，正在分析证书内容和设备归属...',
-  analysisDone: '我已经完成这张图片的分析。',
-  draftReady: '已经帮你准备好建档草稿。',
-  draftEditHint: '你也可以直接对我说：“把这个仪表的型号改成 Y-100”，我会先帮你修改当前识别草稿。',
+  uploadPrompt: '请上传压力表照片。',
+  uploadReceived: '正在分析...',
+  analysisDone: '分析完成。',
+  draftReady: '已生成草稿。',
+  draftEditHint: '',
   draftMissingPrefix: '当前还有这些关键信息需要你补全：',
   draftSummaryTitle: '待你确认的变更摘要：',
-  directSaveReady: '如果这些信息已经正确，你可以直接对我说“确认保存”，我会直接存档。',
-  installPhotoPrompt: '如果压力表状态是“在用”，还需要再上传一张安装照片。你可以直接对我说“上传安装照片”。',
+  directSaveReady: '确认无误后可直接保存。',
+  installPhotoPrompt: '在用状态需上传安装照片。',
   extractionTitle: '本次识别结果',
   fields: {
     certNo: '证书编号',
@@ -94,27 +95,141 @@ Page({
     visionDraft: null,
     draftHistory: [],
     pendingCrudPlan: null,
-    lastCrudContext: null
+    lastCrudContext: null,
+    reminderVisible: false,
+    setupRedirecting: false,
+    unboundEquipmentCount: 0,
+    reminderCard: {
+      title: '',
+      summary: '',
+      items: []
+    }
   },
 
   async onLoad() {
-    await this.bootstrap()
+    const ready = await this.bootstrap()
+    if (!ready) return
     this.ensureGuideConversation()
+    this.maybeAppendUnboundEquipmentMessage()
+    await this.maybeShowEntryReminder()
   },
 
   async onShow() {
-    await this.bootstrap()
+    const ready = await this.bootstrap()
+    if (!ready) return
     this.ensureGuideConversation()
+    this.maybeAppendUnboundEquipmentMessage()
+    await this.maybeShowEntryReminder()
   },
 
   onPullDownRefresh() {
     this.bootstrap()
-      .then(() => this.ensureGuideConversation())
+      .then((ready) => {
+        if (ready) this.ensureGuideConversation()
+      })
       .finally(() => wx.stopPullDownRefresh())
   },
 
   async bootstrap() {
-    this.setData(this.resolveUserProfile())
+    const profile = this.resolveUserProfile()
+    this.setData(profile)
+    if (profile.userType === 'enterprise') {
+      const ready = await this.ensureEnterpriseEquipmentSetup(profile.userInfo)
+      if (ready) {
+        await this.loadUnboundEquipmentCount(profile.userInfo)
+      }
+      return ready
+    }
+    return true
+  },
+
+  async loadUnboundEquipmentCount(enterpriseUser) {
+    try {
+      const list = await equipmentService.loadUnboundEquipments({ enterpriseUser })
+      this.setData({ unboundEquipmentCount: list.length })
+    } catch (error) {
+      console.error('load unbound equipment count failed:', error)
+      this.setData({ unboundEquipmentCount: 0 })
+    }
+  },
+
+  async ensureEnterpriseEquipmentSetup(enterpriseUser) {
+    if (!enterpriseUser?.companyName) return false
+
+    try {
+      const total = await equipmentService.countEquipments({ enterpriseUser })
+      if (total > 0) {
+        if (this.data.setupRedirecting) {
+          this.setData({ setupRedirecting: false })
+        }
+        return true
+      }
+
+      if (this.data.setupRedirecting) return false
+
+      this.setData({ setupRedirecting: true })
+      wx.showToast({ title: '请先创建至少一台设备', icon: 'none', duration: 1800 })
+      setTimeout(() => {
+        wx.navigateTo({ url: '/pages/equipment-detail/equipment-detail?mode=create&init=1' })
+      }, 250)
+      return false
+    } catch (error) {
+      console.error('ensure equipment setup failed:', error)
+      return true
+    }
+  },
+
+  async maybeShowEntryReminder() {
+    if (this.data.userType !== 'enterprise' || !this.data.userInfo?.companyName) return
+
+    const app = typeof getApp === 'function' ? getApp() : null
+    const token = app?.globalData?.entryReminderToken || 0
+
+    if (token && app?.globalData?.entryReminderHandledToken === token) return
+    if (expiryReminderService.hasDeferredToday(this.data.userInfo)) {
+      if (app?.globalData && token) {
+        app.globalData.entryReminderHandledToken = token
+      }
+      return
+    }
+
+    const res = await expiryReminderService.getEnterpriseExpiryDashboard(this.data.userInfo, 30)
+    if (!res?.success) return
+
+    const data = res.data || {}
+    const expiredCount = Number(data.expiredCount || 0)
+    const expiringCount = Number(data.expiringCount || 0)
+    if (expiredCount + expiringCount <= 0) return
+
+    if (app?.globalData && token) {
+      app.globalData.entryReminderHandledToken = token
+    }
+
+    this.setData({
+      reminderVisible: true,
+      reminderCard: {
+        title: '今日到期提醒',
+        summary: `您有 ${expiredCount} 台已过期，${expiringCount} 台将在 30 天内到期。`,
+        items: (data.recentItems || []).slice(0, 3).map((item) => ({
+          title: item.factoryNo || item.instrumentName || TEXT.extractionTitle,
+          subtitle: item.instrumentName || TEXT.fields.instrumentName,
+          expiredCount: item.expiryStatus === 'expired' ? 1 : 0,
+          expiringCount: item.expiryStatus === 'expired' ? 0 : 1
+        }))
+      }
+    })
+  },
+
+  closeReminderCard() {
+    if (this.data.userInfo?.companyName) {
+      expiryReminderService.deferTodayReminder(this.data.userInfo)
+    }
+    this.setData({ reminderVisible: false })
+  },
+
+  confirmReminderCard() {
+    this.setData({ reminderVisible: false })
+    wx.navigateTo({ url: '/pages/archive/archive?filter=expiry' })
   },
 
   resolveUserProfile() {
@@ -150,9 +265,20 @@ Page({
     this.setData({
       messages: [
         this.createTextMessage('assistant', TEXT.uploadPrompt),
-        this.createTextMessage('assistant', '你也可以直接向我提问，或者说“帮我查一下某块压力表”“把某条记录改成合格”，我会按对话方式帮你处理。')
+        this.createTextMessage('assistant', '可以直接提问或上传照片。')
       ]
     }, () => this.scrollToBottom())
+  },
+
+  maybeAppendUnboundEquipmentMessage() {
+    if (this.data.userType !== 'enterprise' || this.data.unboundEquipmentCount <= 0) return
+    const exists = this.data.messages.some((item) => item.kind === 'text' && /未绑定压力表/.test(item.content || ''))
+    if (exists) return
+
+    const count = this.data.unboundEquipmentCount
+    this.appendMessages([
+      this.createTextMessage('assistant', `${count} 台设备未绑定压力表。`)
+    ])
   },
 
   createBaseMessage(role, kind) {
@@ -668,7 +794,6 @@ Page({
       this.appendMessages([
         this.createResultMessage(draft),
         this.createTextMessage('assistant', `${TEXT.analysisDone}${TEXT.draftReady}`),
-        this.createTextMessage('assistant', TEXT.draftEditHint),
         ...this.buildDraftFollowUpMessages(draft, { includeResultMessage: false })
       ])
     } catch (error) {
@@ -684,7 +809,7 @@ Page({
       certNo: result.certNo || previous.certNo || '',
       sendUnit: result.sendUnit || previous.sendUnit || '',
       instrumentName: result.instrumentName || previous.instrumentName || '',
-      modelSpec: result.modelSpec || previous.modelSpec || '',
+      modelSpec: this.normalizeDisplayModelSpec(result.modelSpec || previous.modelSpec || ''),
       factoryNo: result.factoryNo || previous.factoryNo || '',
       manufacturer: result.manufacturer || previous.manufacturer || '',
       verificationStd: result.verificationStd || previous.verificationStd || '',
@@ -713,6 +838,17 @@ Page({
       summary: this.buildResultSummary(nextResult, nextResult.categoryLabel, nextResult.selectedEquipmentName),
       fields: this.buildDraftFields(nextResult)
     }
+  },
+
+  normalizeDisplayModelSpec(value) {
+    const text = String(value || '').trim()
+    const compact = text.replace(/\s+/g, '').replace(/[/:：/／]+/g, '')
+    if (!compact || ['型号', '规格', '型号规格', '规格型号'].includes(compact)) return ''
+
+    const match = text.match(/(\(?\s*\d+(?:\.\d+)?\s*(?:-|~|－|—|至)\s*\d+(?:\.\d+)?\s*\)?\s*(?:k|M|G)?Pa)/i)
+    if (match && match[1]) return match[1].replace(/\s+/g, ' ').trim()
+
+    return text
   },
 
   buildDraftFields(result) {
@@ -753,10 +889,10 @@ Page({
     const categoryPart = categoryLabel ? `识别为 ${categoryLabel}` : '已完成设备类型判断'
 
     if (matchName) {
-      return `${certPart}，${instrumentPart}，${categoryPart}，建议归档到“${matchName}”。`
+      return `${certPart}，${instrumentPart}，${categoryPart}，“${matchName}”。`
     }
 
-    return `${certPart}，${instrumentPart}，${categoryPart}，你可以继续补全辖区、所属设备等信息。`
+    return `${certPart}，${instrumentPart}，${categoryPart}。`
   },
 
   getDraftEditConfigs() {
@@ -981,7 +1117,7 @@ Page({
     }
 
     if ((draft.extractedData.conclusion || '').trim() !== '合格') {
-      this.appendMessages([this.createTextMessage('assistant', '当前仅支持检定结论为“合格”的压力表直接存档。你可以把检定结论改成“合格”，或者继续走人工确认。')])
+      this.appendMessages([this.createTextMessage('assistant', '仅合格记录可直接存档。')])
       return
     }
 
@@ -991,7 +1127,7 @@ Page({
       const equipment = await this.resolveDraftEquipment(draft)
       if (!equipment?._id) {
         this.setData({ isDirectSaving: false })
-        this.appendMessages([this.createTextMessage('assistant', '我还没能匹配到所属设备。你可以直接说“把所属设备改成 XXX”，或者继续去确认页处理。')])
+        this.appendMessages([this.createTextMessage('assistant', '未匹配所属设备。')])
         return
       }
 
@@ -1060,8 +1196,9 @@ Page({
     const runtime = this.getRuntimeUserOptions()
     const wantedStatus = recordData.gaugeStatus || '在用'
     const db = wx.cloud.database()
+    const _ = db.command
     const existed = await db.collection('devices')
-      .where({ equipmentId, factoryNo })
+      .where({ equipmentId, factoryNo, isDeleted: _.neq(true) })
       .limit(1)
       .get()
 

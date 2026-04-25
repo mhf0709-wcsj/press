@@ -161,6 +161,11 @@
   background: var(--color-danger-soft);
 }
 
+.reminder-cell-tag.neutral {
+  background: rgba(17, 24, 39, 0.06);
+  color: var(--color-text-secondary);
+}
+
 .device-cell-copy {
   flex: 1;
   min-width: 0;

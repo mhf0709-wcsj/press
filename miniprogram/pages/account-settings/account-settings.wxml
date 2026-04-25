@@ -1,60 +1,54 @@
-<scroll-view scroll-y class="container">
-  <!-- 账号信息卡片 -->
-  <view class="account-card">
-    <view class="account-header">
-      <view class="account-avatar">
-        <text class="avatar-icon">{{isAdmin ? '👑' : '📍'}}</text>
+<view class="page-shell account-settings-page">
+  <scroll-view scroll-y class="account-settings-scroll">
+    <view class="content-wrapper account-settings-wrapper">
+      <view class="panel hero-panel">
+        <view class="panel-section">
+          <view class="eyebrow">{{text.heroTopline}}</view>
+          <view class="page-title hero-title">{{text.heroTitle}}</view>
+          <view class="page-subtitle" wx:if="{{text.heroDesc}}">{{text.heroDesc}}</view>
+        </view>
       </view>
-      <view class="account-info">
-        <text class="account-name">{{adminInfo.username}}</text>
-        <text class="account-role">{{isAdmin ? '总管理员' : adminDistrict + '管理员'}}</text>
-      </view>
-    </view>
-  </view>
 
-  <!-- 账号信息详情 -->
-  <view class="info-card">
-    <view class="card-title">账号信息</view>
-    <view class="info-item">
-      <text class="info-label">用户名</text>
-      <text class="info-value">{{adminInfo.username}}</text>
-    </view>
-    <view class="info-item">
-      <text class="info-label">账号类型</text>
-      <text class="info-value">{{isAdmin ? '总管理员' : '辖区管理员'}}</text>
-    </view>
-    <view class="info-item" wx:if="{{!isAdmin}}">
-      <text class="info-label">管理辖区</text>
-      <text class="info-value">{{adminDistrict}}</text>
-    </view>
-    <view class="info-item">
-      <text class="info-label">登录时间</text>
-      <text class="info-value">{{loginTime}}</text>
-    </view>
-  </view>
+      <view class="panel">
+        <view class="panel-section">
+          <text class="section-title">{{text.infoTitle}}</text>
+          <view class="info-list">
+            <view class="list-cell info-cell">
+              <text class="cell-title">{{text.labels.username}}</text>
+              <text class="cell-subtitle">{{adminInfo.username || '-'}}</text>
+            </view>
+            <view class="list-cell info-cell">
+              <text class="cell-title">{{text.labels.role}}</text>
+              <text class="cell-subtitle">{{displayRole}}</text>
+            </view>
+            <view class="list-cell info-cell" wx:if="{{!isAdmin}}">
+              <text class="cell-title">{{text.labels.district}}</text>
+              <text class="cell-subtitle">{{adminDistrict || '-'}}</text>
+            </view>
+            <view class="list-cell info-cell">
+              <text class="cell-title">{{text.labels.loginTime}}</text>
+              <text class="cell-subtitle">{{loginTime || '-'}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
 
-  <!-- 修改密码 -->
-  <view class="info-card">
-    <view class="card-title">修改密码</view>
-    <view class="form-group">
-      <view class="form-item">
-        <text class="form-label">原密码</text>
-        <input class="form-input" type="password" placeholder="请输入原密码" value="{{oldPassword}}" bindinput="onInputOldPassword" />
+      <view class="panel">
+        <view class="panel-section">
+          <text class="section-title">{{text.passwordTitle}}</text>
+          <text class="section-note" wx:if="{{text.passwordDesc}}">{{text.passwordDesc}}</text>
+          <view class="form-stack">
+            <input class="form-input" password placeholder="{{text.placeholders.oldPassword}}" value="{{oldPassword}}" bindinput="onInputOldPassword" />
+            <input class="form-input" password placeholder="{{text.placeholders.newPassword}}" value="{{newPassword}}" bindinput="onInputNewPassword" />
+            <input class="form-input" password placeholder="{{text.placeholders.confirmPassword}}" value="{{confirmPassword}}" bindinput="onInputConfirmPassword" />
+            <button class="primary-button submit-button" bindtap="changePassword">{{text.submitPassword}}</button>
+          </view>
+        </view>
       </view>
-      <view class="form-item">
-        <text class="form-label">新密码</text>
-        <input class="form-input" type="password" placeholder="请输入新密码" value="{{newPassword}}" bindinput="onInputNewPassword" />
-      </view>
-      <view class="form-item">
-        <text class="form-label">确认密码</text>
-        <input class="form-input" type="password" placeholder="请再次输入新密码" value="{{confirmPassword}}" bindinput="onInputConfirmPassword" />
-      </view>
-      <button class="btn-change-password" bindtap="changePassword">确认修改</button>
-    </view>
-  </view>
 
-  <!-- 操作按钮 -->
-  <view class="action-section">
-    <button class="btn-logout" bindtap="logout">退出登录</button>
-  </view>
-</scroll-view>
+      <view class="action-section">
+        <button class="ghost-button logout-button" bindtap="logout">{{text.logout}}</button>
+      </view>
+    </view>
+  </scroll-view>
+</view>

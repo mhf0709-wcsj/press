@@ -1,4 +1,4 @@
-<view class="page-shell admin-page">
+﻿<view class="page-shell admin-page">
   <scroll-view scroll-y class="admin-scroll">
     <view class="content-wrapper admin-wrapper">
       <view class="panel hero-panel">
@@ -7,14 +7,11 @@
             <view>
               <view class="eyebrow">{{text.heroTopline}}</view>
               <view class="page-title hero-title">{{text.heroTitle}}</view>
-              <view class="page-subtitle">{{text.heroDesc}}</view>
+              <view class="page-subtitle" wx:if="{{text.heroDesc}}">{{text.heroDesc}}</view>
             </view>
             <view class="hero-actions">
               <view class="soft-button mini-action" bindtap="refreshData">
                 <text>{{text.refresh}}</text>
-              </view>
-              <view class="primary-button mini-action" bindtap="goToAiEntry">
-                <text>{{text.aiEntry}}</text>
               </view>
             </view>
           </view>
@@ -34,12 +31,30 @@
             <view class="toggle-item {{viewMode === 'equipments' ? 'active' : ''}}" bindtap="switchViewMode" data-mode="equipments">
               <text>{{text.modeEquipments}}</text>
             </view>
+            <view class="toggle-item {{viewMode === 'deletions' ? 'active' : ''}}" bindtap="switchViewMode" data-mode="deletions">
+              <text>{{text.modeDeletions}}</text>
+            </view>
+          </view>
+
+          <view class="scope-row" wx:if="{{viewMode === 'records'}}">
+            <view class="scope-chip {{filterType === '' ? 'active' : ''}}" bindtap="setQuickFilter" data-filter="">
+              <text>{{text.scopeAll}}</text>
+            </view>
+            <view class="scope-chip {{filterType === 'expired' ? 'active danger' : ''}}" bindtap="setQuickFilter" data-filter="expired">
+              <text>{{text.scopeExpired}}</text>
+            </view>
+            <view class="scope-chip {{filterType === 'expiring' ? 'active warning' : ''}}" bindtap="setQuickFilter" data-filter="expiring">
+              <text>{{text.scopeExpiring}}</text>
+            </view>
+            <view class="scope-chip {{filterType === 'expiry' || filterType === 'risk' ? 'active calm' : ''}}" bindtap="setQuickFilter" data-filter="expiry">
+              <text>{{text.scopeRisk}}</text>
+            </view>
           </view>
 
           <view class="filter-stack">
             <input
               class="search-input"
-              placeholder="{{viewMode === 'records' ? text.searchRecords : text.searchEquipments}}"
+              placeholder="{{viewMode === 'records' ? text.searchRecords : (viewMode === 'equipments' ? text.searchEquipments : text.searchDeletions)}}"
               value="{{searchKeyword}}"
               bindinput="onSearch"
             />
@@ -108,6 +123,27 @@
 
             <view class="empty-state" wx:if="{{!equipments.length && !loading}}">
               <text class="empty-text">{{text.emptyEquipments}}</text>
+            </view>
+          </view>
+
+          <view class="list-block" wx:if="{{viewMode === 'deletions'}}">
+            <view class="list-cell ledger-cell" wx:for="{{deletionLogs}}" wx:key="_id">
+              <view class="cell-main">
+                <text class="cell-title">{{item.entityName || '-'}}</text>
+                <text class="cell-subtitle">{{text.fields.enterprise}} {{item.enterpriseName || '-'}}</text>
+                <text class="cell-subtitle">出厂编号 {{item.factoryNo || '-'}}</text>
+                <text class="cell-subtitle">{{text.fields.equipment}} {{item.equipmentName || '-'}}</text>
+              </view>
+              <view class="cell-side">
+                <text class="status-tag fail">{{text.deletedTag}}</text>
+                <text class="cell-meta">{{text.fields.deletedAt}} {{item.deletedAt || '-'}}</text>
+                <text class="cell-meta">{{text.fields.deletedBy}} {{item.deletedBy || '-'}}</text>
+                <text class="cell-meta">{{text.fields.relatedRecordCount}} {{item.relatedRecordCount || item.relatedGaugeCount || 0}}</text>
+              </view>
+            </view>
+
+            <view class="empty-state" wx:if="{{!deletionLogs.length && !loading}}">
+              <text class="empty-text">{{text.emptyDeletions}}</text>
             </view>
           </view>
         </view>

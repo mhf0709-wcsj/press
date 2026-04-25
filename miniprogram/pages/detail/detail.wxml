@@ -1,13 +1,4 @@
 <view class="page-shell detail-page">
-  <view class="detail-nav">
-    <view class="detail-nav-back" bindtap="goBack">
-      <text class="detail-nav-arrow">返回</text>
-      <text class="detail-nav-text">返回</text>
-    </view>
-    <text class="detail-nav-title">记录详情</text>
-    <view class="detail-nav-placeholder"></view>
-  </view>
-
   <view class="content-wrapper detail-wrapper">
     <view class="detail-status status-{{formData.conclusion ? (conclusionIndex === 0 ? 'pass' : 'fail') : 'pending'}}">
       <text class="detail-status-dot"></text>
@@ -17,47 +8,113 @@
     <view class="detail-card panel">
       <view class="panel-section">
         <view class="section-title">证书信息</view>
-        <view class="detail-row"><text class="detail-label">企业</text><text class="detail-static">{{record.enterpriseName || '-'}}</text></view>
-        <view class="detail-row"><text class="detail-label">所属设备</text><text class="detail-static">{{record.equipmentName || '-'}}</text></view>
-        <view class="detail-row"><text class="detail-label">压力表名称</text><text class="detail-static">{{record.deviceName || '-'}}</text></view>
-        <view class="detail-row"><text class="detail-label">压力表编号</text><text class="detail-static">{{record.deviceNo || '-'}}</text></view>
-        <view class="detail-row"><text class="detail-label">证书编号</text><input class="detail-input" value="{{formData.certNo}}" bindinput="onInput" data-field="certNo" placeholder="请输入证书编号" /></view>
-        <view class="detail-row"><text class="detail-label">送检单位</text><input class="detail-input" value="{{formData.sendUnit}}" bindinput="onInput" data-field="sendUnit" placeholder="请输入送检单位" /></view>
-        <view class="detail-row"><text class="detail-label">仪表名称</text><input class="detail-input" value="{{formData.instrumentName}}" bindinput="onInput" data-field="instrumentName" placeholder="请输入仪表名称" /></view>
-        <view class="detail-row"><text class="detail-label">型号规格</text><input class="detail-input" value="{{formData.modelSpec}}" bindinput="onInput" data-field="modelSpec" placeholder="请输入型号规格" /></view>
-        <view class="detail-row"><text class="detail-label">出厂编号</text><input class="detail-input" value="{{formData.factoryNo}}" bindinput="onInput" data-field="factoryNo" placeholder="请输入出厂编号" /></view>
-        <view class="detail-row no-border"><text class="detail-label">制造单位</text><input class="detail-input" value="{{formData.manufacturer}}" bindinput="onInput" data-field="manufacturer" placeholder="请输入制造单位" /></view>
+        <view class="detail-row">
+          <text class="detail-label">企业</text>
+          <text class="detail-static">{{record.enterpriseName || '-'}}</text>
+        </view>
+        <view class="detail-row">
+          <text class="detail-label">压力表名称</text>
+          <text class="detail-static">{{record.deviceName || formData.instrumentName || '-'}}</text>
+        </view>
+        <view class="detail-row">
+          <text class="detail-label">压力表编号</text>
+          <text class="detail-static">{{record.deviceNo || '-'}}</text>
+        </view>
+        <view class="detail-row">
+          <text class="detail-label">证书编号</text>
+          <input class="detail-input" value="{{formData.certNo}}" bindinput="onInput" data-field="certNo" placeholder="请输入证书编号" />
+        </view>
+        <view class="detail-row">
+          <text class="detail-label">送检单位</text>
+          <input class="detail-input" value="{{formData.sendUnit}}" bindinput="onInput" data-field="sendUnit" placeholder="请输入送检单位" />
+        </view>
+        <view class="detail-row">
+          <text class="detail-label">仪表名称</text>
+          <input class="detail-input" value="{{formData.instrumentName}}" bindinput="onInput" data-field="instrumentName" placeholder="请输入仪表名称" />
+        </view>
+        <view class="detail-row">
+          <text class="detail-label">型号规格</text>
+          <input class="detail-input" value="{{formData.modelSpec}}" bindinput="onInput" data-field="modelSpec" placeholder="请输入型号规格" />
+        </view>
+        <view class="detail-row">
+          <text class="detail-label">出厂编号</text>
+          <input class="detail-input" value="{{formData.factoryNo}}" bindinput="onInput" data-field="factoryNo" placeholder="请输入出厂编号" />
+        </view>
+        <view class="detail-row no-border">
+          <text class="detail-label">制造单位</text>
+          <input class="detail-input" value="{{formData.manufacturer}}" bindinput="onInput" data-field="manufacturer" placeholder="请输入制造单位" />
+        </view>
       </view>
     </view>
 
     <view class="detail-card panel">
       <view class="panel-section">
         <view class="section-title">检定信息</view>
-        <view class="detail-row"><text class="detail-label">检定依据</text><input class="detail-input" value="{{formData.verificationStd}}" bindinput="onInput" data-field="verificationStd" placeholder="例如 JJG52-2013" /></view>
-        <picker mode="selector" range="{{['合格', '不合格']}}" value="{{conclusionIndex}}" bindchange="onConclusionChange"><view class="detail-row"><text class="detail-label">检定结论</text><view class="detail-picker"><text class="detail-picker-value">{{formData.conclusion || '请选择'}}</text><text class="detail-picker-arrow">></text></view></view></picker>
-        <picker mode="date" value="{{formData.verificationDate}}" bindchange="onDateChange"><view class="detail-row"><text class="detail-label">检定日期</text><view class="detail-picker"><text class="detail-picker-value">{{formData.verificationDate || '请选择'}}</text><text class="detail-picker-arrow">></text></view></view></picker>
-        <view class="detail-row"><text class="detail-label">到期日期</text><text class="detail-static">{{expiryDateText || '自动计算'}}</text></view>
-        <view class="detail-row no-border"><text class="detail-label">数据来源</text><text class="detail-source {{record.ocrSource === 'baidu' || record.ocrSource === 'ai_extract' ? 'ai' : 'manual'}}">{{record.ocrSource === 'baidu' || record.ocrSource === 'ai_extract' ? 'AI识别' : '手动录入'}}</text></view>
+        <view class="detail-row">
+          <text class="detail-label">检定依据</text>
+          <input class="detail-input" value="{{formData.verificationStd}}" bindinput="onInput" data-field="verificationStd" placeholder="例如 JJG52-2013" />
+        </view>
+        <picker mode="selector" range="{{conclusionOptions}}" value="{{conclusionIndex}}" bindchange="onConclusionChange">
+          <view class="detail-row">
+            <text class="detail-label">检定结论</text>
+            <view class="detail-picker">
+              <text class="detail-picker-value">{{formData.conclusion || '请选择'}}</text>
+              <text class="detail-picker-arrow">></text>
+            </view>
+          </view>
+        </picker>
+        <picker mode="date" value="{{formData.verificationDate}}" bindchange="onDateChange">
+          <view class="detail-row">
+            <text class="detail-label">检定日期</text>
+            <view class="detail-picker">
+              <text class="detail-picker-value">{{formData.verificationDate || '请选择'}}</text>
+              <text class="detail-picker-arrow">></text>
+            </view>
+          </view>
+        </picker>
+        <view class="detail-row">
+          <text class="detail-label">到期日期</text>
+          <text class="detail-static">{{expiryDateText || '自动计算'}}</text>
+        </view>
+        <view class="detail-row no-border">
+          <text class="detail-label">数据来源</text>
+          <text class="detail-source {{record.ocrSource === 'baidu' || record.ocrSource === 'ai_extract' ? 'ai' : 'manual'}}">
+            {{record.ocrSource === 'baidu' || record.ocrSource === 'ai_extract' ? 'AI识别' : '手动建档'}}
+          </text>
+        </view>
       </view>
     </view>
 
     <view class="detail-card panel">
       <view class="panel-section">
         <view class="section-title">关联信息</view>
-        <picker mode="selector" range="{{districtOptions}}" value="{{districtIndex}}" bindchange="onDistrictChange"><view class="detail-row"><text class="detail-label">辖区</text><view class="detail-picker"><text class="detail-picker-value">{{formData.district || '请选择'}}</text><text class="detail-picker-arrow">></text></view></view></picker>
-        <picker mode="selector" range="{{devices}}" range-key="deviceName" value="{{deviceIndex}}" bindchange="onDeviceChange"><view class="detail-row"><text class="detail-label">关联压力表</text><view class="detail-picker"><text class="detail-picker-value">{{selectedDeviceName || '请选择'}}</text><text class="detail-picker-arrow">></text></view></view></picker>
-        <view class="detail-row" wx:if="{{!selectedDeviceId}}"><text class="detail-label">快速操作</text><button class="detail-link" bindtap="showNewDeviceForm">新建压力表</button></view>
-        <picker mode="selector" range="{{deviceStatusOptions}}" value="{{deviceStatusIndex}}" bindchange="onDeviceStatusChange"><view class="detail-row no-border"><text class="detail-label">设备状态</text><view class="detail-picker"><text class="detail-picker-value">{{formData.deviceStatus || '请选择'}}</text><text class="detail-picker-arrow">></text></view></view></picker>
-      </view>
-    </view>
-
-    <view class="detail-card panel" wx:if="{{showNewDevice}}">
-      <view class="panel-section">
-        <view class="detail-inline-head"><view class="section-title">新建压力表</view><text class="detail-inline-action" bindtap="hideNewDeviceForm">取消</text></view>
-        <view class="detail-row"><text class="detail-label">设备编号</text><input class="detail-input" value="{{newDevice.deviceNo}}" bindinput="onNewDeviceInput" data-field="deviceNo" placeholder="请输入设备编号" /></view>
-        <view class="detail-row"><text class="detail-label">设备名称</text><input class="detail-input" value="{{newDevice.deviceName}}" bindinput="onNewDeviceInput" data-field="deviceName" placeholder="请输入设备名称" /></view>
-        <view class="detail-row no-border"><text class="detail-label">设备类型</text><input class="detail-input" value="{{newDevice.deviceType}}" bindinput="onNewDeviceInput" data-field="deviceType" placeholder="请输入设备类型" /></view>
-        <button class="detail-create" bindtap="saveNewDevice">创建并使用</button>
+        <picker mode="selector" range="{{districtOptions}}" value="{{districtIndex}}" bindchange="onDistrictChange">
+          <view class="detail-row">
+            <text class="detail-label">辖区</text>
+            <view class="detail-picker">
+              <text class="detail-picker-value">{{formData.district || '请选择'}}</text>
+              <text class="detail-picker-arrow">></text>
+            </view>
+          </view>
+        </picker>
+        <picker mode="selector" range="{{equipments}}" range-key="equipmentName" value="{{equipmentIndex}}" bindchange="onEquipmentChange">
+          <view class="detail-row">
+            <text class="detail-label">所属设备</text>
+            <view class="detail-picker">
+              <text class="detail-picker-value">{{selectedEquipmentName || '请选择'}}</text>
+              <text class="detail-picker-arrow">></text>
+            </view>
+          </view>
+        </picker>
+        <picker mode="selector" range="{{deviceStatusOptions}}" value="{{deviceStatusIndex}}" bindchange="onDeviceStatusChange">
+          <view class="detail-row no-border">
+            <text class="detail-label">压力表状态</text>
+            <view class="detail-picker">
+              <text class="detail-picker-value">{{formData.deviceStatus || '请选择'}}</text>
+              <text class="detail-picker-arrow">></text>
+            </view>
+          </view>
+        </picker>
       </view>
     </view>
 
@@ -65,8 +122,14 @@
       <view class="panel-section">
         <view class="section-title">照片资料</view>
         <view class="detail-photo-grid">
-          <view class="detail-photo-item" wx:if="{{record.fileID}}" bindtap="previewImage"><image src="{{record.fileID}}" mode="aspectFill" class="detail-photo" /><text class="detail-photo-label">证书照片</text></view>
-          <view class="detail-photo-item" wx:if="{{record.installPhotoFileID}}" bindtap="previewInstallPhoto"><image src="{{record.installPhotoFileID}}" mode="aspectFill" class="detail-photo" /><text class="detail-photo-label">安装照片</text></view>
+          <view class="detail-photo-item" wx:if="{{record.fileID}}" bindtap="previewImage">
+            <image src="{{record.fileID}}" mode="aspectFill" class="detail-photo" />
+            <text class="detail-photo-label">证书照片</text>
+          </view>
+          <view class="detail-photo-item" wx:if="{{record.installPhotoFileID}}" bindtap="previewInstallPhoto">
+            <image src="{{record.installPhotoFileID}}" mode="aspectFill" class="detail-photo" />
+            <text class="detail-photo-label">安装照片</text>
+          </view>
         </view>
       </view>
     </view>
@@ -74,6 +137,8 @@
 
   <view class="detail-bottom-bar">
     <button class="detail-delete" bindtap="deleteRecord">删除</button>
-    <button class="detail-save" bindtap="saveRecord" loading="{{saving}}">{{saving ? '保存中...' : '保存修改'}}</button>
+    <button class="detail-save" bindtap="saveRecord" loading="{{saving}}">
+      {{saving ? '保存中...' : '保存修改'}}
+    </button>
   </view>
 </view>

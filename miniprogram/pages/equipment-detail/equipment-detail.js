@@ -1,9 +1,11 @@
 const equipmentService = require('../../services/equipment-service')
+const _ = wx.cloud.database().command
 
 Page({
   data: {
     equipmentId: '',
     mode: 'view',
+    isInitSetup: false,
     saving: false,
     isAdminView: false,
     highlightGaugeId: '',
@@ -37,7 +39,10 @@ Page({
         wx.showToast({ title: '监管预览模式不可新建', icon: 'none' })
         return
       }
-      this.setData({ mode: 'create' })
+      this.setData({
+        mode: 'create',
+        isInitSetup: options.init === '1'
+      })
       wx.setNavigationBarTitle({ title: '新建设备' })
       return
     }
@@ -53,12 +58,20 @@ Page({
     }
   },
 
+  onShow() {
+    const { equipmentId, mode } = this.data
+    if (!equipmentId || mode === 'create') return
+
+    this.loadEquipment(equipmentId)
+    this.loadGauges(equipmentId)
+  },
+
   async loadEquipment(id) {
     wx.showLoading({ title: '加载中' })
     try {
       const equipment = await equipmentService.getEquipmentById(id)
       this.setData({ equipment })
-    } catch (e) {
+    } catch (error) {
       wx.showToast({ title: '加载失败', icon: 'none' })
     } finally {
       wx.hideLoading()
@@ -68,12 +81,15 @@ Page({
   async loadGauges(equipmentId) {
     try {
       const db = wx.cloud.database()
-      const res = await db.collection('devices').where({ equipmentId }).orderBy('createTime', 'desc').limit(100).get()
+      const res = await db.collection('devices').where({
+        equipmentId,
+        isDeleted: _.neq(true)
+      }).orderBy('createTime', 'desc').limit(100).get()
       const gauges = res.data || []
       this.setData({ gauges })
       await this.loadGaugeLatestRecords(equipmentId, gauges)
       this.scrollToHighlight()
-    } catch (e) {}
+    } catch (error) {}
   },
 
   async loadGaugeLatestRecords(equipmentId, gauges) {
@@ -94,15 +110,13 @@ Page({
 
       const records = recRes.data || []
       const latestByDevice = {}
-      for (const r of records) {
-        const did = r.deviceId
-        if (!did) continue
-        const cur = latestByDevice[did]
-        if (!cur) {
-          latestByDevice[did] = r
-          continue
+      for (const record of records) {
+        const deviceId = record.deviceId
+        if (!deviceId) continue
+        const current = latestByDevice[deviceId]
+        if (!current || compareYmd(record.verificationDate, current.verificationDate) > 0) {
+          latestByDevice[deviceId] = record
         }
-        if (compareYmd(r.verificationDate, cur.verificationDate) > 0) latestByDevice[did] = r
       }
 
       const today = formatYmd(new Date())
@@ -110,14 +124,16 @@ Page({
       let expiring = 0
       let normal = 0
 
-      const enriched = gauges.map(g => {
-        const lastRecord = latestByDevice[g._id] || null
+      const enriched = gauges.map((gauge) => {
+        const lastRecord = latestByDevice[gauge._id] || null
         const { status, statusText, daysToExpiry } = computeExpiryStatus(today, lastRecord?.expiryDate || '')
+
         if (status === 'expired') expired += 1
         else if (status === 'expiring') expiring += 1
         else if (status === 'normal') normal += 1
+
         return {
-          ...g,
+          ...gauge,
           lastRecord,
           expiryStatus: status,
           expiryStatusText: statusText,
@@ -134,7 +150,7 @@ Page({
           normal
         }
       })
-    } catch (e) {
+    } catch (error) {
       this.setData({
         dashboard: {
           totalGauges: gauges.length,
@@ -169,53 +185,15 @@ Page({
   onGaugeTap(e) {
     const id = e.currentTarget.dataset.id
     if (!id) return
+
     if (this.data.isAdminView) {
       wx.navigateTo({
         url: `/pages/admin/admin?from=dashboard&deviceId=${id}`
       })
       return
     }
+
     wx.navigateTo({ url: `/pages/device-detail/device-detail?id=${id}` })
-  },
-
-  async previewGaugeCode(e) {
-    const id = e.currentTarget.dataset.id
-    if (!id) return
-    const idx = this.data.gauges.findIndex(x => x._id === id)
-    const gauge = idx >= 0 ? this.data.gauges[idx] : null
-    if (!gauge) return
-
-    if (gauge.qrCodeImage) {
-      wx.previewImage({ urls: [gauge.qrCodeImage] })
-      return
-    }
-
-    if (this.data.isAdminView) {
-      wx.showToast({ title: '暂无压力表码', icon: 'none' })
-      return
-    }
-
-    wx.showLoading({ title: '生成中...' })
-    try {
-      const res = await wx.cloud.callFunction({
-        name: 'generateQRCode',
-        data: {
-          deviceId: id,
-          page: 'pages/device-detail/device-detail'
-        }
-      })
-      if (res.result?.success && res.result.fileID) {
-        const key = `gauges[${idx}].qrCodeImage`
-        this.setData({ [key]: res.result.fileID })
-        wx.previewImage({ urls: [res.result.fileID] })
-      } else {
-        wx.showToast({ title: '生成失败', icon: 'none' })
-      }
-    } catch (e2) {
-      wx.showToast({ title: '网络错误', icon: 'none' })
-    } finally {
-      wx.hideLoading()
-    }
   },
 
   onInput(e) {
@@ -241,13 +219,17 @@ Page({
         const res = await equipmentService.createEquipment(equipment, { enterpriseUser })
         wx.showToast({ title: '创建成功', icon: 'success' })
         setTimeout(() => {
+          if (this.data.isInitSetup) {
+            wx.reLaunch({ url: '/pages/workbench/workbench' })
+            return
+          }
           wx.redirectTo({ url: `/pages/equipment-detail/equipment-detail?id=${res._id}` })
         }, 800)
       } else {
         await equipmentService.updateEquipment(equipmentId, equipment)
         wx.showToast({ title: '保存成功', icon: 'success' })
       }
-    } catch (e) {
+    } catch (error) {
       wx.showToast({ title: '保存失败', icon: 'none' })
     } finally {
       wx.hideLoading()
@@ -262,44 +244,6 @@ Page({
       name: equipment.equipmentName || ''
     })
     wx.switchTab({ url: '/pages/ai-assistant/ai-assistant' })
-  },
-
-  goGaugeDetail(e) {
-    const id = e.currentTarget.dataset.id
-    wx.navigateTo({ url: `/pages/device-detail/device-detail?id=${id}` })
-  },
-
-  async showEquipmentCode() {
-    const { equipmentId, equipment } = this.data
-    if (!equipmentId) return
-
-    if (equipment.qrCodeImage) {
-      wx.previewImage({ urls: [equipment.qrCodeImage] })
-      return
-    }
-
-    wx.showLoading({ title: '生成中...' })
-    try {
-      const res = await wx.cloud.callFunction({
-        name: 'generateQRCode',
-        data: {
-          refId: equipmentId,
-          refType: 'equipment',
-          page: 'pages/equipment-detail/equipment-detail'
-        }
-      })
-
-      if (res.result?.success) {
-        this.setData({ 'equipment.qrCodeImage': res.result.fileID })
-        wx.previewImage({ urls: [res.result.fileID] })
-      } else {
-        wx.showToast({ title: '生成失败', icon: 'none' })
-      }
-    } catch (e) {
-      wx.showToast({ title: '网络错误', icon: 'none' })
-    } finally {
-      wx.hideLoading()
-    }
   }
 })
 
@@ -321,8 +265,8 @@ function compareYmd(a, b) {
 }
 
 function diffDays(fromYmd, toYmd) {
-  const from = new Date(fromYmd + 'T00:00:00')
-  const to = new Date(toYmd + 'T00:00:00')
+  const from = new Date(`${fromYmd}T00:00:00`)
+  const to = new Date(`${toYmd}T00:00:00`)
   const ms = to.getTime() - from.getTime()
   return Math.floor(ms / (24 * 60 * 60 * 1000))
 }

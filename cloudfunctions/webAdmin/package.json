@@ -1,7 +1,7 @@
 {
-  "name": "aiAssistant",
+  "name": "webAdmin",
   "version": "1.0.0",
-  "description": "AI intelligent assistant cloud function",
+  "description": "网页端监管后台数据接口",
   "main": "index.js",
   "dependencies": {
     "wx-server-sdk": "~2.6.3"

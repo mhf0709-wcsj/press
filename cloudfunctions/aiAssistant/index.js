@@ -16,15 +16,8 @@ const DASHSCOPE_MODEL = process.env.DASHSCOPE_MODEL || 'qwen3.5-flash'
 const DASHSCOPE_ENDPOINT = process.env.DASHSCOPE_ENDPOINT || 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions'
 
 /**
- * AI鏅鸿兘绠″浜戝嚱鏁?
- * 鍔熻兘锛?
- * 1. 涓撲笟鐭ヨ瘑闂瓟
- * 2. 浼佷笟鏁版嵁鏅鸿兘鏌ヨ
- * 
- * 鏉冮檺鍒嗙锛?
- * - 浼佷笟绔細鍙兘鏌ヨ鏈紒涓氭暟鎹?
- * - 杈栧尯绠＄悊鍛橈細鍙兘鏌ヨ鏈緰鍖烘暟鎹?
- * - 鎬荤鐞嗗憳锛氬彲鏌ヨ鎵€鏈夋暟鎹?
+ * AI 智能管家云函数
+ * 支持知识问答、OCR 识别、对话式查询和对话式修改。
  */
 exports.main = async (event, context) => {
   const { action, question, userType, userInfo } = event
@@ -38,10 +31,10 @@ exports.main = async (event, context) => {
 
     if (action === 'kbInit') {
       await seedKbIfNeeded()
-      return { success: true, answer: '鐭ヨ瘑搴撳垵濮嬪寲瀹屾垚' }
+      return { success: true, answer: '知识库初始化完成' }
     }
 
-    // 瑙ｆ瀽鐢ㄦ埛鏉冮檺
+    // 解析用户权限
     const permission = parsePermission(userType, userInfo, openid)
 
     if (action === 'crudPlan') {
@@ -60,22 +53,19 @@ exports.main = async (event, context) => {
       })
     }
     
-    // 1. 妫€娴嬮棶棰樻剰鍥?
+    // 检测问题意图
     const intent = detectIntent(question)
     
-    // 2. 鏍规嵁鎰忓浘澶勭悊
+    // 根据意图分发处理
     let answer = ''
     
     if (intent.type === 'data_query') {
-      // 鏁版嵁鏌ヨ绫婚棶棰?
       answer = await handleDataQuery(intent, permission)
     } else if (intent.type === 'rag') {
       answer = await tryModelAnswer(question, intent, permission) || await handleRagQuery(question, permission)
     } else if (intent.type === 'knowledge') {
-      // 涓撲笟鐭ヨ瘑绫婚棶棰?
       answer = await tryModelAnswer(question, intent, permission) || handleKnowledgeQuery(question, intent)
     } else {
-      // 閫氱敤闂瓟
       answer = await tryModelAnswer(question, intent, permission) || handleGeneralQuery(question, permission)
     }
 
@@ -84,10 +74,10 @@ exports.main = async (event, context) => {
       answer
     }
   } catch (error) {
-    console.error('AI澶勭悊閿欒:', error)
+    console.error('AI 处理错误:', error)
     return {
       success: false,
-      answer: '鎶辨瓑锛屽鐞嗘偍鐨勯棶棰樻椂鍑虹幇浜嗛敊璇紝璇风◢鍚庡啀璇曘€?
+      answer: '抱歉，处理您的问题时出现错误，请稍后再试。'
     }
   }
 }
@@ -434,32 +424,33 @@ function extractRecordFields(text) {
   const normalized = normalizeExtractText(text)
 
   result.certNo = firstMatch(normalized, [
-    /(?:璇佷功缂栧彿|璇佷功鍙穦缂栧彿|NO|No)[:锛歕s]*([A-Za-z0-9\-]{5,})/i
+    /(?:证书编号|证书号|NO|No)[:：\s]*([A-Za-z0-9\-]{5,})/i
   ])
 
   result.factoryNo = firstMatch(normalized, [
-    /(?:鍑哄巶缂栧彿|鍑哄巶鍙穦鍣ㄥ彿|琛ㄥ彿)[:锛歕s]*([A-Za-z0-9\-\/]{3,})/i
+    /(?:出厂编号|出厂号|器号|表号)[:：\s]*([A-Za-z0-9\-\/]{3,})/i
   ])
 
   result.sendUnit = cleanupLineValue(firstMatch(normalized, [
-    /(?:閫佹鍗曚綅|濮旀墭鍗曚綅|浣跨敤鍗曚綅)[:锛歕s]*([^\n]+)/i
+    /(?:送检单位|委托单位|使用单位)[:：\s]*([^\n]+)/i
   ]))
 
   result.instrumentName = cleanupLineValue(firstMatch(normalized, [
-    /(?:鍣ㄥ叿鍚嶇О|浠〃鍚嶇О|鍚嶇О)[:锛歕s]*([^\n]+)/i
+    /(?:器具名称|仪表名称|名称)[:：\s]*([^\n]+)/i
   ]))
 
-  if (!result.instrumentName && /鍘嬪姏琛?.test(normalized)) {
+  if (!result.instrumentName && /压力表/.test(normalized)) {
     result.instrumentName = '\u538b\u529b\u8868'
   }
 
   result.modelSpec = cleanupLineValue(firstMatch(normalized, [
-    /(?:鍨嬪彿瑙勬牸|瑙勬牸鍨嬪彿|鍨嬪彿|瑙勬牸)[:锛歕s]*([^\n]+)/i,
-    /([\(锛圿?\d+(?:\.\d+)?\s*(?:-|~|锝?\s*\d+(?:\.\d+)?[)锛塢?\s*(?:k|M|G)?Pa)/i
+    /(?:型号规格|规格型号|型号|规格)[:：\s]*([^\n]+)/i,
+    /(\(?\d+(?:\.\d+)?\s*(?:-|~)\s*\d+(?:\.\d+)?\)?\s*(?:k|M|G)?Pa)/i
   ]))
+  result.modelSpec = normalizeModelSpec(result.modelSpec, normalized)
 
   result.manufacturer = cleanupLineValue(firstMatch(normalized, [
-    /(?:鍒堕€犲崟浣峾鐢熶骇鍘傚|鍒堕€犲巶|鍘傚)[:锛歕s]*([^\n]+)/i
+    /(?:制造单位|生产厂家|制造厂|厂家)[:：\s]*([^\n]+)/i
   ]))
 
   result.verificationStd = normalizeStd(firstMatch(normalized, [
@@ -475,9 +466,9 @@ function extractRecordFields(text) {
 function normalizeExtractText(text) {
   return String(text || '')
     .replace(/\r/g, '\n')
-    .replace(/[锛歖/g, ':')
-    .replace(/[锛圿/g, '(')
-    .replace(/[锛塢/g, ')')
+    .replace(/：/g, ':')
+    .replace(/（/g, '(')
+    .replace(/）/g, ')')
     .replace(/[ \t]+/g, ' ')
 }
 
@@ -491,10 +482,32 @@ function firstMatch(text, patterns) {
 
 function cleanupLineValue(value) {
   if (!value) return ''
-  return String(value)
+  const cleaned = String(value)
     .split(/\n/)[0]
-    .split(/(?:璇佷功缂栧彿|鍑哄巶缂栧彿|鍨嬪彿瑙勬牸|鍒堕€犲崟浣峾妫€瀹氫緷鎹畖妫€瀹氱粨璁簗妫€瀹氭棩鏈?/)[0]
+    .split(/(?:证书编号|出厂编号|型号规格|制造单位|检定依据|检定结论|检定日期)/)[0]
     .trim()
+  if (isOnlyFieldLabel(cleaned)) return ''
+  return cleaned
+}
+
+function isOnlyFieldLabel(value) {
+  const text = String(value || '').replace(/\s+/g, '').replace(/[/:：/／]+/g, '')
+  return !text || ['型号', '规格', '型号规格', '规格型号'].includes(text)
+}
+
+function normalizeModelSpec(value, fullText) {
+  const cleaned = cleanupLineValue(value)
+  if (cleaned && !isOnlyFieldLabel(cleaned)) {
+    const pressure = firstMatch(cleaned, [
+      /(\(?\s*\d+(?:\.\d+)?\s*(?:-|~|－|—|至)\s*\d+(?:\.\d+)?\s*\)?\s*(?:k|M|G)?Pa)/i
+    ])
+    return pressure ? pressure.replace(/\s+/g, ' ').trim() : cleaned
+  }
+
+  const pressure = firstMatch(fullText, [
+    /(\(?\s*\d+(?:\.\d+)?\s*(?:-|~|－|—|至)\s*\d+(?:\.\d+)?\s*\)?\s*(?:k|M|G)?Pa)/i
+  ])
+  return pressure ? pressure.replace(/\s+/g, ' ').trim() : ''
 }
 
 function normalizeStd(value) {
@@ -503,17 +516,24 @@ function normalizeStd(value) {
 }
 
 function extractConclusion(text) {
-  if (/涓嶅悎鏍?.test(text)) return '\u4e0d\u5408\u683c'
-  if (/鍚堟牸|绗﹀悎/.test(text)) return '\u5408\u683c'
+  if (/不合格/.test(text)) return '\u4e0d\u5408\u683c'
+  if (/合格|符合/.test(text)) return '\u5408\u683c'
   return ''
 }
 
 function extractDate(text) {
-  const match = text.match(/(\d{4})[.\-/骞碷\s*(\d{1,2})[.\-/鏈圿\s*(\d{1,2})/)
+  const match = text.match(/(\d{4})[.\-/年\s]*(\d{1,2})[.\-/月\s]*(\d{1,2})/)
   if (!match) return ''
   const month = String(match[2]).padStart(2, '0')
   const day = String(match[3]).padStart(2, '0')
   return `${match[1]}-${month}-${day}`
+}
+
+function formatYmd(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function estimateConfidence(data) {
@@ -532,25 +552,20 @@ function estimateConfidence(data) {
   return Number((hitCount / fields.length).toFixed(2))
 }
 
-/**
- * 瑙ｆ瀽鐢ㄦ埛鏉冮檺
- */
 function parsePermission(userType, userInfo, openid) {
   const permission = {
     type: 'guest',
-    scope: '鏈櫥褰?,
+    scope: '未登录',
     query: {},
     canQueryAll: false
   }
 
   if (userType === 'enterprise' && userInfo) {
-    // 浼佷笟绔敤鎴?- 鍙兘鏌ョ湅鏈紒涓氭暟鎹?
     permission.type = 'enterprise'
-    permission.scope = userInfo.companyName || '鏈紒涓?
+    permission.scope = userInfo.companyName || '本企业'
     permission.query = { 
-      _openid: openid  // 浼佷笟鐢ㄦ埛鎸塷penid闄愬埗
+      _openid: openid
     }
-    // 濡傛灉鏈変紒涓氬悕绉帮紝涔熷彲浠ユ寜浼佷笟鍚嶆煡璇?
     if (userInfo.companyName) {
       permission.query = {
         _: _.or([
@@ -562,13 +577,11 @@ function parsePermission(userType, userInfo, openid) {
     }
   } else if (userType === 'admin' && userInfo) {
     if (userInfo.role === 'super' || userInfo.role === 'admin' || !userInfo.district) {
-      // 鎬荤鐞嗗憳 - 鍙煡鐪嬫墍鏈夋暟鎹?
       permission.type = 'super_admin'
-      permission.scope = '鍏ㄩ儴杈栧尯'
-      permission.query = {}  // 鏃犻檺鍒?
+      permission.scope = '全部辖区'
+      permission.query = {}
       permission.canQueryAll = true
     } else if (userInfo.district) {
-      // 杈栧尯绠＄悊鍛?- 鍙兘鏌ョ湅鏈緰鍖烘暟鎹?
       permission.type = 'district_admin'
       permission.scope = userInfo.district
       permission.query = { district: userInfo.district }
@@ -578,31 +591,24 @@ function parsePermission(userType, userInfo, openid) {
   return permission
 }
 
-/**
- * 妫€娴嬮棶棰樻剰鍥?
- */
 function detectIntent(question) {
   const q = question.toLowerCase()
   
-  // 鏁版嵁鏌ヨ鎰忓浘鍏抽敭璇?
   const dataQueryKeywords = {
-    expiring: ['鍒版湡', '鍗冲皢鍒版湡', '蹇埌鏈?, '杩囨湡', '鏈夋晥鏈?],
-    count: ['澶氬皯', '鍑犱釜', '鍑犲彴', '鏁伴噺', '缁熻'],
-    unverified: ['娌℃湁妫€瀹?, '鏈瀹?, '娌℃瀹?, '寰呮瀹?],
-    monthly: ['鏈湀', '杩欎釜鏈?, '褰撴湀'],
-    yearly: ['浠婂勾', '鏈勾', '骞村害'],
-    qualified: ['鍚堟牸', '涓嶅悎鏍?, '閫氳繃', '鏈€氳繃'],
-    list: ['鍒楄〃', '娓呭崟', '鏄庣粏', '鍝簺']
+    expiring: ['到期', '即将到期', '快到期', '过期', '有效期'],
+    count: ['多少', '几个', '几台', '数量', '统计'],
+    unverified: ['没有检定', '未检定', '没检定', '待检定'],
+    monthly: ['本月', '这个月', '当月'],
+    yearly: ['今年', '本年', '年度'],
+    qualified: ['合格', '不合格', '通过', '未通过'],
+    list: ['列表', '清单', '明细', '哪些']
   }
 
-  // 鐭ヨ瘑闂瓟鎰忓浘鍏抽敭璇?
-  const knowledgeKeywords = ['鍛ㄦ湡', '瑙勭▼', '鏍囧噯', '瑕佹眰', '瑙勫畾', '鎬庝箞', '濡備綍', '浠€涔堟槸', '涓轰粈涔?]
-  const ragKeywords = ['娉曡', '娉曞緥', '鎵ф硶', '澶勭綒', '渚濇嵁', '鏉℃', '璁￠噺娉?, 'jjg', '瑙勭▼渚濇嵁', '鍚堣']
+  const knowledgeKeywords = ['周期', '规程', '标准', '要求', '规定', '怎么', '如何', '什么是', '为什么']
+  const ragKeywords = ['法规', '法律', '执法', '处罚', '依据', '条款', '计量法', 'jjg', '规程依据', '合规']
 
-  // 鍒ゆ柇鎰忓浘
   let intent = { type: 'general', subType: null }
 
-  // 妫€鏌ユ槸鍚︿负鏁版嵁鏌ヨ
   for (const [subType, keywords] of Object.entries(dataQueryKeywords)) {
     if (keywords.some(k => q.includes(k))) {
       intent = { type: 'data_query', subType }
@@ -610,7 +616,6 @@ function detectIntent(question) {
     }
   }
 
-  // 濡傛灉涓嶆槸鏁版嵁鏌ヨ锛屾鏌ユ槸鍚︿负鐭ヨ瘑闂瓟
   if (intent.type === 'general') {
     if (ragKeywords.some(k => q.includes(k))) {
       intent = { type: 'rag', subType: null }
@@ -634,7 +639,7 @@ async function seedKbIfNeeded() {
   const kb = getKnowledgeBase()
   const docRes = await db.collection('kb_docs').add({
     data: {
-      title: '鍘嬪姏琛ㄦ瀹氫笓涓氱煡璇嗗簱',
+      title: '压力表检定专业知识库',
       source: 'built_in',
       createTime: formatDateTime(new Date()),
       timestamp: Date.now()
@@ -663,7 +668,9 @@ async function handleRagQuery(question, permission) {
     await seedKbIfNeeded()
   } catch (e) {
     const fallback = getRelevantKnowledge(question) || ''
-    return fallback ? `鍙傝€冧俊鎭細\n${fallback}\n\n鎻愮ず锛氬闇€鍚敤鍙函婧愮殑鐭ヨ瘑搴撴绱紝璇峰厛鍦ㄤ簯鏁版嵁搴撳垱寤?kb_docs 涓?kb_chunks 闆嗗悎銆俙 : '鐭ヨ瘑搴撴殏涓嶅彲鐢紝璇风◢鍚庡啀璇曘€?
+    return fallback
+      ? `参考信息：\n${fallback}\n\n提示：如需启用可溯源的知识库检索，请先在云数据库创建 kb_docs 和 kb_chunks 集合。`
+      : '知识库暂不可用，请稍后再试。'
   }
 
   const qv = buildVector(question)
@@ -676,25 +683,22 @@ async function handleRagQuery(question, permission) {
 
   const excerpts = scored
     .filter(s => s.score > 0.1)
-    .map((s, i) => `銆愬弬鑰?{i + 1}銆?{s.c.content}`)
+    .map((s, i) => `【参考${i + 1}】${s.c.content}`)
     .join('\n\n')
 
   if (!excerpts) {
     const fallback = getRelevantKnowledge(question) || ''
-    return fallback ? `鍙傝€冧俊鎭細\n${fallback}` : '鏈绱㈠埌瓒冲鐩稿叧鐨勫悎瑙勪緷鎹€傚缓璁ˉ鍏呴棶棰樺叧閿瘝锛堝锛氭瀹氬懆鏈?寮哄埗妫€瀹?涓嶅悎鏍煎垽瀹氾級銆?
+    return fallback ? `参考信息：\n${fallback}` : '未检索到足够相关的合规依据，建议补充问题关键词。'
   }
 
-  return `鍚堣鍙傝€冿紙鍙拷婧紩鐢級锛歕n\n${excerpts}\n\n濡傞渶鎴戠粰鍑烘洿绮惧噯鐨勬墽娉曞彛寰勶紝璇疯ˉ鍏咃細鍦烘櫙锛堜紒涓氳嚜鐢?寮烘鑼冨洿/鍘嬪姏瀹瑰櫒閰嶅锛夈€佽澶囩敤閫斻€佹瀹氱粨璁轰笌鍒版湡鏃ユ湡銆俙
+  return `合规参考：\n\n${excerpts}\n\n如需更精准的判断，请补充场景、设备用途、检定结论与到期日期。`
 }
 
-/**
- * 澶勭悊鏁版嵁鏌ヨ
- */
 async function handleDataQuery(intent, permission) {
   const collection = db.collection('pressure_records')
-  
-  // 鏍规嵁鏉冮檺鏋勫缓鏌ヨ鏉′欢
-  const query = permission.query
+  const query = Object.assign({}, permission.query || {}, {
+    isDeleted: _.neq(true)
+  })
   const scopeDesc = getScopeDescription(permission)
 
   const today = new Date()
@@ -703,344 +707,216 @@ async function handleDataQuery(intent, permission) {
   try {
     switch (intent.subType) {
       case 'expiring': {
-        // 鏌ヨ鍗冲皢鍒版湡鐨勮澶?
         const result = await collection.where({
           ...query,
-          nextVerificationDate: _.lte(thirtyDaysLater)
+          expiryDate: _.lte(formatYmd(thirtyDaysLater))
         }).count()
-        
-        return `馃搳 ${scopeDesc}
-
-鐩墠鏈?**${result.total} 鍙?*鍘嬪姏琛ㄥ皢鍦?0澶╁唴鍒版湡锛岄渶瑕佸畨鎺掓瀹氥€?
-
-寤鸿灏藉揩鑱旂郴妫€瀹氭満鏋勮繘琛屾瀹氾紝閬垮厤瓒呮湡浣跨敤銆俙
+        return `${scopeDesc}\n\n目前有 ${result.total} 块压力表将在 30 天内到期。`
       }
       
       case 'count':
       case 'unverified': {
-        // 鏌ヨ鎬绘暟
         const result = await collection.where(query).count()
-        return `馃搳 ${scopeDesc}
-
-鍏辨湁 **${result.total} 鏉?*鍘嬪姏琛ㄦ瀹氳褰曘€?
-
-濡傞渶浜嗚В鏇磋缁嗙殑淇℃伅锛屽彲浠ュ湪"鎴戠殑瀛樻。"涓煡鐪嬪畬鏁村垪琛ㄣ€俙
+        return `${scopeDesc}\n\n共有 ${result.total} 条压力表检定记录。`
       }
       
       case 'monthly': {
-        // 鏈湀妫€瀹氱粺璁?
         const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
         const result = await collection.where({
           ...query,
-          verificationDate: _.gte(startOfMonth)
+          verificationDate: _.gte(formatYmd(startOfMonth))
         }).count()
-        
-        return `馃搳 ${scopeDesc}
-
-鏈湀锛?{today.getMonth() + 1}鏈堬級宸插畬鎴?**${result.total} 鍙?*鍘嬪姏琛ㄧ殑妫€瀹氳褰曘€俙
+        return `${scopeDesc}\n\n本月已完成 ${result.total} 条压力表检定记录。`
       }
       
       case 'yearly': {
-        // 鏈勾妫€瀹氱粺璁?
         const startOfYear = new Date(today.getFullYear(), 0, 1)
         const result = await collection.where({
           ...query,
-          verificationDate: _.gte(startOfYear)
+          verificationDate: _.gte(formatYmd(startOfYear))
         }).count()
-        
-        return `馃搳 ${scopeDesc}
-
-浠婂勾宸插畬鎴?**${result.total} 鍙?*鍘嬪姏琛ㄧ殑妫€瀹氳褰曘€俙
+        return `${scopeDesc}\n\n今年已完成 ${result.total} 条压力表检定记录。`
       }
       
       case 'qualified': {
-        // 鍚堟牸鐜囩粺璁?
         const total = await collection.where(query).count()
         const qualified = await collection.where({
           ...query,
-          conclusion: '鍚堟牸'
+          conclusion: '合格'
         }).count()
         const unqualified = total.total - qualified.total
         
         if (total.total === 0) {
-          return `馃搳 ${scopeDesc}
-
-鏆傛棤妫€瀹氳褰曟暟鎹€俙
+          return `${scopeDesc}\n\n暂无检定记录数据。`
         }
         
         const rate = ((qualified.total / total.total) * 100).toFixed(1)
-        return `馃搳 ${scopeDesc}
-
-妫€瀹氬悎鏍肩巼锛?*${rate}%**
-
-鈥?鎬昏锛?{total.total} 鍙?
-鈥?鍚堟牸锛?{qualified.total} 鍙?鉁?
-鈥?涓嶅悎鏍硷細${unqualified} 鍙?鉂宍
+        return `${scopeDesc}\n\n检定合格率：${rate}%\n总计：${total.total} 条\n合格：${qualified.total} 条\n不合格：${unqualified} 条`
       }
       
       case 'list': {
-        // 鏌ヨ鍒楄〃姒傝
         const total = await collection.where(query).count()
         const expiring = await collection.where({
           ...query,
-          nextVerificationDate: _.lte(thirtyDaysLater)
+          expiryDate: _.lte(formatYmd(thirtyDaysLater))
         }).count()
-        
-        return `馃搳 ${scopeDesc}
-
-鏁版嵁姒傝锛?
-鈥?鎬昏褰曟暟锛?{total.total} 鏉?
-鈥?鍗冲皢鍒版湡锛?{expiring.total} 鍙?
-
-璇︾粏鍒楄〃璇峰湪"鎴戠殑瀛樻。"鎴?绠＄悊绔?涓煡鐪嬨€俙
+        return `${scopeDesc}\n\n数据概览：\n总记录数：${total.total} 条\n30天内到期：${expiring.total} 条`
       }
       
       default: {
         const result = await collection.where(query).count()
-        return `馃搳 ${scopeDesc}
-
-鍏辨湁 **${result.total} 鏉?*妫€瀹氳褰曘€?
-
-鎮ㄥ彲浠ラ棶鎴戞洿鍏蜂綋鐨勯棶棰橈紝姣斿锛?
-鈥?"鏈夊灏戣澶囧嵆灏嗗埌鏈燂紵"
-鈥?"鏈湀妫€瀹氫簡澶氬皯鍙帮紵"
-鈥?"妫€瀹氬悎鏍肩巼鏄灏戯紵"`
+        return `${scopeDesc}\n\n共有 ${result.total} 条检定记录。`
       }
     }
   } catch (error) {
-    console.error('鏁版嵁鏌ヨ閿欒:', error)
-    return '鏌ヨ鏁版嵁鏃跺嚭鐜伴棶棰橈紝璇风◢鍚庡啀璇曘€?
+    console.error('数据查询错误:', error)
+    return '查询数据时出现问题，请稍后再试。'
   }
 }
 
-/**
- * 鑾峰彇鏉冮檺鑼冨洿鎻忚堪
- */
 function getScopeDescription(permission) {
   switch (permission.type) {
     case 'enterprise':
-      return `銆?{permission.scope}銆戞暟鎹煡璇㈢粨鏋渀
+      return `【${permission.scope}】数据查询结果`
     case 'district_admin':
-      return `銆?{permission.scope}杈栧尯銆戞暟鎹煡璇㈢粨鏋渀
+      return `【${permission.scope}辖区】数据查询结果`
     case 'super_admin':
-      return `銆愬叏骞冲彴銆戞暟鎹煡璇㈢粨鏋渀
+      return '【全平台】数据查询结果'
     default:
-      return `鏁版嵁鏌ヨ缁撴灉`
+      return '数据查询结果'
   }
 }
 
-/**
- * 澶勭悊鐭ヨ瘑闂瓟
- */
 function handleKnowledgeQuery(question, intent) {
-  const q = question.toLowerCase()
-  
-  // 妫€瀹氬懆鏈?
-  if (q.includes('鍛ㄦ湡') || q.includes('澶氫箙') || q.includes('棰戠巼')) {
-    return `鏍规嵁JJG52-2013銆婂脊鎬у厓浠跺紡涓€鑸帇鍔涜〃妫€瀹氳绋嬨€嬭瀹氾細
+  const q = String(question || '').toLowerCase()
 
-馃搮 **妫€瀹氬懆鏈燂細6涓湀锛堝崐骞达級**
+  if (q.includes('周期') || q.includes('多久') || q.includes('频率')) {
+    return `根据 JJG52-2013《弹性元件式一般压力表检定规程》，一般压力表检定周期通常为 6 个月。
 
-浠ヤ笅鎯呭喌闇€瑕佹瀹氾細
-1. 鏂拌喘缃殑鍘嬪姏琛ㄩ娆′娇鐢ㄥ墠
-2. 淇悊鍚庣殑鍘嬪姏琛?
-3. 闀挎湡鍋滅敤鍚庨噸鏂颁娇鐢ㄥ墠
-4. 瀹氭湡鍛ㄦ湡妫€瀹氾紙姣?涓湀锛?
+需要检定的常见情况：
+1. 新购置压力表首次使用前
+2. 维修后重新使用前
+3. 长期停用后重新使用前
+4. 到期周期检定
 
-馃挕 鎻愮ず锛氱敤浜庡畨鍏ㄩ槻鎶ゃ€佽锤鏄撶粨绠楃殑鍘嬪姏琛ㄥ睘浜庡己鍒舵瀹氾紝蹇呴』鎸夋湡閫佹銆俙
+用于安全防护、贸易结算等场景的压力表，应按要求及时送检。`
   }
-  
-  // 涓嶅悎鏍兼爣鍑?
-  if (q.includes('涓嶅悎鏍?) || q.includes('鍒ゅ畾')) {
-    return `鍘嬪姏琛ㄦ瀹氫笉鍚堟牸鐨勫垽瀹氭爣鍑嗭細
 
-鉂?**涓嶅悎鏍兼儏褰細**
-1. 绀哄€艰宸秴杩囧厑璁歌宸?
-2. 鍥炵▼璇樊瓒呰繃鍏佽璇樊
-3. 杞绘暡浣嶇Щ瓒呰繃鍏佽璇樊鐨?/2
-4. 鎸囬拡涓嶈兘鍥為浂鎴栭浂鐐硅宸秴鏍?
-5. 澶栬缂洪櫡褰卞搷姝ｅ父璇绘暟
+  if (q.includes('不合格') || q.includes('判定')) {
+    return `压力表检定不合格的常见判定包括：
 
-馃搳 **鍑嗙‘搴︾瓑绾т笌鍏佽璇樊锛?*
-鈥?1.0绾э細卤1.0%
-鈥?1.6绾э細卤1.6%
-鈥?2.5绾э細卤2.5%
-鈥?4.0绾э細卤4.0%`
+1. 示值误差超过允许误差
+2. 回程误差超过允许误差
+3. 轻敲位移超出要求
+4. 指针不能回零或零点误差超差
+5. 外观缺陷影响正常读数
+6. 密封性、稳定性不符合要求
+
+发现不合格后，建议停用并安排维修、更换或重新检定。`
   }
-  
-  // 鏇存崲鏍囧噯
-  if (q.includes('鏇存崲') || q.includes('鎶ュ簾')) {
-    return `鍘嬪姏琛ㄩ渶瑕佹洿鎹㈢殑鎯呭舰锛?
 
-馃攧 **蹇呴』鏇存崲锛?*
-1. 鎸囬拡寮洸銆佹姌鏂垨鏉惧姩
-2. 琛ㄧ洏鐜荤拑鐮寸
-3. 琛ㄧ洏鍒诲害妯＄硦涓嶆竻
-4. 鎺ュご铻虹汗鎹熷潖
-5. 杩炵画涓ゆ妫€瀹氫笉鍚堟牸
-6. 瓒呰繃浣跨敤骞撮檺锛堜竴鑸?-8骞达級
+  if (q.includes('更换') || q.includes('报废')) {
+    return `压力表建议更换或报废的情况包括：
 
-鈿狅笍 浣跨敤鎹熷潖鐨勫帇鍔涜〃鍙兘瀵艰嚧瀹夊叏浜嬫晠锛岃鍙婃椂鏇存崲锛乣
+1. 指针弯曲、松动或不能正常回零
+2. 表盘玻璃破损
+3. 刻度模糊、读数困难
+4. 接头螺纹损坏
+5. 连续检定不合格
+6. 已不适合当前工况或安全要求
+
+更换后应重新建档，并保留原压力表的历史记录。`
   }
-  
-  // 鍑嗙‘搴︾瓑绾?
-  if (q.includes('鍑嗙‘搴?) || q.includes('绛夌骇') || q.includes('绮惧害')) {
-    return `鍘嬪姏琛ㄥ噯纭害绛夌骇璇存槑锛?
 
-馃搹 **甯歌绛夌骇涓庡厑璁歌宸細**
-| 绛夌骇 | 鍏佽璇樊 | 閫傜敤鍦哄悎 |
-|------|---------|---------|
-| 1.0  | 卤1.0%   | 绮惧瘑娴嬮噺 |
-| 1.6  | 卤1.6%   | 涓€鑸伐涓?|
-| 2.5  | 卤2.5%   | 鏅€氬満鍚?|
-| 4.0  | 卤4.0%   | 鍙傝€冩寚绀?|
+  if (q.includes('准确度') || q.includes('等级') || q.includes('精度')) {
+    return `压力表常见准确度等级包括 1.0、1.6、2.5、4.0 级。
 
-馃挕 鍘嬪姏瀹瑰櫒鐢ㄥ帇鍔涜〃鍑嗙‘搴︾瓑绾у簲涓嶄綆浜?.5绾с€俙
+一般原则：
+1. 精密测量场景选择较高准确度等级
+2. 普通工况可按使用要求选择
+3. 压力容器等安全相关场景应按规范和设备要求选择
+4. 选型时同时考虑量程、介质、环境温度和振动情况。`
   }
-  
-  // 閫夊瀷
-  if (q.includes('閫夊瀷') || q.includes('閲忕▼') || q.includes('鎬庝箞閫?)) {
-    return `鍘嬪姏琛ㄩ€夊瀷鎸囧崡锛?
 
-馃搻 **閲忕▼閫夋嫨锛?*
-娴嬮噺涓婇檺 = 琚祴鍘嬪姏 脳 (1.5~3鍊?
-鎺ㄨ崘閫夋嫨2鍊嶏紝浣挎寚閽堝湪鍒诲害鐩?/3浣嶇疆宸ヤ綔
+  if (q.includes('选型') || q.includes('量程') || q.includes('怎么选')) {
+    return `压力表选型建议：
 
-馃幆 **閫夊瀷瑕佺偣锛?*
-1. 纭畾琚祴浠嬭川锛堟皵浣?娑蹭綋/鑵愯殌鎬э級
-2. 纭畾宸ヤ綔鍘嬪姏鑼冨洿
-3. 閫夋嫨鍚堥€傜殑鍑嗙‘搴︾瓑绾?
-4. 鑰冭檻鐜娓╁害鍜屾尟鍔ㄦ儏鍐?
-5. 鍘嬪姏瀹瑰櫒鐢ㄨ〃鐩樼洿寰勨墺100mm`
+1. 量程上限通常按工作压力的 1.5 到 3 倍选择
+2. 常用工作压力宜落在量程的 1/3 到 2/3 区间
+3. 根据介质选择普通型、耐腐型、耐震型等
+4. 根据现场环境选择合适表盘直径和安装方式
+5. 安全相关设备应优先按规范要求选型。`
   }
-  
-  // 瀹夎
-  if (q.includes('瀹夎') || q.includes('鎬庝箞瑁?)) {
-    return `鍘嬪姏琛ㄥ畨瑁呰姹傦細
 
-馃搷 **瀹夎浣嶇疆锛?*
-鈥?鍨傜洿瀹夎锛屽€炬枩瑙掑害涓嶈秴杩?0掳
-鈥?娑蹭綋娴嬪帇锛氬彇鍘嬬偣鍦ㄧ閬撲笅閮?
-鈥?姘斾綋娴嬪帇锛氬彇鍘嬬偣鍦ㄧ閬撲笂閮?
+  if (q.includes('安装') || q.includes('怎么装')) {
+    return `压力表安装要点：
 
-馃敡 **瀹夎娉ㄦ剰浜嬮」锛?*
-1. 浣跨敤瀵嗗皝鍨墖闃叉娉勬紡
-2. 瀹夎鍓嶆鏌ユ帴鍙ｈ灪绾瑰尮閰?
-3. 閬垮厤瀹夎鍦ㄦ尟鍔ㄥぇ鐨勪綅缃?
-4. 杩滅鐑簮
-5. 渚夸簬瑙傚療璇绘暟鍜岀淮鎶
+1. 应安装在便于观察、维护和拆装的位置
+2. 避免强振动、高温、腐蚀等不利环境
+3. 接头连接应可靠，必要时配置缓冲装置或冷凝弯
+4. 安装后应确认指针回零、无泄漏、读数清晰
+5. 投用前应完成必要的检定或校准。`
   }
-  
-  // 閫氱敤鐭ヨ瘑鍥炵瓟
-  return getGeneralKnowledgeAnswer(question)
+
+  return getRelevantKnowledge(question) || `我可以回答压力表检定周期、不合格判定、选型、安装、更换和台账管理相关问题。请把问题说得更具体一些。`
 }
-
-/**
- * 鑾峰彇閫氱敤鐭ヨ瘑鍥炵瓟
- */
-function getGeneralKnowledgeAnswer(question, permission) {
-  const relevantKnowledge = getRelevantKnowledge(question)
-  
-  if (relevantKnowledge) {
-    return `鏍规嵁鍘嬪姏琛ㄦ瀹氱浉鍏宠绋嬶細\n\n${relevantKnowledge}\n\n濡傞渶浜嗚В鏇磋缁嗙殑淇℃伅锛岃鍛婅瘔鎴戞偍鍏蜂綋鎯充簡瑙ｅ摢鏂归潰鐨勫唴瀹广€俙
-  }
-  
-  // 鏍规嵁鏉冮檺绫诲瀷鏄剧ず涓嶅悓鐨勬暟鎹煡璇㈡彁绀?
-  let dataQueryExamples = ''
-  switch (permission?.type) {
-    case 'enterprise':
-      dataQueryExamples = `馃搳 **鏁版嵁鏌ヨ锛堟湰浼佷笟锛夛細**
-鈥?鎴戜滑杩樻湁澶氬皯璁惧鍗冲皢鍒版湡锛?
-鈥?鏈湀妫€瀹氫簡澶氬皯鍙帮紵
-鈥?妫€瀹氬悎鏍肩巼鏄灏戯紵`
-      break
-    case 'district_admin':
-      dataQueryExamples = `馃搳 **鏁版嵁鏌ヨ锛堟湰杈栧尯锛夛細**
-鈥?杈栧尯鍐呮湁澶氬皯璁惧鍗冲皢鍒版湡锛?
-鈥?鏈湀妫€瀹氫簡澶氬皯鍙帮紵
-鈥?杈栧尯妫€瀹氬悎鏍肩巼鏄灏戯紵`
-      break
-    case 'super_admin':
-      dataQueryExamples = `馃搳 **鏁版嵁鏌ヨ锛堝叏骞冲彴锛夛細**
-鈥?骞冲彴鏈夊灏戣澶囧嵆灏嗗埌鏈燂紵
-鈥?鏈湀鍏ㄥ钩鍙版瀹氫簡澶氬皯鍙帮紵
-鈥?骞冲彴妫€瀹氬悎鏍肩巼鏄灏戯紵`
-      break
-    default:
-      dataQueryExamples = `馃搳 **鏁版嵁鏌ヨ锛?*
-鈥?鏈夊灏戣澶囧嵆灏嗗埌鏈燂紵
-鈥?鏈湀妫€瀹氫簡澶氬皯鍙帮紵
-鈥?妫€瀹氬悎鏍肩巼鏄灏戯紵`
-  }
-  
-  return `鎮ㄥソ锛佹垜鏄疉I鏅鸿兘绠″锛屽彲浠ヤ负鎮ㄨВ绛斾互涓嬮棶棰橈細
-
-馃摎 **涓撲笟鐭ヨ瘑锛?*
-鈥?鍘嬪姏琛ㄦ瀹氬懆鏈熸槸澶氫箙锛?
-鈥?妫€瀹氫笉鍚堟牸鐨勬爣鍑嗘槸浠€涔堬紵
-鈥?鍘嬪姏琛ㄥ浣曢€夊瀷锛?
-鈥?浠€涔堟儏鍐甸渶瑕佹洿鎹㈠帇鍔涜〃锛?
-
-${dataQueryExamples}
-
-璇峰憡璇夋垜鎮ㄦ兂浜嗚В浠€涔堬紵`
-}
-
-/**
- * 澶勭悊閫氱敤闂瓟
- */
 function handleGeneralQuery(question, permission) {
-  const q = question.toLowerCase()
-  
-  // 闂€欒
-  if (q.includes('浣犲ソ') || q.includes('鎮ㄥソ') || q.includes('hi') || q.includes('hello')) {
+  const q = String(question || '').toLowerCase()
+
+  if (q.includes('你好') || q.includes('您好') || q.includes('hi') || q.includes('hello')) {
     return getWelcomeMessage(permission)
   }
-  
-  // 鎰熻阿
-  if (q.includes('璋㈣阿') || q.includes('鎰熻阿') || q.includes('thanks')) {
-    return '涓嶅姘旓紒濡傛湁鍏朵粬闂闅忔椂鍙互闂垜銆傜鎮ㄥ伐浣滈『鍒╋紒'
+
+  if (q.includes('谢谢') || q.includes('感谢') || q.includes('thanks')) {
+    return '不客气。我会继续帮你处理压力表识别、建档、查询和专业问答。'
   }
-  
-  // 榛樿鍥炵瓟
+
   return getGeneralKnowledgeAnswer(question, permission)
 }
 
-/**
- * 鑾峰彇娆㈣繋娑堟伅
- */
-function getWelcomeMessage(permission) {
-  let scopeInfo = ''
-  let dataQueryHint = ''
-  
+function getWelcomeMessage(permission = {}) {
+  let scopeInfo = '当前身份：访客'
+  let dataQueryHint = '登录后可查询检定数据'
+
   switch (permission.type) {
     case 'enterprise':
-      scopeInfo = `褰撳墠韬唤锛?*${permission.scope}** 浼佷笟鐢ㄦ埛`
-      dataQueryHint = '鈥?鏌ヨ鏈紒涓氱殑妫€瀹氭暟鎹?
+      scopeInfo = `当前身份：${permission.scope || '本企业'} 企业用户`
+      dataQueryHint = '查询本企业的压力表检定数据'
       break
     case 'district_admin':
-      scopeInfo = `褰撳墠韬唤锛?*${permission.scope}** 杈栧尯绠＄悊鍛榒
-      dataQueryHint = '鈥?鏌ヨ鏈緰鍖虹殑妫€瀹氭暟鎹?
+      scopeInfo = `当前身份：${permission.scope || '辖区'} 管理员`
+      dataQueryHint = '查询本辖区的压力表检定数据'
       break
     case 'super_admin':
-      scopeInfo = '褰撳墠韬唤锛?*鎬荤鐞嗗憳**'
-      dataQueryHint = '鈥?鏌ヨ鍏ㄥ钩鍙扮殑妫€瀹氭暟鎹?
+      scopeInfo = '当前身份：总管理员'
+      dataQueryHint = '查询全平台的压力表检定数据'
       break
-    default:
-      scopeInfo = '褰撳墠韬唤锛氳瀹?
-      dataQueryHint = '鈥?鐧诲綍鍚庡彲鏌ヨ妫€瀹氭暟鎹?
   }
 
-  return `鎮ㄥソ锛佹垜鏄帇鍔涜〃妫€瀹欰I鏅鸿兘绠″ 馃
+  return `您好，我是 AI 智能管家。
 
 ${scopeInfo}
 
-鎴戝彲浠ュ府鎮細
-1. 馃摎 瑙ｇ瓟鍘嬪姏琛ㄦ瀹氫笓涓氶棶棰?
-2. 馃搳 ${dataQueryHint.replace('鈥?', '')}
-3. 鈴?鎻愰啋璁惧妫€瀹氬埌鏈?
+我可以帮你：
+1. 解答压力表检定、选型、安装和报废问题
+2. ${dataQueryHint}
+3. 识别压力表证书并协助建档
+4. 通过对话修改、查询或整理压力表记录
 
-璇烽棶鏈変粈涔堝彲浠ュ府鎮ㄧ殑锛焋
+你可以直接告诉我想处理什么。`
 }
 
+function getGeneralKnowledgeAnswer(question, permission) {
+  const knowledge = getRelevantKnowledge(question)
+  if (knowledge) return knowledge
 
+  const scopeText = getScopeDescription(permission || {})
+  return `我已经收到你的问题。${scopeText}。
+
+你可以这样问我：
+1. 帮我查一下编号为 2 的压力表
+2. 把刚才那条记录的型号改成 XXX
+3. 哪些压力表已经停用或报废
+4. 压力表多久需要检定一次
+5. 上传证书照片，让 AI 管家帮我识别建档`
+}

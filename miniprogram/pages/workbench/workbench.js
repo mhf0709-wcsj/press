@@ -1,44 +1,53 @@
-const db = wx.cloud.database()
+﻿const db = wx.cloud.database()
 const _ = db.command
-const expiryReminderService = require('../../services/expiry-reminder-service')
+const equipmentService = require('../../services/equipment-service')
 
 const TEXT = {
-  eyebrow: '\u8bbe\u5907\u4e2d\u5fc3',
-  title: '\u8bbe\u5907\u4e2d\u5fc3',
-  dashboardTitle: '\u4eea\u8868\u76d8',
-  dashboardNote: '\u70b9\u51fb\u5361\u7247\u53ef\u67e5\u770b\u76f8\u5e94\u660e\u7ec6',
-  createEquipment: '\u65b0\u5efa\u8bbe\u5907',
-  reminderTitle: '\u5230\u671f\u63d0\u9192',
-  reminderManage: '\u7ba1\u7406\u63d0\u9192',
-  reminderSummary: '\u60a8\u6709 {expired} \u53f0\u5df2\u8fc7\u671f\uff0c{expiring} \u53f0\u5c06\u5728 30 \u5929\u5185\u5230\u671f',
-  reminderEmpty: '\u6682\u65f6\u6ca1\u6709\u9700\u8981\u5904\u7406\u7684\u5230\u671f\u63d0\u9192',
-  reminderExpired: '\u67e5\u770b\u5df2\u8fc7\u671f',
-  reminderExpiring: '\u67e5\u770b\u5373\u5c06\u5230\u671f',
-  reminderSubscribeOn: '\u5fae\u4fe1\u63d0\u9192\u5df2\u5f00\u542f',
-  reminderInAppOn: '\u7ad9\u5185\u63d0\u9192\u5df2\u5f00\u542f',
-  reminderSubscribeOff: '\u672a\u5f00\u542f\u5fae\u4fe1\u63d0\u9192',
-  reminderMetaExpired: '\u5df2\u8fc7\u671f',
-  reminderMetaExpiring: '\u5373\u5c06\u5230\u671f',
-  recentTitle: '\u6700\u8fd1\u5f55\u5165',
-  recentMore: '\u5168\u90e8',
-  recentEmpty: '\u6682\u65e0\u6700\u8fd1\u8bb0\u5f55',
+  eyebrow: '设备中心',
+  title: '设备中心',
+  dashboardTitle: '仪表盘',
+  dashboardNote: '',
+  createEquipment: '新建设备',
+  bindingTitle: '待绑定设备',
+  bindingManage: '处理',
+  bindingSummary: '{count} 台未绑定',
+  bindingEmpty: '暂无',
+  bindingTag: '未绑定',
+  inactiveTitle: '停用 / 报废',
+  inactiveMore: '全部',
+  inactiveEmpty: '暂无',
   cards: {
-    equipment: '\u8bbe\u5907\u53f0\u8d26',
-    gauge: '\u538b\u529b\u8868',
-    expiring: '30\u5929\u5185\u5230\u671f',
-    expired: '\u5df2\u8fc7\u671f'
+    equipment: '设备',
+    gauge: '压力表',
+    inactive: '停用',
+    scrap: '报废'
   },
-  fallbackRecordTitle: '\u65b0\u8bb0\u5f55',
-  fallbackRecordSubtitle: '\u5f85\u8865\u5145\u4eea\u8868\u4fe1\u606f'
+  fallbackGaugeTitle: '压力表',
+  fallbackGaugeSubtitle: '',
+  fallbackEquipmentTitle: '未命名设备',
+  fallbackEquipmentSubtitle: '',
+  fallbackInactiveSubtitle: ''
+}
+function buildSummaryCards(values = {}) {
+  return [
+    { key: 'equipment', label: TEXT.cards.equipment, value: Number(values.equipment || 0), tone: '' },
+    { key: 'gauge', label: TEXT.cards.gauge, value: Number(values.gauge || 0), tone: '' },
+    { key: 'inactive', label: TEXT.cards.inactive, value: Number(values.inactive || 0), tone: 'warning' },
+    { key: 'scrap', label: TEXT.cards.scrap, value: Number(values.scrap || 0), tone: 'danger' }
+  ]
 }
 
 Page({
   data: {
     text: TEXT,
     enterpriseUser: null,
-    summaryCards: [],
-    expiryReminder: null,
-    recentRecords: [],
+    summaryCards: buildSummaryCards(),
+    bindingReminder: {
+      count: 0,
+      summary: TEXT.bindingEmpty,
+      items: []
+    },
+    inactiveDevices: [],
     loading: false
   },
 
@@ -69,11 +78,19 @@ Page({
     try {
       await Promise.all([
         this.loadDashboard(enterpriseUser),
-        this.loadExpiryReminder(enterpriseUser),
-        this.loadRecentRecords(enterpriseUser)
+        this.loadBindingReminder(enterpriseUser),
+        this.loadInactiveDevices(enterpriseUser)
       ])
     } catch (error) {
-      console.error('设备中心初始化失败', error)
+      this.setData({
+        summaryCards: buildSummaryCards(),
+        bindingReminder: {
+          count: 0,
+          summary: TEXT.bindingEmpty,
+          items: []
+        },
+        inactiveDevices: []
+      })
     } finally {
       this.setData({ loading: false })
     }
@@ -81,81 +98,95 @@ Page({
 
   async loadDashboard(enterpriseUser) {
     const companyName = enterpriseUser.companyName
-    const today = this.formatDate(new Date())
-    const threshold = this.formatDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))
 
-    const [equipmentRes, gaugeRes, expiringRes, expiredRes] = await Promise.all([
-      db.collection('equipments').where({ enterpriseName: companyName }).count(),
-      db.collection('devices').where({ enterpriseName: companyName }).count(),
-      db.collection('pressure_records').where({
-        enterpriseName: companyName,
-        expiryDate: _.gte(today).and(_.lte(threshold))
-      }).count(),
-      db.collection('pressure_records').where({
-        enterpriseName: companyName,
-        expiryDate: _.lt(today)
-      }).count()
-    ])
+    try {
+      const [equipmentRes, gaugeRes, inactiveRes, scrapRes] = await Promise.all([
+        db.collection('equipments').where({
+          enterpriseName: companyName,
+          isDeleted: _.neq(true)
+        }).count(),
+        db.collection('devices').where({
+          enterpriseName: companyName,
+          isDeleted: _.neq(true)
+        }).count(),
+        db.collection('devices').where({
+          enterpriseName: companyName,
+          status: '停用',
+          isDeleted: _.neq(true)
+        }).count(),
+        db.collection('devices').where({
+          enterpriseName: companyName,
+          status: '报废',
+          isDeleted: _.neq(true)
+        }).count()
+      ])
 
-    this.setData({
-      summaryCards: [
-        { key: 'equipment', label: TEXT.cards.equipment, value: equipmentRes.total || 0, tone: '' },
-        { key: 'gauge', label: TEXT.cards.gauge, value: gaugeRes.total || 0, tone: '' },
-        { key: 'expiring', label: TEXT.cards.expiring, value: expiringRes.total || 0, tone: 'warning' },
-        { key: 'expired', label: TEXT.cards.expired, value: expiredRes.total || 0, tone: 'danger' }
-      ]
-    })
-  },
-
-  async loadRecentRecords(enterpriseUser) {
-    const res = await db.collection('pressure_records')
-      .where({ enterpriseName: enterpriseUser.companyName })
-      .orderBy('createTime', 'desc')
-      .limit(5)
-      .get()
-
-    this.setData({
-      recentRecords: (res.data || []).map((item) => ({
-        _id: item._id,
-        title: item.factoryNo || item.certNo || TEXT.fallbackRecordTitle,
-        subtitle: item.instrumentName || item.sendUnit || TEXT.fallbackRecordSubtitle,
-        meta: item.verificationDate || this.formatCreateTime(item.createTime)
-      }))
-    })
-  },
-
-  async loadExpiryReminder(enterpriseUser) {
-    const res = await expiryReminderService.getEnterpriseExpiryDashboard(enterpriseUser, 30)
-    if (!res || !res.success) {
-      this.setData({ expiryReminder: null })
-      return
+      this.setData({
+        summaryCards: buildSummaryCards({
+          equipment: equipmentRes.total,
+          gauge: gaugeRes.total,
+          inactive: inactiveRes.total,
+          scrap: scrapRes.total
+        })
+      })
+    } catch (error) {
+      this.setData({ summaryCards: buildSummaryCards() })
     }
+  },
 
-    const data = res.data || {}
-    const expiredCount = data.expiredCount || 0
-    const expiringCount = data.expiringCount || 0
-    const summary = TEXT.reminderSummary
-      .replace('{expired}', String(expiredCount))
-      .replace('{expiring}', String(expiringCount))
+  async loadBindingReminder(enterpriseUser) {
+    try {
+      const list = await equipmentService.loadUnboundEquipments({ enterpriseUser })
+      const count = list.length
 
-    const items = (data.recentItems || []).map((item) => ({
-      _id: item._id,
-      title: item.factoryNo || item.instrumentName || TEXT.fallbackRecordTitle,
-      subtitle: item.instrumentName || TEXT.fallbackRecordSubtitle,
-      meta: item.expiryDate || '',
-      statusText: item.expiryStatus === 'expired' ? TEXT.reminderMetaExpired : TEXT.reminderMetaExpiring
-    }))
+      this.setData({
+        bindingReminder: {
+          count,
+          summary: count
+            ? TEXT.bindingSummary.replace('{count}', String(count))
+            : TEXT.bindingEmpty,
+          items: list.map((item) => ({
+            _id: item._id,
+            title: item.equipmentName || TEXT.fallbackEquipmentTitle,
+            subtitle: item.location || item.equipmentNo || TEXT.fallbackEquipmentSubtitle
+          }))
+        }
+      })
+    } catch (error) {
+      this.setData({
+        bindingReminder: {
+          count: 0,
+          summary: TEXT.bindingEmpty,
+          items: []
+        }
+      })
+    }
+  },
 
-    this.setData({
-      expiryReminder: {
-        expiredCount,
-        expiringCount,
-        summary,
-        items,
-        wxSubscribed: !!data.subscription?.wxSubscribed,
-        inAppEnabled: data.subscription?.alertEnabled !== false
-      }
-    })
+  async loadInactiveDevices(enterpriseUser) {
+    try {
+      const res = await db.collection('devices')
+        .where({
+          enterpriseName: enterpriseUser.companyName,
+          status: _.in(['停用', '报废']),
+          isDeleted: _.neq(true)
+        })
+        .orderBy('updateTime', 'desc')
+        .orderBy('createTime', 'desc')
+        .limit(5)
+        .get()
+
+      this.setData({
+        inactiveDevices: (res.data || []).map((item) => ({
+          _id: item._id,
+          title: item.deviceName || item.factoryNo || TEXT.fallbackGaugeTitle,
+          subtitle: item.equipmentName || item.factoryNo || TEXT.fallbackGaugeSubtitle,
+          status: this.normalizeStatus(item.status || '-')
+        }))
+      })
+    } catch (error) {
+      this.setData({ inactiveDevices: [] })
+    }
   },
 
   onTapDashboardCard(e) {
@@ -164,39 +195,51 @@ Page({
       wx.navigateTo({ url: '/pages/device-list/device-list' })
       return
     }
+    if (key === 'inactive') {
+      wx.navigateTo({ url: `/pages/device-list/device-list?statuses=${encodeURIComponent('停用')}` })
+      return
+    }
+    if (key === 'scrap') {
+      wx.navigateTo({ url: `/pages/device-list/device-list?statuses=${encodeURIComponent('报废')}` })
+      return
+    }
     wx.navigateTo({ url: '/pages/archive/archive' })
-  },
-
-  goToAlertSettings() {
-    wx.switchTab({ url: '/pages/user/user' })
-  },
-
-  goToExpiredRecords() {
-    wx.navigateTo({ url: '/pages/archive/archive?filter=expired' })
-  },
-
-  goToExpiringRecords() {
-    wx.navigateTo({ url: '/pages/archive/archive?filter=expiring' })
-  },
-
-  openExpiryRecord(e) {
-    const { id } = e.currentTarget.dataset
-    if (!id) return
-    wx.navigateTo({ url: `/pages/detail/detail?id=${id}` })
   },
 
   goToCreateEquipment() {
     wx.navigateTo({ url: '/pages/equipment-detail/equipment-detail?mode=create' })
   },
 
-  openRecord(e) {
-    const { id } = e.currentTarget.dataset
-    if (!id) return
-    wx.navigateTo({ url: `/pages/detail/detail?id=${id}` })
+  handleBindingReminder() {
+    const first = this.data.bindingReminder?.items?.[0]
+    if (first?._id) {
+      wx.navigateTo({ url: `/pages/equipment-detail/equipment-detail?id=${first._id}` })
+      return
+    }
+    this.goToCreateEquipment()
   },
 
-  goToAllRecords() {
-    wx.navigateTo({ url: '/pages/archive/archive' })
+  openUnboundEquipment(e) {
+    const { id } = e.currentTarget.dataset
+    if (!id) return
+    wx.navigateTo({ url: `/pages/equipment-detail/equipment-detail?id=${id}` })
+  },
+
+  openInactiveDevice(e) {
+    const { id } = e.currentTarget.dataset
+    if (!id) return
+    wx.navigateTo({ url: `/pages/device-detail/device-detail?id=${id}` })
+  },
+
+  goToInactiveDevices() {
+    const statuses = encodeURIComponent('停用,报废')
+    wx.navigateTo({ url: `/pages/device-list/device-list?statuses=${statuses}` })
+  },
+
+  normalizeStatus(status) {
+    if (status === '停用') return '停用'
+    if (status === '报废') return '报废'
+    return status
   },
 
   formatDate(date) {
@@ -204,17 +247,6 @@ Page({
     const month = String(date.getMonth() + 1).padStart(2, '0')
     const day = String(date.getDate()).padStart(2, '0')
     return `${year}-${month}-${day}`
-  },
-
-  formatCreateTime(value) {
-    if (!value) return ''
-    if (typeof value === 'string') return value
-
-    const date = value instanceof Date ? value : value.toDate ? value.toDate() : new Date(value)
-    if (Number.isNaN(date.getTime())) return ''
-
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${month}-${day}`
   }
 })
+

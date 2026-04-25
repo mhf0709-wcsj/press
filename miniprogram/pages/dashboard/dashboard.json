@@ -1,11 +1,12 @@
 {
-  "navigationBarTitleText": "监管首页",
+  "navigationBarTitleText": "\u9884\u89c8\u5e73\u53f0",
   "navigationBarBackgroundColor": "#ffffff",
   "navigationBarTextStyle": "black",
   "backgroundColor": "#f8f9fc",
   "enablePullDownRefresh": true,
   "backgroundTextStyle": "dark",
   "usingComponents": {
-    "privacy": "/components/privacy/privacy"
+    "privacy": "/components/privacy/privacy",
+    "expiry-reminder-card": "/components/expiry-reminder-card/expiry-reminder-card"
   }
 }

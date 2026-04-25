@@ -1,10 +1,11 @@
 {
-  "navigationBarTitleText": "\u0041\u0049\u667a\u80fd\u7ba1\u5bb6",
+  "navigationBarTitleText": "\u538b\u529b\u8868\u667a\u80fd\u7ba1\u5bb6",
   "navigationBarBackgroundColor": "#143A7B",
   "navigationBarTextStyle": "white",
   "backgroundColor": "#EEF4FF",
   "enablePullDownRefresh": true,
   "usingComponents": {
-    "privacy": "/components/privacy/privacy"
+    "privacy": "/components/privacy/privacy",
+    "expiry-reminder-card": "/components/expiry-reminder-card/expiry-reminder-card"
   }
 }

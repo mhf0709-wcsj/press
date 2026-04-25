@@ -10,7 +10,9 @@ App({
     userInfo: null,
     isLogin: false,
     systemInfo: null,
-    isConnected: true
+    isConnected: true,
+    entryReminderToken: 0,
+    entryReminderHandledToken: 0
   },
 
   onLaunch() {
@@ -24,6 +26,8 @@ App({
 
   onShow() {
     debugLog('[App] show')
+    this.globalData.entryReminderToken = (this.globalData.entryReminderToken || 0) + 1
+    this.globalData.entryReminderHandledToken = 0
   },
 
   onHide() {

@@ -1,6 +1,6 @@
 {
-  "navigationBarTitleText": "账号设置",
-  "navigationBarBackgroundColor": "#667eea",
-  "navigationBarTextStyle": "white",
-  "backgroundColor": "#f5f5f5"
+  "navigationBarTitleText": "账号信息设置",
+  "navigationBarBackgroundColor": "#ffffff",
+  "navigationBarTextStyle": "black",
+  "backgroundColor": "#f8f9fc"
 }

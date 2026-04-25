@@ -6,7 +6,7 @@
           <view class="profile-avatar">{{enterpriseUser.companyName.slice(0, 1)}}</view>
           <view class="profile-copy">
             <view class="page-title profile-title">{{enterpriseUser.companyName}}</view>
-            <view class="page-subtitle">{{text.legalPerson}}: {{enterpriseUser.legalPerson}}</view>
+            <view class="page-subtitle" wx:if="{{enterpriseUser.legalPerson}}">{{text.legalPerson}}: {{enterpriseUser.legalPerson}}</view>
           </view>
         </view>
 
@@ -14,7 +14,6 @@
           <view class="profile-avatar">ID</view>
           <view class="profile-copy">
             <view class="page-title profile-title">{{text.signedOut}}</view>
-            <view class="page-subtitle">{{text.tapToLogin}}</view>
           </view>
         </view>
       </view>
@@ -93,4 +92,17 @@
 
     <view class="profile-version">{{text.version}}</view>
   </view>
+
+  <expiry-reminder-card
+    visible="{{reminderVisible}}"
+    title="{{reminderCard.title}}"
+    summary="{{reminderCard.summary}}"
+    items="{{reminderCard.items}}"
+    badge-text="{{text.entryReminderBadge}}"
+    fallback-subtitle="{{text.entryReminderFallbackSubtitle}}"
+    confirm-text="{{text.entryReminderConfirm}}"
+    cancel-text="{{text.entryReminderCancel}}"
+    bind:confirm="confirmReminderCard"
+    bind:cancel="closeReminderCard"
+  />
 </view>

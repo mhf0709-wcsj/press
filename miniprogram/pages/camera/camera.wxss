@@ -60,10 +60,12 @@
 
 .camera-field {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 20rpx;
-  min-height: 92rpx;
+  min-height: 104rpx;
+  padding: 18rpx 0;
   border-bottom: 1rpx solid rgba(15, 23, 42, 0.06);
+  box-sizing: border-box;
 }
 
 .camera-field.no-border {
@@ -73,8 +75,10 @@
 .camera-label {
   width: 160rpx;
   flex-shrink: 0;
+  padding-top: 10rpx;
   font-size: 28rpx;
   color: #6b7280;
+  line-height: 1.5;
 }
 
 .camera-input,
@@ -82,19 +86,39 @@
 .camera-static {
   flex: 1;
   min-width: 0;
-  font-size: 30rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+  line-height: 1.6;
   color: #111827;
   text-align: right;
+}
+
+.camera-input {
+  height: 48rpx;
+  padding: 8rpx 0;
+  box-sizing: border-box;
 }
 
 .camera-picker {
   display: flex;
   justify-content: flex-end;
-  align-items: center;
+  align-items: flex-start;
   gap: 12rpx;
+  padding-top: 6rpx;
+}
+
+.camera-picker-text,
+.camera-static-text {
+  font-size: 28rpx;
+  font-weight: 500;
+  line-height: 1.6;
+  color: #111827;
+  text-align: right;
+  word-break: break-all;
 }
 
 .camera-arrow {
+  margin-top: 2rpx;
   color: #9ca3af;
 }
 

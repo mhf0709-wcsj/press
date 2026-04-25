@@ -3,9 +3,9 @@ const db = wx.cloud.database()
 const TEXT = {
   brandName: '\u538b\u529b\u8868\u667a\u80fd\u52a9\u624b',
   title: '\u8865\u5168\u4f01\u4e1a\u4fe1\u606f',
-  desc: '\u9996\u6b21\u5fae\u4fe1\u767b\u5f55\u540e\uff0c\u8bf7\u8865\u5168\u4f01\u4e1a\u8d44\u6599\u5b8c\u6210\u7ed1\u5b9a',
+  desc: '',
   manualTitle: '\u4f01\u4e1a\u6ce8\u518c',
-  manualDesc: '\u521b\u5efa\u4f01\u4e1a\u8d26\u53f7\u540e\u5373\u53ef\u4f7f\u7528 AI \u667a\u80fd\u7ba1\u5bb6',
+  manualDesc: '',
   companyLabel: '\u4f01\u4e1a\u540d\u79f0',
   companyPlaceholder: '\u8bf7\u8f93\u5165\u4f01\u4e1a\u5168\u79f0',
   creditCodeLabel: '\u7edf\u4e00\u793e\u4f1a\u4fe1\u7528\u4ee3\u7801',
@@ -22,6 +22,7 @@ const TEXT = {
   manualSubmitting: '\u6ce8\u518c\u4e2d...',
   assistText: '\u5df2\u6709\u4f01\u4e1a\u8d26\u53f7\uff1f',
   goLogin: '\u8fd4\u56de\u767b\u5f55',
+  setupHint: '',
   requireCompany: '\u8bf7\u8f93\u5165\u4f01\u4e1a\u540d\u79f0',
   requireCreditCode: '\u8bf7\u8f93\u5165\u4f01\u4e1a\u4fe1\u7528\u4ee3\u7801',
   invalidCreditCode: '\u4fe1\u7528\u4ee3\u7801\u5e94\u4e3a 18 \u4f4d',
@@ -164,7 +165,7 @@ Page({
       wx.hideLoading()
       wx.showToast({ title: TEXT.bindSuccess, icon: 'success' })
       setTimeout(() => {
-        wx.reLaunch({ url: '/pages/ai-assistant/ai-assistant' })
+        wx.redirectTo({ url: '/pages/equipment-detail/equipment-detail?mode=create&init=1' })
       }, 1200)
     } catch (error) {
       wx.hideLoading()
@@ -208,15 +209,15 @@ Page({
           }
         })
       })
-      .then(() => {
+      .then((res) => {
+        wx.setStorageSync('enterpriseUser', {
+          _id: res._id,
+          ...payload
+        })
         wx.hideLoading()
         wx.showToast({ title: TEXT.registerSuccess, icon: 'success' })
         setTimeout(() => {
-          wx.navigateBack({
-            success: () => {
-              wx.showToast({ title: TEXT.registerHint, icon: 'none', duration: 2000 })
-            }
-          })
+          wx.redirectTo({ url: '/pages/equipment-detail/equipment-detail?mode=create&init=1' })
         }, 1400)
       })
       .catch((err) => {
