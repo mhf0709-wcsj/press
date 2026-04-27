@@ -107,6 +107,15 @@
   padding-top: 6rpx;
 }
 
+.camera-picker-action {
+  align-items: center;
+}
+
+.camera-picker-link {
+  color: #007aff;
+  font-weight: 600;
+}
+
 .camera-picker-text,
 .camera-static-text {
   font-size: 28rpx;

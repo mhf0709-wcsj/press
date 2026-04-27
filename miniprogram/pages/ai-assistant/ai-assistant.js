@@ -9,7 +9,7 @@ const formValidator = require('../../utils/form-validator')
 const { calculateExpiryDate } = require('../../utils/helpers/date')
 
 const DRAFT_STATUS_OPTIONS = ['在用', '备用', '送检', '停用', '报废']
-const DRAFT_DISTRICT_OPTIONS = ['大峃所', '珊溪所', '峃口所', '黄坦所', '西坑所', '玉壶所', '南田所', '百丈漈所']
+const DRAFT_DISTRICT_OPTIONS = ['\u5927\u5cc3\u6240', '\u73ca\u6eaa\u6240', '\u5cc3\u53e3\u6240', '\u9ec4\u5766\u6240', '\u897f\u5751\u6240', '\u7389\u58f6\u6240', '\u5357\u7530\u6240', '\u767e\u4e08\u6f08\u6240']
 
 const TEXT = {
   heroTopline: '智能管家',
@@ -24,7 +24,7 @@ const TEXT = {
   uploadCta: '上传照片',
   uploadAgain: '重新上传',
   manualEntry: '手动建档',
-  confirmDraft: '去确认并保存',
+  confirmDraft: '检查并修改',
   confirmExecute: '确认执行',
   cancelExecute: '取消',
   useThisOne: '就选这条',
@@ -43,7 +43,7 @@ const TEXT = {
   draftEditHint: '',
   draftMissingPrefix: '当前还有这些关键信息需要你补全：',
   draftSummaryTitle: '待你确认的变更摘要：',
-  directSaveReady: '确认无误后可直接保存。',
+  directSaveReady: '如果以上信息无误，直接回复“确认”或“确认保存”，我会直接存档。',
   installPhotoPrompt: '在用状态需上传安装照片。',
   extractionTitle: '本次识别结果',
   fields: {
@@ -94,6 +94,9 @@ Page({
     userScope: TEXT.guest,
     visionDraft: null,
     draftHistory: [],
+    pendingDraftFieldKey: '',
+    skippedDraftFieldKeys: [],
+    pendingEquipmentCandidates: [],
     pendingCrudPlan: null,
     lastCrudContext: null,
     reminderVisible: false,
@@ -355,6 +358,25 @@ Page({
     }
   },
 
+  createEquipmentCandidateMessage(candidates) {
+    return {
+      ...this.createBaseMessage('assistant', 'equipment_candidates'),
+      title: '选择所属设备',
+      content: '找到多个相近设备，请选择要归档到哪一台设备。',
+      items: candidates.map((item, index) => ({
+        id: item._id,
+        index: index + 1,
+        title: item.equipmentName || `设备${index + 1}`,
+        subtitle: [
+          item.location ? `位置 ${item.location}` : '',
+          item.district ? `辖区 ${item.district}` : '',
+          item.gaugeCount !== undefined ? `压力表 ${item.gaugeCount} 块` : ''
+        ].filter(Boolean).join(' / '),
+        raw: item
+      }))
+    }
+  },
+
   appendMessages(newMessages) {
     this.setData({
       messages: [...this.data.messages, ...newMessages]
@@ -382,6 +404,97 @@ Page({
     }
   },
 
+  buildConversationContext() {
+    return {
+      recentMessages: this.getRecentConversationMessages(),
+      lastCrudContext: this.getConversationCrudContext(),
+      visionDraft: this.getConversationVisionDraft(),
+      pendingCrudPlan: this.getConversationPendingPlan()
+    }
+  },
+
+  getRecentConversationMessages() {
+    return (this.data.messages || [])
+      .slice(-6)
+      .map((item) => this.serializeConversationMessage(item))
+      .filter((item) => item && item.content)
+  },
+
+  serializeConversationMessage(message) {
+    if (!message || !message.role) return null
+    if (message.kind === 'text') {
+      return {
+        role: message.role,
+        kind: 'text',
+        content: String(message.content || '').trim()
+      }
+    }
+    if (message.kind === 'result') {
+      const fieldSummary = (message.fields || [])
+        .slice(0, 5)
+        .map((field) => `${field.label}=${field.value}`)
+        .join('，')
+      return {
+        role: message.role,
+        kind: 'result',
+        content: [message.summary, fieldSummary].filter(Boolean).join('；')
+      }
+    }
+    if (message.kind === 'crud_result' || message.kind === 'crud_confirm' || message.kind === 'crud_select') {
+      return {
+        role: message.role,
+        kind: message.kind,
+        content: String(message.answer || '').trim()
+      }
+    }
+    return null
+  },
+
+  getConversationCrudContext() {
+    const context = this.data.lastCrudContext
+    if (!context) return null
+    return {
+      entity: context.entity || '',
+      targetId: context.targetId || '',
+      title: context.title || '',
+      operation: context.operation || ''
+    }
+  },
+
+  getConversationVisionDraft() {
+    const data = this.data.visionDraft?.extractedData
+    if (!data) return null
+    return {
+      certNo: data.certNo || '',
+      factoryNo: data.factoryNo || '',
+      instrumentName: data.instrumentName || '',
+      modelSpec: data.modelSpec || '',
+      manufacturer: data.manufacturer || '',
+      sendUnit: data.sendUnit || '',
+      verificationDate: data.verificationDate || '',
+      conclusion: data.conclusion || '',
+      district: data.district || '',
+      gaugeStatus: data.gaugeStatus || '',
+      selectedEquipmentId: data.selectedEquipmentId || '',
+      selectedEquipmentName: data.selectedEquipmentName || ''
+    }
+  },
+
+  getConversationPendingPlan() {
+    const plan = this.data.pendingCrudPlan
+    if (!plan?.payload) return null
+    return {
+      entityLabel: plan.entityLabel || '',
+      answer: plan.answer || '',
+      payload: {
+        operation: plan.payload.operation || '',
+        entity: plan.payload.entity || '',
+        targetId: plan.payload.targetId || '',
+        changes: plan.payload.changes || {}
+      }
+    }
+  },
+
   async requestCrudPlan(question) {
     const res = await wx.cloud.callFunction({
       name: 'aiAssistant',
@@ -389,7 +502,8 @@ Page({
         action: 'crudPlan',
         question,
         userType: this.getCloudUserType(),
-        userInfo: this.data.userInfo
+        userInfo: this.data.userInfo,
+        conversationContext: this.buildConversationContext()
       }
     })
     return res.result || {}
@@ -402,7 +516,8 @@ Page({
         action: 'crudExecute',
         payload,
         userType: this.getCloudUserType(),
-        userInfo: this.data.userInfo
+        userInfo: this.data.userInfo,
+        conversationContext: this.buildConversationContext()
       }
     })
     return res.result || {}
@@ -417,7 +532,20 @@ Page({
   },
 
   looksLikeDraftSaveQuestion(question) {
-    return !!this.data.visionDraft && /(确认保存|确认存档|直接保存|就这样保存|去保存|去确认并保存)/.test(question)
+    if (!this.data.visionDraft || this.data.pendingCrudPlan) return false
+    return /(确认保存|确认存档|直接保存|就这样保存|去保存|去确认并保存|^确认$|没问题|可以保存|就这样|保存吧|提交吧)/.test(question)
+  },
+
+  looksLikeConfirmQuestion(question) {
+    return /(确认执行|确认一下|^确认$|是的|没问题|可以执行|继续执行)/.test(String(question || '').trim())
+  },
+
+  looksLikeCancelQuestion(question) {
+    return /(取消|先别执行|不要了|算了|放弃)/.test(String(question || '').trim())
+  },
+
+  looksLikeDraftControlQuestion(question) {
+    return /(上一项|上一个|跳过|重新填写|重新填|重填)/.test(String(question || '').trim())
   },
 
   looksLikeInstallPhotoQuestion(question) {
@@ -449,6 +577,18 @@ Page({
     const normalized = question.toLowerCase()
 
     try {
+      if (this.data.pendingCrudPlan && this.looksLikeConfirmQuestion(question)) {
+        this.setData({ isLoading: false })
+        await this.confirmCrudExecution()
+        return
+      }
+
+      if (this.data.pendingCrudPlan && this.looksLikeCancelQuestion(question)) {
+        this.setData({ isLoading: false })
+        this.cancelCrudExecution()
+        return
+      }
+
       if (this.looksLikeDraftUndoQuestion(question)) {
         this.setData({ isLoading: false })
         this.undoDraftEdit()
@@ -470,6 +610,24 @@ Page({
       if (this.looksLikeDraftEditQuestion(question)) {
         const handled = this.applyDraftEditFromQuestion(question)
         this.setData({ isLoading: false })
+        if (handled) return
+      }
+
+      if (this.data.visionDraft && this.looksLikeDraftControlQuestion(question)) {
+        this.setData({ isLoading: false })
+        const handled = this.handleDraftControlQuestion(question)
+        if (handled) return
+      }
+
+      if (this.data.visionDraft && this.data.pendingEquipmentCandidates.length) {
+        this.setData({ isLoading: false })
+        const handled = this.handleEquipmentCandidateAnswer(question)
+        if (handled) return
+      }
+
+      if (this.data.visionDraft && this.data.pendingDraftFieldKey) {
+        this.setData({ isLoading: false })
+        const handled = await this.handlePendingDraftFieldAnswer(question)
         if (handled) return
       }
 
@@ -519,7 +677,8 @@ Page({
         data: {
           question,
           userType: this.getCloudUserType(),
-          userInfo: this.data.userInfo
+          userInfo: this.data.userInfo,
+          conversationContext: this.buildConversationContext()
         }
       })
 
@@ -555,6 +714,7 @@ Page({
     if (!plan) return null
     if (plan.payload?.targetId) {
       return {
+        operation: plan.payload.operation || '',
         entity: plan.payload.entity,
         targetId: plan.payload.targetId,
         title: plan.items?.[0]?.title || ''
@@ -566,6 +726,7 @@ Page({
   async confirmCrudExecution() {
     const payload = this.data.pendingCrudPlan?.payload
     if (!payload || this.data.isCrudExecuting) return
+    const pendingPlan = this.data.pendingCrudPlan
 
     this.setData({ isCrudExecuting: true }, () => this.scrollToBottom())
 
@@ -576,9 +737,10 @@ Page({
         isCrudExecuting: false,
         pendingCrudPlan: null,
         lastCrudContext: {
+          operation: payload.operation,
           entity: payload.entity,
           targetId: payload.targetId,
-          title: this.data.pendingCrudPlan?.items?.[0]?.title || ''
+          title: pendingPlan?.items?.[0]?.title || ''
         }
       }, () => this.scrollToBottom())
     } catch (error) {
@@ -620,6 +782,7 @@ Page({
     this.setData({
       pendingCrudPlan: nextPlan,
       lastCrudContext: {
+        operation: payloadBase.operation,
         entity: payloadBase.entity,
         targetId: item.id,
         title: item.title
@@ -654,25 +817,18 @@ Page({
       return true
     }
 
-    this.setData({ isCrudExecuting: true }, () => this.scrollToBottom())
-    try {
-      const result = await this.requestCrudExecute(payload)
-      this.setData({
-        isCrudExecuting: false,
-        lastCrudContext: {
-          ...context,
-          entity: payload.entity,
-          targetId: payload.targetId
-        }
-      })
-      this.appendMessages([this.createTextMessage('assistant', result.answer || '好的，已进行修改。')])
-      return true
-    } catch (error) {
-      console.error('context crud failed:', error)
-      this.setData({ isCrudExecuting: false })
-      this.appendMessages([this.createTextMessage('assistant', error.message || TEXT.answers.executeFailed)])
-      return true
-    }
+    const nextPlan = this.buildContextCrudConfirmPlan(question, context, payload)
+    this.setData({
+      pendingCrudPlan: nextPlan,
+      lastCrudContext: {
+        ...context,
+        operation: payload.operation,
+        entity: payload.entity,
+        targetId: payload.targetId
+      }
+    })
+    this.appendMessages([this.createCrudConfirmMessage(nextPlan)])
+    return true
   },
 
   buildContextCrudPayload(question, context) {
@@ -684,6 +840,52 @@ Page({
       targetId: context.targetId,
       changes
     }
+  },
+
+  buildContextCrudConfirmPlan(question, context, payload) {
+    const summary = this.buildCrudChangeSummary(payload.entity, payload.changes)
+    return {
+      success: true,
+      mode: 'confirm',
+      entityLabel: this.getEntityLabel(payload.entity),
+      answer: `我理解你的意思是：把“${context.title || '这条记录'}”${summary}。确认后我立即执行。`,
+      items: [{
+        id: payload.targetId,
+        title: context.title || '当前记录',
+        subtitle: summary.replace(/^修改为：/, '')
+      }],
+      interpretation: `延续最近上下文：${context.title || '当前记录'} | 对象=${this.getEntityLabel(payload.entity)}`,
+      queryLog: '已根据最近一次操作对象生成待确认变更摘要',
+      payload
+    }
+  },
+
+  buildCrudChangeSummary(entity, changes) {
+    const labelMap = {
+      device: {
+        status: '状态',
+        modelSpec: '型号规格',
+        deviceName: '压力表名称',
+        manufacturer: '制造单位',
+        installLocation: '安装位置',
+        equipmentName: '所属设备'
+      },
+      equipment: {
+        location: '位置',
+        district: '辖区'
+      },
+      pressure_record: {
+        conclusion: '检定结论',
+        verificationDate: '检定日期',
+        modelSpec: '型号规格',
+        instrumentName: '仪表名称',
+        manufacturer: '制造单位',
+        sendUnit: '送检单位'
+      }
+    }
+    const labels = labelMap[entity] || {}
+    const parts = Object.keys(changes || {}).map((key) => `${labels[key] || key}改为“${changes[key]}”`)
+    return parts.length ? `修改为：${parts.join('，')}` : '进行修改'
   },
 
   extractContextChanges(question, entity) {
@@ -788,6 +990,9 @@ Page({
       this.setData({
         visionDraft: draft,
         draftHistory: [],
+        pendingDraftFieldKey: this.getNextDraftMissingFieldKey(draft, []),
+        skippedDraftFieldKeys: [],
+        pendingEquipmentCandidates: [],
         isVisionLoading: false
       })
 
@@ -805,16 +1010,26 @@ Page({
 
   buildVisionDraft(result, imagePath, previousDraft = null) {
     const previous = previousDraft?.extractedData || {}
+    const modelSpec = this.firstValidModelSpec([
+      result.modelSpec,
+      previous.modelSpec,
+      this.extractModelSpecFromRawResult(result)
+    ])
+    const verificationDate = this.firstValidDate([
+      result.verificationDate,
+      previous.verificationDate,
+      this.extractDateFromRawResult(result)
+    ])
     const nextResult = {
       certNo: result.certNo || previous.certNo || '',
       sendUnit: result.sendUnit || previous.sendUnit || '',
       instrumentName: result.instrumentName || previous.instrumentName || '',
-      modelSpec: this.normalizeDisplayModelSpec(result.modelSpec || previous.modelSpec || ''),
+      modelSpec,
       factoryNo: result.factoryNo || previous.factoryNo || '',
       manufacturer: result.manufacturer || previous.manufacturer || '',
       verificationStd: result.verificationStd || previous.verificationStd || '',
       conclusion: result.conclusion || previous.conclusion || '',
-      verificationDate: result.verificationDate || previous.verificationDate || '',
+      verificationDate,
       categoryLabel: result.categoryLabel || previous.categoryLabel || this.inferCategoryLabel(result),
       district: result.district || previous.district || '',
       gaugeStatus: result.gaugeStatus || previous.gaugeStatus || '在用',
@@ -845,10 +1060,106 @@ Page({
     const compact = text.replace(/\s+/g, '').replace(/[/:：/／]+/g, '')
     if (!compact || ['型号', '规格', '型号规格', '规格型号'].includes(compact)) return ''
 
-    const match = text.match(/(\(?\s*\d+(?:\.\d+)?\s*(?:-|~|－|—|至)\s*\d+(?:\.\d+)?\s*\)?\s*(?:k|M|G)?Pa)/i)
-    if (match && match[1]) return match[1].replace(/\s+/g, ' ').trim()
+    const pressure = this.extractPressureRange(text)
+    if (pressure) return pressure
 
     return text
+  },
+
+  firstValidModelSpec(values = []) {
+    for (const value of values) {
+      const normalized = this.normalizeDisplayModelSpec(value)
+      if (normalized) return normalized
+    }
+    return ''
+  },
+
+  extractModelSpecFromRawResult(result = {}) {
+    const source = [
+      result.rawText || '',
+      ...(result.lines || []).map((item) => typeof item === 'string' ? item : (item.words || item.text || ''))
+    ].filter(Boolean).join('\n')
+
+    if (!source) return ''
+
+    const normalized = source
+      .replace(/\r/g, '\n')
+      .replace(/：/g, ':')
+      .replace(/（/g, '(')
+      .replace(/）/g, ')')
+      .replace(/[ \t]+/g, ' ')
+
+    const labelMatch = normalized.match(/(?:型\s*号\s*[\/／]?\s*规\s*格|型号规格|规格型号|型号|规格)[:：\s]*([^\n]*)/i)
+    if (labelMatch && labelMatch[1]) {
+      const fromLabel = this.normalizeDisplayModelSpec(labelMatch[1])
+      if (fromLabel) return fromLabel
+    }
+
+    return this.extractPressureRange(normalized)
+  },
+
+  extractPressureRange(text) {
+    const match = String(text || '').match(/([\(（]?\s*\d+(?:\.\d+)?\s*(?:-|~|－|—|–|一|至|到)\s*\d+(?:\.\d+)?\s*[\)）]?\s*(?:k|M|G)?\s*P\s*a)/i)
+    if (!match || !match[1]) return ''
+    return match[1]
+      .replace(/（/g, '(')
+      .replace(/）/g, ')')
+      .replace(/[－—–一到至~]/g, '-')
+      .replace(/\s+/g, ' ')
+      .replace(/\s*-\s*/g, '-')
+      .replace(/([kMG])\s*P\s*a/i, (source, prefix) => `${prefix.toUpperCase()}Pa`)
+      .replace(/P\s*a/i, 'Pa')
+      .trim()
+  },
+
+  firstValidDate(values = []) {
+    for (const value of values) {
+      const normalized = this.normalizeDateValue(value)
+      if (normalized) return normalized
+    }
+    return ''
+  },
+
+  extractDateFromRawResult(result = {}) {
+    const source = [
+      result.rawText || '',
+      ...(result.lines || []).map((item) => typeof item === 'string' ? item : (item.words || item.text || ''))
+    ].filter(Boolean).join('\n')
+
+    const normalized = source.replace(/\r/g, '\n')
+    const labelMatch = normalized.match(/(?:检定日期|检定日|校准日期)[:：\s]*([^\n]{0,40})/)
+    if (labelMatch) {
+      const fromLabel = this.normalizeDateValue(labelMatch[1])
+      if (fromLabel) return fromLabel
+    }
+
+    const lines = normalized.split('\n').filter((line) => !/(有效期|到期|有效至)/.test(line))
+    for (const line of lines) {
+      const matches = line.matchAll(/(\d{4})\s*(?:年|[.\-/])\s*(\d{1,2})\s*(?:月|[.\-/])\s*(\d{1,2})\s*(?:日)?/g)
+      for (const match of matches) {
+        const date = this.buildValidDate(match[1], match[2], match[3])
+        if (date) return date
+      }
+    }
+    return ''
+  },
+
+  normalizeDateValue(value) {
+    const text = String(value || '').trim()
+    const match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/) ||
+      text.match(/(\d{4})\s*(?:年|[.\-/])\s*(\d{1,2})\s*(?:月|[.\-/])\s*(\d{1,2})\s*(?:日)?/)
+    if (!match) return ''
+    return this.buildValidDate(match[1], match[2], match[3])
+  },
+
+  buildValidDate(year, month, day) {
+    const y = Number(year)
+    const m = Number(month)
+    const d = Number(day)
+    if (y < 2000 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) return ''
+    const date = new Date(y, m - 1, d)
+    if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) return ''
+    return `${year}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
   },
 
   buildDraftFields(result) {
@@ -1012,9 +1323,13 @@ Page({
   refreshVisionDraft(nextResult, options = {}) {
     const currentDraft = this.data.visionDraft
     const draft = this.buildVisionDraft(nextResult, currentDraft?.imagePath || '', currentDraft)
+    const nextSkippedKeys = options.keepSkipped ? (this.data.skippedDraftFieldKeys || []) : []
     wx.setStorageSync('aiAssistantRecordDraft', draft)
     this.setData({
       visionDraft: draft,
+      pendingDraftFieldKey: this.getNextDraftMissingFieldKey(draft, nextSkippedKeys),
+      skippedDraftFieldKeys: nextSkippedKeys,
+      pendingEquipmentCandidates: [],
       draftHistory: options.pushHistory && currentDraft
         ? [...this.data.draftHistory, currentDraft]
         : this.data.draftHistory
@@ -1024,6 +1339,7 @@ Page({
 
   buildDraftFollowUpMessages(draft, options = {}) {
     const messages = []
+    const missing = this.getDraftMissingFields(draft)
     if (options.includeResultMessage !== false) {
       messages.push(this.createResultMessage(draft))
     }
@@ -1032,14 +1348,35 @@ Page({
       messages.push(this.createTextMessage('assistant', `${TEXT.draftSummaryTitle}${options.changeSummary}。`))
     }
 
-    const missingPrompt = this.buildDraftMissingPrompt(draft)
-    if (missingPrompt) {
-      messages.push(this.createTextMessage('assistant', missingPrompt))
+    const draftSummary = this.buildDraftConfirmSummary(draft)
+    if (draftSummary && missing.length) {
+      messages.push(this.createTextMessage('assistant', draftSummary))
+    }
+
+    if (missing.length) {
+      const followUpMessages = this.buildDraftMissingFollowUps(draft, missing)
+      messages.push(...followUpMessages)
     } else {
+      messages.push(this.createTextMessage('assistant', this.buildDraftFinalSummary(draft)))
       messages.push(this.createTextMessage('assistant', TEXT.directSaveReady))
     }
 
     return messages
+  },
+
+  buildDraftConfirmSummary(draft) {
+    const data = draft?.extractedData || {}
+    const parts = [
+      data.certNo ? `证书编号 ${data.certNo}` : '',
+      data.factoryNo ? `出厂编号 ${data.factoryNo}` : '',
+      data.instrumentName ? `仪表名称 ${data.instrumentName}` : '',
+      data.modelSpec ? `型号规格 ${data.modelSpec}` : '',
+      data.selectedEquipmentName ? `所属设备 ${data.selectedEquipmentName}` : '',
+      data.conclusion ? `检定结论 ${data.conclusion}` : '',
+      data.verificationDate ? `检定日期 ${data.verificationDate}` : ''
+    ].filter(Boolean)
+    if (!parts.length) return ''
+    return `当前存档摘要：${parts.join('，')}。`
   },
 
   buildDraftMissingPrompt(draft) {
@@ -1048,6 +1385,39 @@ Page({
 
     const lines = missing.map((item) => `- ${item.label}：${item.key === 'installPhotoPath' ? TEXT.installPhotoPrompt : item.prompt}`)
     return `${TEXT.draftMissingPrefix}\n${lines.join('\n')}`
+  },
+
+  buildDraftMissingFollowUps(draft, providedMissing = null) {
+    const missing = providedMissing || this.getDraftMissingFields(draft)
+    if (!missing.length) return []
+    const first = missing[0]
+    const firstPrompt = first.key === 'installPhotoPath'
+      ? '下一步请先补上传安装照片。'
+      : `下一步请先补充“${first.label}”。${first.prompt}`
+    return [
+      this.createTextMessage('assistant', firstPrompt),
+      this.createTextMessage('assistant', `当前还剩 ${missing.length} 项待补全。`)
+    ]
+  },
+
+  buildDraftFinalSummary(draft) {
+    const data = draft?.extractedData || {}
+    const lines = [
+      '最终存档摘要：',
+      `- 证书编号：${data.certNo || '未填写'}`,
+      `- 出厂编号：${data.factoryNo || '未填写'}`,
+      `- 仪表名称：${data.instrumentName || '未填写'}`,
+      `- 型号规格：${data.modelSpec || '未填写'}`,
+      `- 制造单位：${data.manufacturer || '未填写'}`,
+      `- 送检单位：${data.sendUnit || '未填写'}`,
+      `- 检定结论：${data.conclusion || '未填写'}`,
+      `- 检定日期：${data.verificationDate || '未填写'}`,
+      `- 辖区：${data.district || '未填写'}`,
+      `- 压力表状态：${data.gaugeStatus || '在用'}`,
+      `- 所属设备：${data.selectedEquipmentName || '未填写'}`,
+      `- 安装照片：${data.installPhotoPath ? '已上传' : '未上传'}`
+    ]
+    return lines.join('\n')
   },
 
   getDraftMissingFields(draft) {
@@ -1081,6 +1451,205 @@ Page({
     return missing
   },
 
+  getNextDraftMissingFieldKey(draft, skippedOverride = null) {
+    const skipped = Array.isArray(skippedOverride) ? skippedOverride : (this.data.skippedDraftFieldKeys || [])
+    const missing = this.getDraftMissingFields(draft)
+    const first = missing.find((item) => !skipped.includes(item.key)) || missing[0]
+    return first ? first.key : ''
+  },
+
+  getDraftFieldDefinition(fieldKey) {
+    const map = {
+      factoryNo: { key: 'factoryNo', label: '出厂编号', prompt: '例如：24013931' },
+      verificationDate: { key: 'verificationDate', label: '检定日期', prompt: '例如：2026-04-18' },
+      conclusion: { key: 'conclusion', label: '检定结论', prompt: '例如：合格' },
+      district: { key: 'district', label: '辖区', prompt: '例如：大峃所' },
+      selectedEquipmentName: { key: 'selectedEquipmentName', label: '所属设备', prompt: '例如：1号反应釜' },
+      installPhotoPath: { key: 'installPhotoPath', label: '安装照片', prompt: '直接说“上传安装照片”即可' }
+    }
+    return map[fieldKey] || null
+  },
+
+  async handlePendingDraftFieldAnswer(question) {
+    const field = this.getDraftFieldDefinition(this.data.pendingDraftFieldKey)
+    const draft = this.data.visionDraft
+    if (!field || !draft?.extractedData) return false
+
+    if (field.key === 'installPhotoPath') {
+      this.appendMessages([this.createTextMessage('assistant', '这一项需要你直接上传安装照片。')])
+      return true
+    }
+
+    const value = this.extractPendingDraftFieldValue(field.key, question)
+    if (!value) {
+      this.appendMessages([this.createTextMessage('assistant', `我还没识别出“${field.label}”。${field.prompt}`)])
+      return true
+    }
+
+    if (field.key === 'selectedEquipmentName') {
+      return await this.handleEquipmentNameAnswer(value, draft)
+    }
+
+    const nextResult = {
+      ...(draft.extractedData || {}),
+      [field.key]: value
+    }
+
+    const nextDraft = this.refreshVisionDraft(nextResult, { pushHistory: true })
+    this.appendMessages(this.buildDraftFollowUpMessages(nextDraft, {
+      includeResultMessage: true,
+      changeSummary: `${field.label}已补充为“${value}”`
+    }))
+    return true
+  },
+
+  async handleEquipmentNameAnswer(value, draft) {
+    const runtime = this.getRuntimeUserOptions()
+    const candidates = await equipmentService.searchEquipments(value, {
+      enterpriseUser: runtime.enterpriseUser,
+      fromAdmin: runtime.fromAdmin,
+      district: runtime.district
+    })
+
+    if (!candidates.length) {
+      this.appendMessages([this.createTextMessage('assistant', `没有找到名称包含“${value}”的设备。请换一个设备名称，或先到设备中心新建设备。`)])
+      return true
+    }
+
+    if (candidates.length === 1) {
+      this.applySelectedEquipmentToDraft(candidates[0], draft, { pushHistory: true })
+      return true
+    }
+
+    const sliced = candidates.slice(0, 5)
+    this.setData({ pendingEquipmentCandidates: sliced })
+    this.appendMessages([this.createEquipmentCandidateMessage(sliced)])
+    return true
+  },
+
+  handleEquipmentCandidateAnswer(question) {
+    const text = String(question || '').trim()
+    const candidates = this.data.pendingEquipmentCandidates || []
+    if (!candidates.length) return false
+
+    const indexMatch = text.match(/\d+/)
+    const byIndex = indexMatch ? candidates[Number(indexMatch[0]) - 1] : null
+    const byName = candidates.find((item) => text && String(item.equipmentName || '').includes(text))
+    const selected = byIndex || byName
+
+    if (!selected) {
+      this.appendMessages([this.createTextMessage('assistant', '请回复候选设备的序号，或直接点选其中一台设备。')])
+      return true
+    }
+
+    this.applySelectedEquipmentToDraft(selected, this.data.visionDraft, { pushHistory: true })
+    return true
+  },
+
+  selectDraftEquipmentCandidate(e) {
+    const item = e.currentTarget.dataset.item
+    if (!item || !item.id) return
+    const candidates = this.data.pendingEquipmentCandidates || []
+    const selected = candidates.find((entry) => entry._id === item.id) || item.raw || item
+    this.applySelectedEquipmentToDraft(selected, this.data.visionDraft, { pushHistory: true })
+  },
+
+  applySelectedEquipmentToDraft(equipment, draft, options = {}) {
+    if (!equipment || !draft?.extractedData) return
+    const nextResult = {
+      ...(draft.extractedData || {}),
+      selectedEquipmentId: equipment._id || '',
+      selectedEquipmentName: equipment.equipmentName || '',
+      match: {
+        ...(draft.extractedData.match || {}),
+        id: equipment._id || '',
+        name: equipment.equipmentName || ''
+      }
+    }
+    this.setData({
+      skippedDraftFieldKeys: [],
+      pendingEquipmentCandidates: []
+    })
+    const nextDraft = this.refreshVisionDraft(nextResult, options)
+    this.appendMessages(this.buildDraftFollowUpMessages(nextDraft, {
+      includeResultMessage: true,
+      changeSummary: `所属设备已选择为“${equipment.equipmentName || ''}”`
+    }))
+  },
+
+  handleDraftControlQuestion(question) {
+    const text = String(question || '').trim()
+    if (/(上一项|上一个)/.test(text)) {
+      this.undoDraftEdit()
+      return true
+    }
+
+    if (/(重新填写|重新填|重填)/.test(text)) {
+      const field = this.getDraftFieldDefinition(this.data.pendingDraftFieldKey)
+      this.appendMessages([this.createTextMessage('assistant', field ? `请重新填写“${field.label}”。${field.prompt}` : '请重新填写当前字段。')])
+      return true
+    }
+
+    if (/跳过/.test(text)) {
+      const currentKey = this.data.pendingDraftFieldKey
+      if (!currentKey) return true
+      const skipped = Array.from(new Set([...(this.data.skippedDraftFieldKeys || []), currentKey]))
+      const missing = this.getDraftMissingFields(this.data.visionDraft)
+      const next = missing.find((item) => !skipped.includes(item.key))
+
+      if (!next) {
+        this.setData({ skippedDraftFieldKeys: [], pendingDraftFieldKey: currentKey })
+        this.appendMessages([this.createTextMessage('assistant', '当前剩余字段都是存档必填项，暂时不能继续跳过。')])
+        return true
+      }
+
+      this.setData({
+        skippedDraftFieldKeys: skipped,
+        pendingDraftFieldKey: next.key
+      })
+      this.appendMessages(this.buildDraftMissingFollowUps(this.data.visionDraft, [next]))
+      return true
+    }
+
+    return false
+  },
+
+  extractPendingDraftFieldValue(fieldKey, question) {
+    const text = String(question || '').trim()
+    if (!text) return ''
+
+    if (fieldKey === 'factoryNo') {
+      const match = text.match(/([A-Za-z0-9\-\/]{2,})/)
+      return match && match[1] ? match[1].trim() : ''
+    }
+
+    if (fieldKey === 'verificationDate') {
+      const match = text.match(/(20\d{2})[-\/年](\d{1,2})[-\/月](\d{1,2})/)
+      if (!match) return ''
+      return `${match[1]}-${String(match[2]).padStart(2, '0')}-${String(match[3]).padStart(2, '0')}`
+    }
+
+    if (fieldKey === 'conclusion') {
+      if (text.includes('不合格')) return '不合格'
+      if (text.includes('合格')) return '合格'
+      return ''
+    }
+
+    if (fieldKey === 'district') {
+      return DRAFT_DISTRICT_OPTIONS.find((item) => text.includes(item)) || ''
+    }
+
+    if (fieldKey === 'selectedEquipmentName') {
+      return text
+        .replace(/^所属设备[:：]?\s*/, '')
+        .replace(/^设备[:：]?\s*/, '')
+        .replace(/^(改成|改为|是|叫)\s*/, '')
+        .trim()
+    }
+
+    return ''
+  },
+
   undoDraftEdit() {
     const history = this.data.draftHistory || []
     const lastDraft = history[history.length - 1]
@@ -1093,6 +1662,9 @@ Page({
     wx.setStorageSync('aiAssistantRecordDraft', lastDraft)
     this.setData({
       visionDraft: lastDraft,
+      pendingDraftFieldKey: this.getNextDraftMissingFieldKey(lastDraft, []),
+      skippedDraftFieldKeys: [],
+      pendingEquipmentCandidates: [],
       draftHistory: history.slice(0, -1)
     })
 
@@ -1109,9 +1681,10 @@ Page({
 
     const missing = this.getDraftMissingFields(draft)
     if (missing.length) {
+      this.setData({ pendingDraftFieldKey: missing[0].key })
       this.appendMessages([
         this.createTextMessage('assistant', TEXT.answers.draftSaveBlocked),
-        this.createTextMessage('assistant', this.buildDraftMissingPrompt(draft))
+        ...this.buildDraftMissingFollowUps(draft, missing)
       ])
       return
     }
@@ -1134,8 +1707,12 @@ Page({
       const saveResult = await this.saveDraftDirectly(draft, equipment)
       this.setData({
         isDirectSaving: false,
+        pendingDraftFieldKey: '',
+        skippedDraftFieldKeys: [],
+        pendingEquipmentCandidates: [],
         lastCrudContext: saveResult?.recordId
           ? {
+            operation: 'create',
             entity: 'pressure_record',
             targetId: saveResult.recordId,
             title: draft.extractedData.factoryNo || draft.extractedData.certNo || '刚保存的记录'
@@ -1152,6 +1729,21 @@ Page({
       this.setData({ isDirectSaving: false })
       this.appendMessages([this.createTextMessage('assistant', error.message || '直接存档失败，请稍后重试。')])
     }
+  },
+
+  async handleDraftQuickConfirm() {
+    const draft = this.data.visionDraft
+    if (!draft?.extractedData) return
+
+    const missing = this.getDraftMissingFields(draft)
+    if (missing.length) {
+      this.setData({ pendingDraftFieldKey: missing[0].key })
+      const missingFollowUps = this.buildDraftMissingFollowUps(draft, missing)
+      this.appendMessages(missingFollowUps)
+      return
+    }
+
+    await this.handleDirectSaveRequest()
   },
 
   async resolveDraftEquipment(draft) {
@@ -1198,7 +1790,7 @@ Page({
     const db = wx.cloud.database()
     const _ = db.command
     const existed = await db.collection('devices')
-      .where({ equipmentId, factoryNo, isDeleted: _.neq(true) })
+      .where({ equipmentId, factoryNo, isDeleted: false })
       .limit(1)
       .get()
 

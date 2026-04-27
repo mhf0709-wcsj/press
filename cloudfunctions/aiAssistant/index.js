@@ -23,6 +23,7 @@ exports.main = async (event, context) => {
   const { action, question, userType, userInfo } = event
   const wxContext = cloud.getWXContext()
   const openid = wxContext.OPENID
+  const conversationContext = normalizeConversationContext(event.conversationContext)
 
   try {
     if (action === 'extractRecordFromImage') {
@@ -38,7 +39,7 @@ exports.main = async (event, context) => {
     const permission = parsePermission(userType, userInfo, openid)
 
     if (action === 'crudPlan') {
-      const structuredIntent = await rewriteCrudIntent(String(question || ''), permission)
+      const structuredIntent = await rewriteCrudIntent(String(question || ''), permission, conversationContext)
       return await planCrudAction({
         question: String(question || ''),
         permission,
@@ -60,13 +61,13 @@ exports.main = async (event, context) => {
     let answer = ''
     
     if (intent.type === 'data_query') {
-      answer = await handleDataQuery(intent, permission)
+      answer = await tryModelAnswer(question, intent, permission, conversationContext) || await handleDataQuery(intent, permission)
     } else if (intent.type === 'rag') {
-      answer = await tryModelAnswer(question, intent, permission) || await handleRagQuery(question, permission)
+      answer = await tryModelAnswer(question, intent, permission, conversationContext) || await handleRagQuery(question, permission)
     } else if (intent.type === 'knowledge') {
-      answer = await tryModelAnswer(question, intent, permission) || handleKnowledgeQuery(question, intent)
+      answer = await tryModelAnswer(question, intent, permission, conversationContext) || handleKnowledgeQuery(question, intent)
     } else {
-      answer = await tryModelAnswer(question, intent, permission) || handleGeneralQuery(question, permission)
+      answer = await tryModelAnswer(question, intent, permission, conversationContext) || handleGeneralQuery(question, permission)
     }
 
     return {
@@ -82,26 +83,29 @@ exports.main = async (event, context) => {
   }
 }
 
-async function tryModelAnswer(question, intent, permission) {
+async function tryModelAnswer(question, intent, permission, conversationContext) {
   if (!DASHSCOPE_API_KEY) return ''
   if (!question) return ''
 
   try {
-    const references = await collectModelReferences(question, intent)
+    const references = await collectModelReferences(question, intent, permission, conversationContext)
+    const contextText = buildConversationContextText(conversationContext)
     const systemPrompt = [
       '\u4f60\u662f\u538b\u529b\u8868\u68c0\u5b9a AI \u667a\u80fd\u7ba1\u5bb6\u3002',
       '\u8bf7\u4f18\u5148\u6839\u636e\u7ed9\u5b9a\u8d44\u6599\u56de\u7b54\uff0c\u4e0d\u8981\u7f16\u9020\u6cd5\u89c4\u3001\u6807\u51c6\u6216\u4e1a\u52a1\u6570\u636e\u3002',
       '\u5982\u679c\u8d44\u6599\u4e0d\u8db3\uff0c\u8bf7\u660e\u786e\u8bf4\u660e\u6839\u636e\u73b0\u6709\u8d44\u6599\u6682\u65e0\u6cd5\u786e\u5b9a\uff0c\u5e76\u5efa\u8bae\u7528\u6237\u67e5\u770b\u6b63\u5f0f\u89c4\u7a0b\u6216\u8865\u5145\u6761\u4ef6\u3002',
       '\u56de\u7b54\u8bf7\u4f7f\u7528\u7b80\u4f53\u4e2d\u6587\uff0c\u98ce\u683c\u4e13\u4e1a\u3001\u76f4\u63a5\u3001\u6613\u6267\u884c\u3002',
+      '\u5982\u679c\u95ee\u9898\u5728\u67e5\u8be2\u5177\u4f53\u53f0\u8d26\uff0c\u4f18\u5148\u6839\u636e\u547d\u4e2d\u8bb0\u5f55\u7ed9\u51fa\u76f4\u63a5\u7ed3\u8bba\u3002',
       `\u5f53\u524d\u7528\u6237\u6743\u9650\u8303\u56f4\uff1a${buildPermissionLabel(permission)}\u3002`
     ].join('\n')
 
     const userPrompt = [
       `\u7528\u6237\u95ee\u9898\uff1a${question}`,
+      contextText ? `\u6700\u8fd1\u5bf9\u8bdd\u4e0a\u4e0b\u6587\uff1a\n${contextText}` : '',
       references
         ? `\u53ef\u7528\u8d44\u6599\uff1a\n${references}`
         : '\u53ef\u7528\u8d44\u6599\uff1a\u6682\u65e0\u989d\u5916\u8d44\u6599\uff0c\u8bf7\u8c28\u614e\u56de\u7b54\u3002'
-    ].join('\n\n')
+    ].filter(Boolean).join('\n\n')
 
     return await callDashScopeChat([
       { role: 'system', content: systemPrompt },
@@ -113,10 +117,11 @@ async function tryModelAnswer(question, intent, permission) {
   }
 }
 
-async function rewriteCrudIntent(question, permission) {
+async function rewriteCrudIntent(question, permission, conversationContext) {
   if (!DASHSCOPE_API_KEY || !question) return null
 
   try {
+    const contextText = buildConversationContextText(conversationContext)
     const systemPrompt = [
       '你是压力表检定系统的意图改写器。',
       '请把用户自然语言改写成结构化 CRUD 意图。',
@@ -125,15 +130,18 @@ async function rewriteCrudIntent(question, permission) {
       'entity 只能是 device、equipment、pressure_record。',
       'target 允许字段：factoryNo、certNo、deviceNo、equipmentNo、deviceName、equipmentName、rawCode、tailCode、ambiguousCode。',
       'changes 允许字段：status、conclusion、verificationDate、modelSpec、instrumentName、manufacturer、sendUnit、location、district。',
+      '如果用户说“刚才那条”“上一条”“这条记录”，优先结合最近上下文推断对象。',
+      '如果用户只给了编号尾号，比如“编号为2”，尽量写入 target.rawCode 或 target.tailCode，而不是直接放弃。',
       '如果编号太模糊、对象不明确或关键信息不足，请返回 needClarify=true，并给出 clarifyQuestion。',
       `当前用户权限范围：${buildPermissionLabel(permission)}。`
     ].join('\n')
 
     const userPrompt = [
       `用户原话：${question}`,
+      contextText ? `最近上下文：\n${contextText}` : '',
       '请输出 JSON，例如：',
       '{"operation":"query","entity":"device","target":{"factoryNo":"24013931"},"changes":{},"needClarify":false,"clarifyQuestion":""}'
-    ].join('\n')
+    ].filter(Boolean).join('\n')
 
     const content = await callDashScopeChat([
       { role: 'system', content: systemPrompt },
@@ -142,7 +150,7 @@ async function rewriteCrudIntent(question, permission) {
 
     const parsed = parseCrudIntentJson(content)
     if (!parsed) return null
-    const sanitized = sanitizeCrudIntent(parsed)
+    const sanitized = applyConversationContextToIntent(sanitizeCrudIntent(parsed), conversationContext, question)
     console.log('CRUD rewrite log:', JSON.stringify({
       question,
       permission: buildPermissionLabel(permission),
@@ -297,7 +305,13 @@ function extractFirstJsonObject(text) {
   return ''
 }
 
-async function collectModelReferences(question, intent) {
+async function collectModelReferences(question, intent, permission, conversationContext) {
+  const sections = []
+  const contextText = buildConversationContextText(conversationContext)
+  if (contextText) {
+    sections.push(`最近上下文：\n${contextText}`)
+  }
+
   if (intent.type === 'rag') {
     try {
       await seedKbIfNeeded()
@@ -305,19 +319,252 @@ async function collectModelReferences(question, intent) {
       const chunkRes = await db.collection('kb_chunks').limit(500).get()
       const chunks = chunkRes.data || []
 
-      return chunks
+      const ragText = chunks
         .map((chunk) => ({ content: chunk.content, score: cosine(qv, chunk.vector || []) }))
         .sort((a, b) => b.score - a.score)
         .slice(0, 3)
         .filter((item) => item.score > 0.1)
         .map((item, index) => `\u53c2\u8003${index + 1}\uff1a${item.content}`)
         .join('\n\n')
+      if (ragText) sections.push(ragText)
     } catch (error) {
       console.error('collectModelReferences failed:', error)
     }
+  } else {
+    const knowledge = getRelevantKnowledge(question) || ''
+    if (knowledge) sections.push(knowledge)
   }
 
-  return getRelevantKnowledge(question) || ''
+  const liveReference = await buildLiveDataReference(question, permission, conversationContext)
+  if (liveReference) sections.push(liveReference)
+
+  return sections.filter(Boolean).join('\n\n')
+}
+
+function normalizeConversationContext(source) {
+  if (!source || typeof source !== 'object') return {}
+
+  const recentMessages = Array.isArray(source.recentMessages)
+    ? source.recentMessages
+      .filter((item) => item && typeof item === 'object')
+      .slice(-6)
+      .map((item) => ({
+        role: item.role === 'assistant' ? 'assistant' : 'user',
+        kind: String(item.kind || 'text'),
+        content: String(item.content || '').trim()
+      }))
+      .filter((item) => item.content)
+    : []
+
+  const lastCrudContext = source.lastCrudContext && typeof source.lastCrudContext === 'object'
+    ? {
+      entity: String(source.lastCrudContext.entity || '').trim(),
+      targetId: String(source.lastCrudContext.targetId || '').trim(),
+      title: String(source.lastCrudContext.title || '').trim(),
+      operation: String(source.lastCrudContext.operation || '').trim()
+    }
+    : null
+
+  const visionDraft = source.visionDraft && typeof source.visionDraft === 'object'
+    ? {
+      certNo: String(source.visionDraft.certNo || '').trim(),
+      factoryNo: String(source.visionDraft.factoryNo || '').trim(),
+      instrumentName: String(source.visionDraft.instrumentName || '').trim(),
+      modelSpec: String(source.visionDraft.modelSpec || '').trim(),
+      manufacturer: String(source.visionDraft.manufacturer || '').trim(),
+      sendUnit: String(source.visionDraft.sendUnit || '').trim(),
+      verificationDate: String(source.visionDraft.verificationDate || '').trim(),
+      conclusion: String(source.visionDraft.conclusion || '').trim(),
+      district: String(source.visionDraft.district || '').trim(),
+      gaugeStatus: String(source.visionDraft.gaugeStatus || '').trim(),
+      selectedEquipmentId: String(source.visionDraft.selectedEquipmentId || '').trim(),
+      selectedEquipmentName: String(source.visionDraft.selectedEquipmentName || '').trim()
+    }
+    : null
+
+  const pendingCrudPlan = source.pendingCrudPlan && typeof source.pendingCrudPlan === 'object'
+    ? {
+      entityLabel: String(source.pendingCrudPlan.entityLabel || '').trim(),
+      answer: String(source.pendingCrudPlan.answer || '').trim(),
+      payload: source.pendingCrudPlan.payload && typeof source.pendingCrudPlan.payload === 'object'
+        ? {
+          operation: String(source.pendingCrudPlan.payload.operation || '').trim(),
+          entity: String(source.pendingCrudPlan.payload.entity || '').trim(),
+          targetId: String(source.pendingCrudPlan.payload.targetId || '').trim(),
+          changes: source.pendingCrudPlan.payload.changes && typeof source.pendingCrudPlan.payload.changes === 'object'
+            ? source.pendingCrudPlan.payload.changes
+            : {}
+        }
+        : null
+    }
+    : null
+
+  return {
+    recentMessages,
+    lastCrudContext,
+    visionDraft,
+    pendingCrudPlan
+  }
+}
+
+function buildConversationContextText(context) {
+  if (!context || typeof context !== 'object') return ''
+  const parts = []
+
+  const recentText = (context.recentMessages || [])
+    .map((item) => `${item.role === 'assistant' ? 'AI' : '用户'}：${item.content}`)
+    .join('\n')
+  if (recentText) parts.push(recentText)
+
+  if (context.lastCrudContext && (context.lastCrudContext.title || context.lastCrudContext.targetId)) {
+    parts.push(`最近操作对象：${context.lastCrudContext.title || '未命名记录'}（${context.lastCrudContext.entity || 'unknown'}）`)
+  }
+
+  if (context.pendingCrudPlan?.payload?.targetId) {
+    parts.push(`待确认操作：${context.pendingCrudPlan.payload.operation || ''} ${context.pendingCrudPlan.entityLabel || context.pendingCrudPlan.payload.entity || ''}`)
+  }
+
+  if (context.visionDraft) {
+    const draftParts = [
+      context.visionDraft.certNo ? `证书=${context.visionDraft.certNo}` : '',
+      context.visionDraft.factoryNo ? `出厂编号=${context.visionDraft.factoryNo}` : '',
+      context.visionDraft.instrumentName ? `仪表=${context.visionDraft.instrumentName}` : '',
+      context.visionDraft.modelSpec ? `型号=${context.visionDraft.modelSpec}` : '',
+      context.visionDraft.selectedEquipmentName ? `所属设备=${context.visionDraft.selectedEquipmentName}` : ''
+    ].filter(Boolean)
+    if (draftParts.length) {
+      parts.push(`当前识别草稿：${draftParts.join('，')}`)
+    }
+  }
+
+  return parts.join('\n')
+}
+
+function applyConversationContextToIntent(intent, conversationContext, question) {
+  if (!intent) return null
+  const nextIntent = {
+    ...intent,
+    target: { ...(intent.target || {}) },
+    changes: { ...(intent.changes || {}) }
+  }
+
+  const isContextRef = /(刚才|上一条|那条|这条|刚刚|这个记录|这块表)/.test(String(question || ''))
+  const lastCrudContext = conversationContext && conversationContext.lastCrudContext
+  if (isContextRef && lastCrudContext) {
+    if (!nextIntent.entity && lastCrudContext.entity) {
+      nextIntent.entity = lastCrudContext.entity
+    }
+    if (!hasAnyTargetValue(nextIntent.target) && lastCrudContext.title) {
+      nextIntent.target.deviceName = lastCrudContext.title
+    }
+  }
+
+  const draft = conversationContext && conversationContext.visionDraft
+  if (draft && !hasAnyTargetValue(nextIntent.target)) {
+    if (draft.factoryNo && /(出厂编号|表号|编号)/.test(String(question || ''))) {
+      nextIntent.target.factoryNo = draft.factoryNo
+    } else if (draft.certNo && /(证书|证书编号)/.test(String(question || ''))) {
+      nextIntent.target.certNo = draft.certNo
+    }
+  }
+
+  nextIntent.debugSummary = buildCrudIntentDebugSummary(nextIntent)
+  return nextIntent
+}
+
+function hasAnyTargetValue(target) {
+  return !!target && Object.keys(target).some((key) => !!target[key])
+}
+
+async function buildLiveDataReference(question, permission, conversationContext) {
+  try {
+    const summary = await buildScopeStatsSummary(permission)
+    const records = await findRelevantRecords(question, permission, conversationContext)
+    const sections = []
+    if (summary) sections.push(summary)
+    if (records.length) {
+      sections.push(`命中记录：\n${records.map((item, index) => formatRecordReference(item, index + 1)).join('\n')}`)
+    }
+    return sections.join('\n\n')
+  } catch (error) {
+    console.error('buildLiveDataReference failed:', error)
+    return ''
+  }
+}
+
+async function buildScopeStatsSummary(permission) {
+  const baseQuery = Object.assign({}, permission.query || {}, {
+    isDeleted: false
+  })
+  const collection = db.collection('pressure_records')
+  const today = new Date()
+  const thirtyDaysLater = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)
+
+  const [total, expiring, qualified] = await Promise.all([
+    collection.where(baseQuery).count(),
+    collection.where({
+      ...baseQuery,
+      expiryDate: _.and(_.gte(formatYmd(today)), _.lte(formatYmd(thirtyDaysLater)))
+    }).count(),
+    collection.where({
+      ...baseQuery,
+      conclusion: '合格'
+    }).count()
+  ])
+
+  return `实时统计：范围=${getScopeDescription(permission)}；总记录 ${total.total} 条；30天内到期 ${expiring.total} 条；合格 ${qualified.total} 条；不合格 ${Math.max(total.total - qualified.total, 0)} 条。`
+}
+
+async function findRelevantRecords(question, permission, conversationContext) {
+  const baseQuery = Object.assign({}, permission.query || {}, {
+    isDeleted: false
+  })
+  const collection = db.collection('pressure_records')
+  const directId = conversationContext && conversationContext.lastCrudContext && conversationContext.lastCrudContext.entity === 'pressure_record'
+    ? conversationContext.lastCrudContext.targetId
+    : ''
+
+  if (directId) {
+    const direct = await collection.where({ ...baseQuery, _id: directId }).limit(1).get()
+    if (direct.data && direct.data[0]) return [direct.data[0]]
+  }
+
+  const pool = await collection.where(baseQuery).limit(100).get()
+  const records = pool.data || []
+  const normalizedQuestion = String(question || '').trim().toLowerCase()
+  const codeHints = extractCodeHints(question, conversationContext)
+
+  return records
+    .filter((item) => {
+      const certNo = String(item.certNo || '').toLowerCase()
+      const factoryNo = String(item.factoryNo || '').toLowerCase()
+      const deviceNo = String(item.deviceNo || '').toLowerCase()
+      const instrumentName = String(item.instrumentName || '').toLowerCase()
+
+      if (codeHints.some((code) => certNo === code || factoryNo === code || deviceNo === code)) return true
+      if (codeHints.some((code) => code.length <= 4 && (certNo.endsWith(code) || factoryNo.endsWith(code) || deviceNo.endsWith(code)))) return true
+      if (instrumentName && normalizedQuestion && normalizedQuestion.includes(instrumentName)) return true
+      return false
+    })
+    .slice(0, 3)
+}
+
+function extractCodeHints(question, conversationContext) {
+  const text = String(question || '')
+  const matches = text.match(/[A-Za-z]*\d[A-Za-z0-9\-]*/g) || []
+  const hints = matches.map((item) => item.toLowerCase())
+  const draft = conversationContext && conversationContext.visionDraft
+
+  if (draft) {
+    if (draft.certNo && text.includes('证书')) hints.push(String(draft.certNo).toLowerCase())
+    if (draft.factoryNo && /编号|表号|出厂/.test(text)) hints.push(String(draft.factoryNo).toLowerCase())
+  }
+
+  return Array.from(new Set(hints.filter(Boolean)))
+}
+
+function formatRecordReference(record, index) {
+  return `${index}. 压力表=${record.instrumentName || '未命名'}；出厂编号=${record.factoryNo || '-'}；证书编号=${record.certNo || '-'}；所属设备=${record.equipmentName || '-'}；检定结论=${record.conclusion || '-'}；检定日期=${record.verificationDate || '-'}；有效期至=${record.expiryDate || '-'}`
 }
 
 function buildPermissionLabel(permission) {
@@ -445,7 +692,7 @@ function extractRecordFields(text) {
 
   result.modelSpec = cleanupLineValue(firstMatch(normalized, [
     /(?:型号规格|规格型号|型号|规格)[:：\s]*([^\n]+)/i,
-    /(\(?\d+(?:\.\d+)?\s*(?:-|~)\s*\d+(?:\.\d+)?\)?\s*(?:k|M|G)?Pa)/i
+    getPressureRangePattern()
   ]))
   result.modelSpec = normalizeModelSpec(result.modelSpec, normalized)
 
@@ -498,16 +745,29 @@ function isOnlyFieldLabel(value) {
 function normalizeModelSpec(value, fullText) {
   const cleaned = cleanupLineValue(value)
   if (cleaned && !isOnlyFieldLabel(cleaned)) {
-    const pressure = firstMatch(cleaned, [
-      /(\(?\s*\d+(?:\.\d+)?\s*(?:-|~|－|—|至)\s*\d+(?:\.\d+)?\s*\)?\s*(?:k|M|G)?Pa)/i
-    ])
-    return pressure ? pressure.replace(/\s+/g, ' ').trim() : cleaned
+    const pressure = extractPressureRange(cleaned)
+    return pressure || cleaned
   }
 
-  const pressure = firstMatch(fullText, [
-    /(\(?\s*\d+(?:\.\d+)?\s*(?:-|~|－|—|至)\s*\d+(?:\.\d+)?\s*\)?\s*(?:k|M|G)?Pa)/i
-  ])
-  return pressure ? pressure.replace(/\s+/g, ' ').trim() : ''
+  return extractPressureRange(fullText)
+}
+
+function getPressureRangePattern() {
+  return /([\(（]?\s*\d+(?:\.\d+)?\s*(?:-|~|－|—|–|一|至|到)\s*\d+(?:\.\d+)?\s*[\)）]?\s*(?:k|M|G)?\s*P\s*a)/i
+}
+
+function extractPressureRange(text) {
+  const pressure = firstMatch(text, [getPressureRangePattern()])
+  if (!pressure) return ''
+  return pressure
+    .replace(/（/g, '(')
+    .replace(/）/g, ')')
+    .replace(/[－—–一到至~]/g, '-')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*-\s*/g, '-')
+    .replace(/([kMG])\s*P\s*a/i, (match, prefix) => `${prefix.toUpperCase()}Pa`)
+    .replace(/P\s*a/i, 'Pa')
+    .trim()
 }
 
 function normalizeStd(value) {
@@ -522,11 +782,39 @@ function extractConclusion(text) {
 }
 
 function extractDate(text) {
-  const match = text.match(/(\d{4})[.\-/年\s]*(\d{1,2})[.\-/月\s]*(\d{1,2})/)
+  const normalized = String(text || '').replace(/\r/g, '\n')
+  const labelMatch = normalized.match(/(?:检定日期|检定日|校准日期)[:：\s]*([^\n]{0,40})/)
+  if (labelMatch) {
+    const fromLabel = normalizeDateValue(labelMatch[1])
+    if (fromLabel) return fromLabel
+  }
+
+  const lines = normalized.split('\n').filter((line) => !/(有效期|到期|有效至)/.test(line))
+  for (const line of lines) {
+    const matches = line.matchAll(/(\d{4})\s*(?:年|[.\-/])\s*(\d{1,2})\s*(?:月|[.\-/])\s*(\d{1,2})\s*(?:日)?/g)
+    for (const match of matches) {
+      const date = buildValidDate(match[1], match[2], match[3])
+      if (date) return date
+    }
+  }
+  return ''
+}
+
+function normalizeDateValue(value) {
+  const text = String(value || '')
+  const match = text.match(/(\d{4})\s*(?:年|[.\-/])\s*(\d{1,2})\s*(?:月|[.\-/])\s*(\d{1,2})\s*(?:日)?/)
   if (!match) return ''
-  const month = String(match[2]).padStart(2, '0')
-  const day = String(match[3]).padStart(2, '0')
-  return `${match[1]}-${month}-${day}`
+  return buildValidDate(match[1], match[2], match[3])
+}
+
+function buildValidDate(year, month, day) {
+  const y = Number(year)
+  const m = Number(month)
+  const d = Number(day)
+  if (y < 2000 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) return ''
+  const date = new Date(y, m - 1, d)
+  if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) return ''
+  return `${year}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
 }
 
 function formatYmd(date) {
@@ -697,7 +985,7 @@ async function handleRagQuery(question, permission) {
 async function handleDataQuery(intent, permission) {
   const collection = db.collection('pressure_records')
   const query = Object.assign({}, permission.query || {}, {
-    isDeleted: _.neq(true)
+    isDeleted: false
   })
   const scopeDesc = getScopeDescription(permission)
 

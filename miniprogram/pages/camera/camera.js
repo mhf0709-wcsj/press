@@ -584,6 +584,12 @@ Page({
     }
   },
 
+  goCreateEquipmentFromCamera() {
+    wx.navigateTo({
+      url: '/pages/equipment-detail/equipment-detail?mode=create&returnTo=camera'
+    })
+  },
+
   onGaugeStatusChange(e) {
     const index = Number(e.detail.value || 0)
     const status = this.data.gaugeStatusOptions[index] || '在用'
@@ -615,7 +621,7 @@ Page({
     const db = wx.cloud.database()
     const _ = db.command
     const existed = await db.collection('devices')
-      .where({ equipmentId, factoryNo, isDeleted: _.neq(true) })
+      .where({ equipmentId, factoryNo, isDeleted: false })
       .limit(1)
       .get()
 
@@ -671,7 +677,15 @@ Page({
     }
 
     if (!selectedEquipmentId) {
-      wx.showToast({ title: '请先选择所属设备', icon: 'none' })
+      wx.showModal({
+        title: '缺少所属设备',
+        content: '保存压力表前需要先新建设备。是否现在去新增？',
+        confirmText: '去新增',
+        cancelText: '稍后',
+        success: (res) => {
+          if (res.confirm) this.goCreateEquipmentFromCamera()
+        }
+      })
       return
     }
 

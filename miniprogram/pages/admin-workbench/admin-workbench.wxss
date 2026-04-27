@@ -71,6 +71,17 @@
   margin-top: var(--space-4);
 }
 
+.info-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.info-cell {
+  min-height: 112rpx;
+}
+
 .entry-cell {
   min-height: 96rpx;
 }
@@ -78,4 +89,12 @@
 .entry-arrow {
   font-size: 28rpx;
   color: var(--color-text-muted);
+}
+
+.action-section {
+  margin-top: var(--space-5);
+}
+
+.logout-button {
+  width: 100%;
 }

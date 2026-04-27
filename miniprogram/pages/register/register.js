@@ -50,7 +50,7 @@ Page({
     phone: '',
     district: '',
     districtIndex: -1,
-    districtOptions: ['\u5927\u5cf3\u6240', '\u73ca\u6eaa\u6240', '\u5de8\u5c7f\u6240', '\u5cf3\u53e3\u6240', '\u9ec4\u5766\u6240', '\u897f\u5751\u6240', '\u7389\u58f6\u6240', '\u5357\u7530\u6240', '\u767e\u4e08\u9645\u6240'],
+    districtOptions: ['\u5927\u5cc3\u6240', '\u73ca\u6eaa\u6240', '\u5de8\u5c7f\u6240', '\u5cc3\u53e3\u6240', '\u9ec4\u5766\u6240', '\u897f\u5751\u6240', '\u7389\u58f6\u6240', '\u5357\u7530\u6240', '\u767e\u4e08\u6f08\u6240'],
     loading: false
   },
 

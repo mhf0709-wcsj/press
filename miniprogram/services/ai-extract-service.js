@@ -39,8 +39,10 @@ class AIExtractService {
       extractResult = this.buildFallbackExtract(ocrResult.text || '')
     }
 
+    const normalizedResult = this.normalizeExtractResult(extractResult, ocrResult)
+
     return {
-      ...extractResult,
+      ...normalizedResult,
       fileID,
       rawText: ocrResult.text || '',
       lines: ocrResult.lines || []
@@ -133,6 +135,102 @@ class AIExtractService {
       ocrSource: 'ai_extract',
       confidence: this.estimateConfidence(parsed)
     }
+  }
+
+  normalizeExtractResult(extractResult = {}, ocrResult = {}) {
+    const rawText = [
+      ocrResult.text || '',
+      ...(ocrResult.lines || []).map((item) => typeof item === 'string' ? item : (item.words || item.text || ''))
+    ].filter(Boolean).join('\n')
+
+    const modelSpec = this.normalizeModelSpec(extractResult.modelSpec, rawText)
+    const verificationDate = this.normalizeDateValue(extractResult.verificationDate) || this.extractDateFromText(rawText)
+    return {
+      ...extractResult,
+      modelSpec,
+      verificationDate
+    }
+  }
+
+  extractModelSpecFromText(text) {
+    const normalized = String(text || '')
+      .replace(/\r/g, '\n')
+      .replace(/：/g, ':')
+      .replace(/（/g, '(')
+      .replace(/）/g, ')')
+      .replace(/[ \t]+/g, ' ')
+
+    const labelMatch = normalized.match(/(?:型\s*号\s*[\/／]?\s*规\s*格|型号规格|规格型号|型号|规格)[:：\s]*([^\n]*)/i)
+    if (labelMatch && labelMatch[1]) {
+      const fromLabel = this.normalizeModelSpec(labelMatch[1], normalized)
+      if (fromLabel) return fromLabel
+    }
+
+    return this.extractPressureRange(normalized)
+  }
+
+  normalizeModelSpec(value, fullText = '') {
+    const text = String(value || '').trim()
+    const pressure = this.extractPressureRange(text)
+    if (pressure) return pressure
+
+    const compact = text.replace(/\s+/g, '').replace(/[/:：/／]+/g, '')
+    if (compact && !['型号', '规格', '型号规格', '规格型号'].includes(compact)) {
+      return text
+    }
+
+    return this.extractPressureRange(fullText)
+  }
+
+  extractPressureRange(text) {
+    const match = String(text || '').match(/([\(（]?\s*\d+(?:\.\d+)?\s*(?:-|~|－|—|–|一|至|到)\s*\d+(?:\.\d+)?\s*[\)）]?\s*(?:k|M|G)?\s*P\s*a)/i)
+    if (!match || !match[1]) return ''
+    return match[1]
+      .replace(/（/g, '(')
+      .replace(/）/g, ')')
+      .replace(/[－—–一到至~]/g, '-')
+      .replace(/\s+/g, ' ')
+      .replace(/\s*-\s*/g, '-')
+      .replace(/([kMG])\s*P\s*a/i, (source, prefix) => `${prefix.toUpperCase()}Pa`)
+      .replace(/P\s*a/i, 'Pa')
+      .trim()
+  }
+
+  extractDateFromText(text) {
+    const normalized = String(text || '').replace(/\r/g, '\n')
+    const labelMatch = normalized.match(/(?:检定日期|检定日|校准日期)[:：\s]*([^\n]{0,40})/)
+    if (labelMatch) {
+      const fromLabel = this.normalizeDateValue(labelMatch[1])
+      if (fromLabel) return fromLabel
+    }
+
+    const lines = normalized.split('\n').filter((line) => !/(有效期|到期|有效至)/.test(line))
+    for (const line of lines) {
+      const matches = line.matchAll(/(\d{4})\s*(?:年|[.\-/])\s*(\d{1,2})\s*(?:月|[.\-/])\s*(\d{1,2})\s*(?:日)?/g)
+      for (const match of matches) {
+        const date = this.buildValidDate(match[1], match[2], match[3])
+        if (date) return date
+      }
+    }
+    return ''
+  }
+
+  normalizeDateValue(value) {
+    const text = String(value || '')
+    const match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/) ||
+      text.match(/(\d{4})\s*(?:年|[.\-/])\s*(\d{1,2})\s*(?:月|[.\-/])\s*(\d{1,2})\s*(?:日)?/)
+    if (!match) return ''
+    return this.buildValidDate(match[1], match[2], match[3])
+  }
+
+  buildValidDate(year, month, day) {
+    const y = Number(year)
+    const m = Number(month)
+    const d = Number(day)
+    if (y < 2000 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) return ''
+    const date = new Date(y, m - 1, d)
+    if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) return ''
+    return `${year}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
   }
 
   estimateConfidence(data) {

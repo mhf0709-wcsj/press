@@ -5,10 +5,10 @@ const lifecycleService = require('../../services/lifecycle-service')
 const { calculateExpiryDate } = require('../../utils/helpers/date')
 
 const DISTRICT_OPTIONS = [
-  '\u5927\u5ce8\u6240',
+  '\u5927\u5cc3\u6240',
   '\u73ca\u6eaa\u6240',
   '\u5de8\u5c7f\u6240',
-  '\u5ce3\u53e3\u6240',
+  '\u5cc3\u53e3\u6240',
   '\u9ec4\u5766\u6240',
   '\u897f\u5751\u6240',
   '\u7389\u58f6\u6240',

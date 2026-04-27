@@ -10,6 +10,30 @@
 
       <view class="panel">
         <view class="panel-section">
+          <text class="section-title">{{text.infoTitle}}</text>
+          <view class="info-list">
+            <view class="list-cell info-cell">
+              <text class="cell-title">{{text.labels.username}}</text>
+              <text class="cell-subtitle">{{adminInfo.username || '-'}}</text>
+            </view>
+            <view class="list-cell info-cell">
+              <text class="cell-title">{{text.labels.role}}</text>
+              <text class="cell-subtitle">{{displayRole}}</text>
+            </view>
+            <view class="list-cell info-cell" wx:if="{{!isAdmin}}">
+              <text class="cell-title">{{text.labels.district}}</text>
+              <text class="cell-subtitle">{{adminDistrict || '-'}}</text>
+            </view>
+            <view class="list-cell info-cell">
+              <text class="cell-title">{{text.labels.loginTime}}</text>
+              <text class="cell-subtitle">{{loginTime || '-'}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="panel">
+        <view class="panel-section">
           <text class="section-title">{{text.sectionTitle}}</text>
           <view class="entry-list">
             <view
@@ -26,6 +50,10 @@
             </view>
           </view>
         </view>
+      </view>
+
+      <view class="action-section">
+        <button class="ghost-button logout-button" bindtap="logout">{{text.logout}}</button>
       </view>
     </view>
   </scroll-view>

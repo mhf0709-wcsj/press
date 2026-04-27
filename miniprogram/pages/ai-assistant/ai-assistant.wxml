@@ -147,6 +147,28 @@
                     </view>
                   </view>
 
+                  <view class="message-bubble assistant-bubble result-bubble" wx:if="{{item.kind === 'equipment_candidates'}}">
+                    <text class="result-title">{{item.title}}</text>
+                    <text class="result-summary">{{item.content}}</text>
+                    <view class="equipment-candidate-list">
+                      <view
+                        class="equipment-candidate"
+                        wx:for="{{item.items}}"
+                        wx:for-item="candidate"
+                        wx:key="id"
+                        data-item="{{candidate}}"
+                        bindtap="selectDraftEquipmentCandidate"
+                      >
+                        <view class="equipment-candidate-index">{{candidate.index}}</view>
+                        <view class="equipment-candidate-main">
+                          <text class="equipment-candidate-title">{{candidate.title}}</text>
+                          <text class="equipment-candidate-subtitle" wx:if="{{candidate.subtitle}}">{{candidate.subtitle}}</text>
+                        </view>
+                        <text class="equipment-candidate-action">选择</text>
+                      </view>
+                    </view>
+                  </view>
+
                   <text class="message-time">{{item.time}}</text>
                 </view>
               </view>

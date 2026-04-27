@@ -80,7 +80,7 @@
             </view>
           </view>
         </picker>
-        <picker mode="selector" range="{{equipments}}" range-key="equipmentName" value="{{equipmentIndex}}" bindchange="onEquipmentChange">
+        <picker wx:if="{{equipments.length > 0}}" mode="selector" range="{{equipments}}" range-key="equipmentName" value="{{equipmentIndex}}" bindchange="onEquipmentChange">
           <view class="camera-field">
             <text class="camera-label">所属设备</text>
             <view class="camera-picker">
@@ -89,6 +89,13 @@
             </view>
           </view>
         </picker>
+        <view wx:else class="camera-field" bindtap="goCreateEquipmentFromCamera">
+          <text class="camera-label">所属设备</text>
+          <view class="camera-picker camera-picker-action">
+            <text class="camera-picker-text camera-picker-link">暂无设备，去新增</text>
+            <text class="camera-arrow">></text>
+          </view>
+        </view>
         <picker mode="selector" range="{{gaugeStatusOptions}}" value="{{gaugeStatusIndex}}" bindchange="onGaugeStatusChange">
           <view class="camera-field no-border">
             <text class="camera-label">压力表状态</text>

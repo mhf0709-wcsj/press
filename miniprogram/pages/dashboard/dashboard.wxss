@@ -129,6 +129,52 @@
   margin-top: var(--space-5);
 }
 
+.district-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.district-note {
+  display: block;
+  margin-top: 10rpx;
+}
+
+.district-inline-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.district-inline-cell {
+  min-height: 112rpx;
+}
+
+.district-inline-side {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.district-count {
+  min-height: 42rpx;
+  padding: 0 16rpx;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  background: rgba(0, 122, 255, 0.1);
+  color: var(--color-brand);
+}
+
+.entry-arrow {
+  font-size: 28rpx;
+  color: var(--color-text-muted);
+}
+
 .enterprise-focus-header {
   display: flex;
   align-items: center;

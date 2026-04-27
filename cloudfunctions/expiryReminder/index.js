@@ -127,7 +127,7 @@ async function getEnterpriseExpiring(enterpriseName, days) {
         enterpriseName: enterpriseName,
         expiryDate: _.lt(nowStr),
         status: 'valid',
-        isDeleted: _.neq(true)
+        isDeleted: false
       })
       .orderBy('expiryDate', 'asc')
       .limit(100)
@@ -138,7 +138,7 @@ async function getEnterpriseExpiring(enterpriseName, days) {
         enterpriseName: enterpriseName,
         expiryDate: _.gte(nowStr).and(_.lte(thresholdStr)),
         status: 'valid',
-        isDeleted: _.neq(true)
+        isDeleted: false
       })
       .orderBy('expiryDate', 'asc')
       .limit(100)
@@ -199,7 +199,7 @@ async function syncDeletedDeviceRecords(district = '') {
     const updateRes = await db.collection('pressure_records')
       .where({
         deviceId: _.in(deletedDeviceIds),
-        isDeleted: _.neq(true)
+        isDeleted: false
       })
       .update({
         data: {
@@ -240,7 +240,7 @@ async function getAllExpiring(days, district) {
       baseCondition.district = district
     }
     
-    const expiredCondition = { ...baseCondition, expiryDate: _.lt(nowStr), status: _.in(['valid', 'expired']), isDeleted: _.neq(true) }
+    const expiredCondition = { ...baseCondition, expiryDate: _.lt(nowStr), status: _.in(['valid', 'expired']), isDeleted: false }
     debugLog('已过期查询条件:', JSON.stringify(expiredCondition))
     
     const expiredResult = await db.collection('pressure_records')
@@ -251,7 +251,7 @@ async function getAllExpiring(days, district) {
     
     debugLog('已过期记录数:', expiredResult.data.length)
     
-    const expiringCondition = { ...baseCondition, expiryDate: _.gte(nowStr).and(_.lte(thresholdStr)), status: 'valid', isDeleted: _.neq(true) }
+    const expiringCondition = { ...baseCondition, expiryDate: _.gte(nowStr).and(_.lte(thresholdStr)), status: 'valid', isDeleted: false }
     const expiringResult = await db.collection('pressure_records')
       .where(expiringCondition)
       .orderBy('expiryDate', 'asc')
@@ -487,14 +487,14 @@ async function autoScanAndAlert() {
       .where({
         expiryDate: _.gte(nowStr).and(_.lte(thresholdStr)),
         status: 'valid',
-        isDeleted: _.neq(true)
+        isDeleted: false
       }).get()
 
     const expiredResult = await db.collection('pressure_records')
       .where({
         expiryDate: _.lt(nowStr),
         status: 'valid',
-        isDeleted: _.neq(true)
+        isDeleted: false
       }).get()
 
     const allAlertRecords = [...expiringResult.data, ...expiredResult.data]

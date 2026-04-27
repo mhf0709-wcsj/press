@@ -40,11 +40,39 @@ function formatDateTime(date) {
  * @returns {string} 到期日期 YYYY-MM-DD
  */
 function calculateExpiryDate(verifyDate, months = 6) {
-  const date = new Date(verifyDate)
-  if (isNaN(date)) return ''
-  
-  date.setMonth(date.getMonth() + months)
-  return formatDate(date)
+  const start = parseYmd(verifyDate)
+  if (!start) return ''
+
+  const end = addMonthsClamped(start, months)
+  end.setDate(end.getDate() - 1)
+  return formatDate(end)
+}
+
+function parseYmd(value) {
+  const match = String(value || '').match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  if (!match) return null
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const date = new Date(year, month - 1, day)
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null
+  }
+
+  return date
+}
+
+function addMonthsClamped(date, months) {
+  const targetYear = date.getFullYear()
+  const targetMonth = date.getMonth() + months
+  const targetDay = date.getDate()
+  const lastDay = new Date(targetYear, targetMonth + 1, 0).getDate()
+  return new Date(targetYear, targetMonth, Math.min(targetDay, lastDay))
 }
 
 /**

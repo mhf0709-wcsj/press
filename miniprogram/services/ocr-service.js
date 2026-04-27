@@ -161,8 +161,9 @@ class OCRService {
     }
     result.modelSpec = this.cleanupLineValue(this.firstMatch(normalized, [
       /(?:\u578b\u53f7\u89c4\u683c|\u89c4\u683c\u578b\u53f7|\u578b\u53f7|\u89c4\u683c)[:\s]*([^\n]+)/i,
-      /([\(\uff08]?\d+(?:\.\d+)?\s*(?:-|~)\s*\d+(?:\.\d+)?[\)\uff09]?\s*(?:k|M|G)?Pa)/i
+      this.getPressureRangePattern()
     ]))
+    result.modelSpec = this.normalizeModelSpec(result.modelSpec, normalized)
     result.factoryNo = this.firstMatch(normalized, [
       /(?:\u51fa\u5382\u7f16\u53f7|\u7f16\u53f7|\u8868\u53f7)[:\s]*([A-Za-z0-9\-\/]{3,})/i
     ])
@@ -191,6 +192,38 @@ class OCRService {
     return String(value).split('\n')[0].trim()
   }
 
+  normalizeModelSpec(value, fullText) {
+    const cleaned = this.cleanupLineValue(value)
+    if (cleaned && !this.isOnlyFieldLabel(cleaned)) {
+      const pressure = this.extractPressureRange(cleaned)
+      return pressure || cleaned
+    }
+    return this.extractPressureRange(fullText)
+  }
+
+  isOnlyFieldLabel(value) {
+    const text = String(value || '').replace(/\s+/g, '').replace(/[/:：/／]+/g, '')
+    return !text || ['型号', '规格', '型号规格', '规格型号'].includes(text)
+  }
+
+  getPressureRangePattern() {
+    return /([\(（]?\s*\d+(?:\.\d+)?\s*(?:-|~|－|—|–|一|至|到)\s*\d+(?:\.\d+)?\s*[\)）]?\s*(?:k|M|G)?\s*P\s*a)/i
+  }
+
+  extractPressureRange(text) {
+    const pressure = this.firstMatch(text, [this.getPressureRangePattern()])
+    if (!pressure) return ''
+    return pressure
+      .replace(/（/g, '(')
+      .replace(/）/g, ')')
+      .replace(/[－—–一到至~]/g, '-')
+      .replace(/\s+/g, ' ')
+      .replace(/\s*-\s*/g, '-')
+      .replace(/([kMG])\s*P\s*a/i, (match, prefix) => `${prefix.toUpperCase()}Pa`)
+      .replace(/P\s*a/i, 'Pa')
+      .trim()
+  }
+
   normalizeStd(value) {
     if (!value) return ''
     return String(value).replace(/\s+/g, '').replace(/^JJG/i, 'JJG')
@@ -203,9 +236,39 @@ class OCRService {
   }
 
   extractDate(text) {
-    const match = text.match(/(\d{4})[.\-/\u5e74]\s*(\d{1,2})[.\-/\u6708]\s*(\d{1,2})/)
+    const normalized = String(text || '').replace(/\r/g, '\n')
+    const labelMatch = normalized.match(/(?:检定日期|检定日|校准日期)[:：\s]*([^\n]{0,40})/)
+    if (labelMatch) {
+      const fromLabel = this.normalizeDateValue(labelMatch[1])
+      if (fromLabel) return fromLabel
+    }
+
+    const lines = normalized.split('\n').filter((line) => !/(有效期|到期|有效至)/.test(line))
+    for (const line of lines) {
+      const matches = line.matchAll(/(\d{4})\s*(?:年|[.\-/])\s*(\d{1,2})\s*(?:月|[.\-/])\s*(\d{1,2})\s*(?:日)?/g)
+      for (const match of matches) {
+        const date = this.buildValidDate(match[1], match[2], match[3])
+        if (date) return date
+      }
+    }
+    return ''
+  }
+
+  normalizeDateValue(value) {
+    const text = String(value || '')
+    const match = text.match(/(\d{4})\s*(?:年|[.\-/])\s*(\d{1,2})\s*(?:月|[.\-/])\s*(\d{1,2})\s*(?:日)?/)
     if (!match) return ''
-    return `${match[1]}-${String(match[2]).padStart(2, '0')}-${String(match[3]).padStart(2, '0')}`
+    return this.buildValidDate(match[1], match[2], match[3])
+  }
+
+  buildValidDate(year, month, day) {
+    const y = Number(year)
+    const m = Number(month)
+    const d = Number(day)
+    if (y < 2000 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) return ''
+    const date = new Date(y, m - 1, d)
+    if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) return ''
+    return `${year}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
   }
 
   async deleteTempFile(fileID) {

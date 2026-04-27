@@ -111,7 +111,7 @@ class RecordService {
   async getRecords(options = {}) {
     const { enterpriseName, district, status, limit = 100 } = options
     const whereCondition = {
-      isDeleted: _.neq(true)
+      isDeleted: false
     }
 
     if (enterpriseName) whereCondition.enterpriseName = enterpriseName
@@ -188,7 +188,7 @@ class RecordService {
     }
 
     const whereCondition = {
-      isDeleted: _.neq(true),
+      isDeleted: false,
       factoryNo: db.RegExp({
         regexp: keyword,
         options: 'i'

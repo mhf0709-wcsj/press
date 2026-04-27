@@ -112,7 +112,9 @@
 .admin-actions {
   margin-top: 28rpx;
   display: flex;
+  gap: 28rpx;
   justify-content: center;
+  align-items: center;
 }
 
 .admin-entry {
@@ -120,4 +122,27 @@
   padding: 0;
   color: #3c4043;
   font-size: 24rpx;
+}
+
+.admin-text-link {
+  font-size: 24rpx;
+  color: #5f6368;
+  line-height: 1.2;
+}
+
+.admin-password-inline {
+  margin-top: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.compact-input {
+  min-height: 84rpx;
+  border-radius: 18rpx;
+}
+
+.admin-reset-submit {
+  width: 100%;
+  border-radius: 999rpx;
 }

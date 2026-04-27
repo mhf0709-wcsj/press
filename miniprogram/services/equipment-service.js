@@ -21,7 +21,7 @@ class EquipmentService {
         try {
           const countRes = await db.collection('devices').where({
             equipmentId: item._id,
-            isDeleted: _.neq(true)
+            isDeleted: false
           }).count()
 
           const nextCount = Number(countRes.total || 0)
@@ -52,7 +52,7 @@ class EquipmentService {
     if (!enterpriseUser && !fromAdmin) return null
 
     const whereCondition = {
-      isDeleted: _.neq(true)
+      isDeleted: false
     }
     if (fromAdmin) {
       if (district) whereCondition.district = district
@@ -80,7 +80,7 @@ class EquipmentService {
     if (!keyword || !keyword.trim()) return this.loadEquipments(options)
 
     const whereCondition = {
-      isDeleted: _.neq(true),
+      isDeleted: false,
       equipmentName: db.RegExp({ regexp: keyword, options: 'i' })
     }
     if (!fromAdmin && enterpriseUser) whereCondition.enterpriseName = enterpriseUser.companyName
@@ -153,7 +153,7 @@ class EquipmentService {
     try {
       const countRes = await db.collection('devices').where({
         equipmentId,
-        isDeleted: _.neq(true)
+        isDeleted: false
       }).count()
 
       await db.collection('equipments').doc(equipmentId).update({
@@ -179,7 +179,7 @@ class EquipmentService {
 
     const gaugeCountRes = await db.collection('devices').where({
       equipmentId,
-      isDeleted: _.neq(true)
+      isDeleted: false
     }).count()
     const relatedGaugeCount = Number(gaugeCountRes.total || 0)
 

@@ -5,6 +5,7 @@ Page({
   data: {
     equipmentId: '',
     mode: 'view',
+    returnTo: '',
     isInitSetup: false,
     saving: false,
     isAdminView: false,
@@ -41,6 +42,7 @@ Page({
       }
       this.setData({
         mode: 'create',
+        returnTo: options.returnTo || '',
         isInitSetup: options.init === '1'
       })
       wx.setNavigationBarTitle({ title: '新建设备' })
@@ -83,7 +85,7 @@ Page({
       const db = wx.cloud.database()
       const res = await db.collection('devices').where({
         equipmentId,
-        isDeleted: _.neq(true)
+        isDeleted: false
       }).orderBy('createTime', 'desc').limit(100).get()
       const gauges = res.data || []
       this.setData({ gauges })
@@ -219,6 +221,14 @@ Page({
         const res = await equipmentService.createEquipment(equipment, { enterpriseUser })
         wx.showToast({ title: '创建成功', icon: 'success' })
         setTimeout(() => {
+          if (this.data.returnTo === 'camera') {
+            wx.setStorageSync('selectedEquipmentForNewGauge', {
+              id: res._id,
+              name: res.equipmentName || ''
+            })
+            wx.navigateBack()
+            return
+          }
           if (this.data.isInitSetup) {
             wx.reLaunch({ url: '/pages/workbench/workbench' })
             return

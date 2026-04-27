@@ -214,7 +214,7 @@ function createCrudHandlers({ db, _, formatDateTime }) {
       }
     }
 
-    const activeFilter = { isDeleted: _.neq(true) }
+    const activeFilter = { isDeleted: false }
     if (entity === 'device' || entity === 'equipment' || entity === 'pressure_record') {
       base.isDeleted = _.neq(true)
     }
@@ -553,14 +553,14 @@ function createCrudHandlers({ db, _, formatDateTime }) {
     if (entity === 'device') {
       const countRes = await db.collection('pressure_records').where({
         deviceId: targetId,
-        isDeleted: _.neq(true)
+        isDeleted: false
       }).count()
       relatedRecordCount = Number(countRes.total || 0)
 
       if (relatedRecordCount > 0) {
         await db.collection('pressure_records').where({
           deviceId: targetId,
-          isDeleted: _.neq(true)
+          isDeleted: false
         }).update({
           data: {
             isDeleted: true,
@@ -636,7 +636,7 @@ function createCrudHandlers({ db, _, formatDateTime }) {
   async function updateEquipmentGaugeCount(equipmentId) {
     const countRes = await db.collection('devices').where({
       equipmentId,
-      isDeleted: _.neq(true)
+      isDeleted: false
     }).count()
 
     await db.collection('equipments').doc(equipmentId).update({

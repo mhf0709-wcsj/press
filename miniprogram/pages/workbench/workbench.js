@@ -103,21 +103,21 @@ Page({
       const [equipmentRes, gaugeRes, inactiveRes, scrapRes] = await Promise.all([
         db.collection('equipments').where({
           enterpriseName: companyName,
-          isDeleted: _.neq(true)
+          isDeleted: false
         }).count(),
         db.collection('devices').where({
           enterpriseName: companyName,
-          isDeleted: _.neq(true)
+          isDeleted: false
         }).count(),
         db.collection('devices').where({
           enterpriseName: companyName,
           status: '停用',
-          isDeleted: _.neq(true)
+          isDeleted: false
         }).count(),
         db.collection('devices').where({
           enterpriseName: companyName,
           status: '报废',
-          isDeleted: _.neq(true)
+          isDeleted: false
         }).count()
       ])
 
@@ -169,7 +169,7 @@ Page({
         .where({
           enterpriseName: enterpriseUser.companyName,
           status: _.in(['停用', '报废']),
-          isDeleted: _.neq(true)
+          isDeleted: false
         })
         .orderBy('updateTime', 'desc')
         .orderBy('createTime', 'desc')

@@ -94,7 +94,7 @@ function buildScopedWhere(admin) {
 
 function buildScopedRecordWhere(admin) {
   return Object.assign({}, buildScopedWhere(admin), {
-    isDeleted: _.neq(true)
+    isDeleted: false
   })
 }
 

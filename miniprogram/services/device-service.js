@@ -28,7 +28,7 @@ class DeviceService {
     if (!enterpriseUser && !fromAdmin) return null
 
     const whereCondition = {
-      isDeleted: _.neq(true)
+      isDeleted: false
     }
 
     if (fromAdmin) {
@@ -189,7 +189,7 @@ class DeviceService {
       await db.collection('pressure_records')
         .where({
           deviceId,
-          isDeleted: _.neq(true)
+          isDeleted: false
         })
         .update({
           data: {
