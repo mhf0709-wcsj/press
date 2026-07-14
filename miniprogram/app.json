@@ -15,15 +15,13 @@
     "pages/dashboard/dashboard",
     "pages/admin/admin",
     "pages/admin-workbench/admin-workbench",
-    "pages/account-settings/account-settings",
     "pages/enterprise-list/enterprise-list",
-    "pages/district-list/district-list",
-    "pages/index/index"
+    "pages/district-list/district-list"
   ],
   "window": {
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "#ffffff",
-    "navigationBarTitleText": "\u538b\u529b\u8868\u68c0\u5b9a\u667a\u80fd\u4f53",
+    "navigationBarTitleText": "\u538b\u529b\u8868\u667a\u80fd\u7ba1\u5bb6",
     "navigationBarTextStyle": "black"
   },
   "tabBar": {
@@ -53,6 +51,7 @@
     ]
   },
   "style": "v2",
+  "lazyCodeLoading": "requiredComponents",
   "__usePrivacyCheck__": true
 }
 

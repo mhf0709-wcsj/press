@@ -89,6 +89,10 @@
             </view>
           </view>
         </picker>
+        <view wx:if="{{equipments.length > 0}}" class="camera-equipment-create" bindtap="goCreateEquipmentFromCamera">
+          <text>没有合适设备？</text>
+          <text class="camera-equipment-create-link">新建设备</text>
+        </view>
         <view wx:else class="camera-field" bindtap="goCreateEquipmentFromCamera">
           <text class="camera-label">所属设备</text>
           <view class="camera-picker camera-picker-action">

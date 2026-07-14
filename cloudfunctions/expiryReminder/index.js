@@ -1,5 +1,6 @@
 ﻿
 const cloud = require('wx-server-sdk')
+const crypto = require('crypto')
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
 })
@@ -11,49 +12,121 @@ const debugLog = () => {}
 
 exports.main = async (event, context) => {
   const { action, enterpriseName, days = 30, district, openid, templateId, data } = event
-  
-  debugLog('expiry reminder function called')
-  debugLog('action:', action)
-  debugLog('district:', district)
-  debugLog('days:', days)
-  
-  switch (action) {
-    case 'getEnterpriseExpiryDashboard':
-      return await getEnterpriseExpiryDashboard(event.payload || {})
+  try {
+    const actor = await resolveActor(event)
+    const scopedDistrict = actor.type === 'district_admin' ? actor.district : district
+    const scopedEnterpriseName = actor.type === 'enterprise' ? actor.companyName : enterpriseName
 
-    case 'syncDeletedDeviceRecords':
-      return await syncDeletedDeviceRecords(district)
+    switch (action) {
+      case 'getEnterpriseExpiryDashboard':
+        if (actor.type !== 'enterprise') throw new Error('仅企业账号可访问企业到期看板')
+        return await getEnterpriseExpiryDashboard({
+          ...(event.payload || {}),
+          enterpriseId: actor.enterpriseId,
+          enterpriseName: actor.companyName
+        })
 
-    case 'getEnterpriseExpiring':
-      return await getEnterpriseExpiring(enterpriseName, days)
-    
-    case 'getAllExpiring':
-      return await getAllExpiring(days, district)
-    
-    case 'getExpiringSummary':
-      return await getExpiringSummary(days, district)
-    
-    case 'sendWxSubscribeMessage':
-      return await sendWxSubscribeMessage(event)
-    
-    case 'sendSmsReminder':
-      return await sendSmsReminder(event)
-    
-    case 'batchSendReminder':
-      return await batchSendReminder(event)
+      case 'syncDeletedDeviceRecords':
+        assertAdmin(actor)
+        return await syncDeletedDeviceRecords(scopedDistrict)
 
-    case 'saveAlertSettings':
-      return await saveAlertSettings(event.payload || {}, openid)
+      case 'getEnterpriseExpiring':
+        if (!scopedEnterpriseName) throw new Error('缺少企业身份')
+        return await getEnterpriseExpiring(scopedEnterpriseName, days)
+    
+      case 'getAllExpiring':
+        assertAdmin(actor)
+        return await getAllExpiring(days, scopedDistrict)
+    
+      case 'getExpiringSummary':
+        assertAdmin(actor)
+        return await getExpiringSummary(days, scopedDistrict)
+    
+      case 'sendWxSubscribeMessage':
+      case 'sendSmsReminder':
+      case 'batchSendReminder':
+        assertAdmin(actor)
+        if (action === 'sendWxSubscribeMessage') return await sendWxSubscribeMessage(event)
+        if (action === 'sendSmsReminder') return await sendSmsReminder(event)
+        return await batchSendReminder(event)
+    
+      case 'saveAlertSettings':
+        if (actor.type !== 'enterprise') throw new Error('仅企业账号可修改提醒设置')
+        return await saveAlertSettings({
+          ...(event.payload || {}),
+          enterpriseId: actor.enterpriseId,
+          enterpriseName: actor.companyName
+        }, actor.openid)
 
-    case 'confirmWxSubscription':
-      return await confirmWxSubscription(event.payload || {}, openid)
+      case 'confirmWxSubscription':
+        if (actor.type !== 'enterprise') throw new Error('仅企业账号可确认订阅')
+        return await confirmWxSubscription({
+          ...(event.payload || {}),
+          enterpriseId: actor.enterpriseId,
+          enterpriseName: actor.companyName
+        }, actor.openid)
       
-    case 'autoScanAndAlert':
-      return await autoScanAndAlert()
+      case 'autoScanAndAlert':
+        if (actor.type !== 'system') throw new Error('无权执行自动扫描')
+        return await autoScanAndAlert()
     
-    default:
-      return { success: false, error: '未知操作' }
+      default:
+        return { success: false, error: '未知操作' }
+    }
+  } catch (error) {
+    return { success: false, error: error.message || '提醒服务异常' }
   }
+}
+
+async function resolveActor(event = {}) {
+  if (process.env.REMINDER_TASK_SECRET && event.taskSecret === process.env.REMINDER_TASK_SECRET) {
+    return { type: 'system' }
+  }
+
+  const wxContext = cloud.getWXContext()
+  const currentOpenid = wxContext.OPENID || ''
+  if (event.adminToken) {
+    const tokenHash = crypto.createHash('sha256').update(String(event.adminToken)).digest('hex')
+    const sessionRes = await db.collection('auth_sessions').where({ tokenHash }).limit(1).get()
+    const session = sessionRes.data?.[0]
+    if (isValidSession(session, currentOpenid)) return adminActor(session)
+  }
+
+  if (!currentOpenid) throw new Error('请先登录')
+  const enterpriseRes = await db.collection('enterprises').where({ openid: currentOpenid }).limit(1).get()
+  const enterprise = enterpriseRes.data?.[0]
+  if (enterprise) {
+    return {
+      type: 'enterprise',
+      enterpriseId: enterprise._id,
+      companyName: enterprise.companyName || '',
+      district: enterprise.district || '',
+      openid: currentOpenid
+    }
+  }
+
+  const sessionsRes = await db.collection('auth_sessions').where({ openid: currentOpenid }).orderBy('createTime', 'desc').limit(5).get()
+  const session = (sessionsRes.data || []).find((item) => isValidSession(item, currentOpenid))
+  if (session) return adminActor(session)
+  throw new Error('登录状态无效')
+}
+
+function isValidSession(session, openid) {
+  if (!session) return false
+  if (session.openid && openid && session.openid !== openid) return false
+  const expiresAt = session.expiresAt instanceof Date ? session.expiresAt : new Date(session.expiresAt)
+  return !Number.isNaN(expiresAt.getTime()) && expiresAt.getTime() > Date.now()
+}
+
+function adminActor(session) {
+  if (session.role === 'district' && session.district) {
+    return { type: 'district_admin', district: session.district }
+  }
+  return { type: 'super_admin', district: '' }
+}
+
+function assertAdmin(actor) {
+  if (!['super_admin', 'district_admin'].includes(actor.type)) throw new Error('仅管理端可执行该操作')
 }
 
 async function getEnterpriseExpiryDashboard(payload) {
@@ -122,47 +195,24 @@ async function getEnterpriseExpiring(enterpriseName, days) {
     
     debugLog(`查询企业 ${enterpriseName} 的临期记录，当前日期: ${nowStr}, 阈值日期: ${thresholdStr}`)
     
-    const expiredResult = await db.collection('pressure_records')
-      .where({
-        enterpriseName: enterpriseName,
-        expiryDate: _.lt(nowStr),
-        status: 'valid',
-        isDeleted: false
-      })
-      .orderBy('expiryDate', 'asc')
-      .limit(100)
+    const recordsResult = await db.collection('pressure_records')
+      .where({ enterpriseName, isDeleted: false })
+      .orderBy('verificationDate', 'desc')
+      .limit(1000)
       .get()
-    
-    const expiringResult = await db.collection('pressure_records')
-      .where({
-        enterpriseName: enterpriseName,
-        expiryDate: _.gte(nowStr).and(_.lte(thresholdStr)),
-        status: 'valid',
-        isDeleted: false
-      })
-      .orderBy('expiryDate', 'asc')
-      .limit(100)
-      .get()
-    
-    if (expiredResult.data.length > 0) {
-      const expiredIds = expiredResult.data.map(item => item._id)
-      await db.collection('pressure_records')
-        .where({
-          _id: _.in(expiredIds)
-        })
-        .update({
-          data: { status: 'expired' }
-        })
-    }
+    const latestRecords = pickLatestGaugeRecords(recordsResult.data || [])
+    const { expired, expiring } = classifyExpiryRecords(latestRecords, nowStr, thresholdStr)
+    const expiredCount = expired.length
+    const expiringCount = expiring.length
     
     return {
       success: true,
       data: {
-        expired: expiredResult.data,
-        expiring: expiringResult.data,
-        expiredCount: expiredResult.data.length,
-        expiringCount: expiringResult.data.length,
-        totalCount: expiredResult.data.length + expiringResult.data.length
+        expired: expired.slice(0, 20),
+        expiring: expiring.slice(0, 20),
+        expiredCount,
+        expiringCount,
+        totalCount: expiredCount + expiringCount
       }
     }
   } catch (err) {
@@ -240,23 +290,13 @@ async function getAllExpiring(days, district) {
       baseCondition.district = district
     }
     
-    const expiredCondition = { ...baseCondition, expiryDate: _.lt(nowStr), status: _.in(['valid', 'expired']), isDeleted: false }
-    debugLog('已过期查询条件:', JSON.stringify(expiredCondition))
-    
-    const expiredResult = await db.collection('pressure_records')
-      .where(expiredCondition)
-      .orderBy('expiryDate', 'asc')
+    const recordsResult = await db.collection('pressure_records')
+      .where({ ...baseCondition, isDeleted: false })
+      .orderBy('verificationDate', 'desc')
       .limit(1000)
       .get()
-    
-    debugLog('已过期记录数:', expiredResult.data.length)
-    
-    const expiringCondition = { ...baseCondition, expiryDate: _.gte(nowStr).and(_.lte(thresholdStr)), status: 'valid', isDeleted: false }
-    const expiringResult = await db.collection('pressure_records')
-      .where(expiringCondition)
-      .orderBy('expiryDate', 'asc')
-      .limit(1000)
-      .get()
+    const latestRecords = pickLatestGaugeRecords(recordsResult.data || [])
+    const { expired, expiring } = classifyExpiryRecords(latestRecords, nowStr, thresholdStr)
     
     const enterpriseStats = {}
     const processRecords = (records, type) => {
@@ -276,20 +316,20 @@ async function getAllExpiring(days, district) {
       })
     }
     
-    processRecords(expiredResult.data, 'expired')
-    processRecords(expiringResult.data, 'expiring')
+    processRecords(expired, 'expired')
+    processRecords(expiring, 'expiring')
     
     return {
       success: true,
       data: {
         records: {
-          expired: expiredResult.data,
-          expiring: expiringResult.data
+          expired,
+          expiring
         },
         enterpriseStats: Object.values(enterpriseStats),
         summary: {
-          expiredCount: expiredResult.data.length,
-          expiringCount: expiringResult.data.length,
+          expiredCount: expired.length,
+          expiringCount: expiring.length,
           enterpriseCount: Object.keys(enterpriseStats).length
         }
       }
@@ -311,14 +351,14 @@ async function getExpiringSummary(days, district) {
     let enterpriseContacts = {}
     
     if (enterpriseNames.length > 0) {
-      const enterprisesResult = await db.collection('enterprises')
-        .where({
-          companyName: _.in(enterpriseNames)
-        })
-        .field({ companyName: true, phone: true, legalPerson: true })
-        .get()
-      
-      enterprisesResult.data.forEach(e => {
+      const enterpriseResults = await Promise.all(
+        chunkList(enterpriseNames, 20).map((names) => db.collection('enterprises')
+          .where({ companyName: _.in(names) })
+          .field({ companyName: true, phone: true, legalPerson: true })
+          .get())
+      )
+
+      enterpriseResults.flatMap((item) => item.data || []).forEach(e => {
         enterpriseContacts[e.companyName] = {
           phone: e.phone || '',
           legalPerson: e.legalPerson || ''
@@ -353,7 +393,7 @@ async function sendSmsReminder(event) {
   
   debugLog('sms reminder api called')
   debugLog('接收号码:', phones)
-  debugLog('鎻愰啋鍐呭:', content)
+  debugLog('提醒内容:', content)
   debugLog('相关记录:', records?.length || 0, '条')
   
   // const smsResult = await sendSms({
@@ -381,8 +421,8 @@ async function sendWxSubscribeMessage(event) {
   const { touser, templateId, page, data } = event
   
   debugLog('send wx subscribe message')
-  debugLog('接收号码:', phones)
-  debugLog('妯℃澘ID:', templateId)
+  debugLog('接收用户:', touser)
+  debugLog('模板ID:', templateId)
   
   try {
     const result = await cloud.openapi.subscribeMessage.send({
@@ -486,19 +526,17 @@ async function autoScanAndAlert() {
     const expiringResult = await db.collection('pressure_records')
       .where({
         expiryDate: _.gte(nowStr).and(_.lte(thresholdStr)),
-        status: 'valid',
         isDeleted: false
       }).get()
 
     const expiredResult = await db.collection('pressure_records')
       .where({
         expiryDate: _.lt(nowStr),
-        status: 'valid',
         isDeleted: false
       }).get()
 
     const allAlertRecords = [...expiringResult.data, ...expiredResult.data]
-    debugLog(`扫描完成，发现 ${expiringResult.data.length} 条临期，${expiredResult.data.length} 条过期。`)
+    debugLog(`扫描完成，发现 ${expiringResult.data.length} 条临期，${expiredResult.data.length} 条逾期。`)
 
     if (allAlertRecords.length === 0) {
       return { success: true, message: '当前无预警设备' }
@@ -525,8 +563,8 @@ async function autoScanAndAlert() {
           page: `/pages/device-detail/device-detail?id=${record.deviceId || record._id}`,
           data: {
             thing1: { value: (record.deviceName || '压力表').substring(0, 20) },
-            date2: { value: record.expiryDate }, // 鍒版湡鏃ユ湡
-            thing8: { value: isExpired ? '设备已过期，请立即停用送检' : '设备即将到期，请及时安排检定' }
+            date2: { value: record.expiryDate },
+            thing8: { value: isExpired ? '压力表已逾期，请立即停用送检' : '压力表即将到期，请及时安排检定' }
           }
         })
         alertTasks.push(wxTask)
@@ -540,7 +578,7 @@ async function autoScanAndAlert() {
     return { success: true, total: alertTasks.length, successCount }
 
   } catch (err) {
-    console.error('鑷姩鎵弿浠诲姟寮傚父:', err)
+    console.error('自动扫描任务异常:', err)
     return { success: false, error: err.message }
   }
 }
@@ -738,6 +776,41 @@ function formatDate(date) {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+function pickLatestGaugeRecords(records = []) {
+  const latest = new Map()
+  records.forEach((record) => {
+    const identity = record.deviceId || [record.enterpriseName, record.factoryNo].filter(Boolean).join(':') || record.certNo || record._id
+    if (!identity || latest.has(identity)) return
+    latest.set(identity, record)
+  })
+  return Array.from(latest.values())
+}
+
+function classifyExpiryRecords(records, nowStr, thresholdStr) {
+  const expired = []
+  const expiring = []
+  records.forEach((record) => {
+    const expiryDate = String(record.expiryDate || '')
+    if (!expiryDate) return
+    if (expiryDate < nowStr) {
+      expired.push(record)
+    } else if (expiryDate <= thresholdStr) {
+      expiring.push(record)
+    }
+  })
+  expired.sort((a, b) => String(a.expiryDate || '').localeCompare(String(b.expiryDate || '')))
+  expiring.sort((a, b) => String(a.expiryDate || '').localeCompare(String(b.expiryDate || '')))
+  return { expired, expiring }
+}
+
+function chunkList(list, size) {
+  const chunks = []
+  for (let index = 0; index < list.length; index += size) {
+    chunks.push(list.slice(index, index + size))
+  }
+  return chunks
 }
 
 function formatDateTime(date) {

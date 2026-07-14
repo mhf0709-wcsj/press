@@ -1,4 +1,4 @@
-const db = wx.cloud.database()
+const authService = require('../../services/auth-service')
 
 const TEXT = {
   heroTopline: '账号',
@@ -86,7 +86,7 @@ Page({
     this.setData({ confirmPassword: e.detail.value || '' })
   },
 
-  changePassword() {
+  async changePassword() {
     const { oldPassword, newPassword, confirmPassword, adminInfo } = this.data
 
     if (!oldPassword) {
@@ -99,7 +99,7 @@ Page({
       return
     }
 
-    if (newPassword.length < 6) {
+    if (newPassword.length < 8 || !/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
       wx.showToast({ title: TEXT.messages.shortPassword, icon: 'none' })
       return
     }
@@ -109,51 +109,16 @@ Page({
       return
     }
 
-    if (adminInfo.role === 'district') {
-      wx.showModal({
-        title: TEXT.passwordTitle,
-        content: TEXT.messages.districtChangeBlocked,
-        showCancel: false
-      })
-      return
-    }
-
     wx.showLoading({ title: '\u4fee\u6539\u4e2d...' })
-
-    db.collection('admins').where({
-      username: adminInfo.username
-    }).get().then((res) => {
-      if (!res.data.length) {
-        wx.hideLoading()
-        wx.showToast({ title: TEXT.messages.accountMissing, icon: 'none' })
-        return
-      }
-
-      const admin = res.data[0]
-      if (admin.password !== oldPassword) {
-        wx.hideLoading()
-        wx.showToast({ title: TEXT.messages.wrongOldPassword, icon: 'none' })
-        return
-      }
-
-      db.collection('admins').doc(admin._id).update({
-        data: { password: newPassword }
-      }).then(() => {
-        wx.hideLoading()
-        wx.showToast({ title: TEXT.messages.changeSuccess, icon: 'success' })
-        this.setData({
-          oldPassword: '',
-          newPassword: '',
-          confirmPassword: ''
-        })
-      }).catch(() => {
-        wx.hideLoading()
-        wx.showToast({ title: TEXT.messages.changeFailed, icon: 'none' })
-      })
-    }).catch(() => {
+    try {
+      await authService.changeAdminPassword(oldPassword, newPassword, adminInfo.username)
       wx.hideLoading()
-      wx.showToast({ title: TEXT.messages.queryFailed, icon: 'none' })
-    })
+      wx.showToast({ title: TEXT.messages.changeSuccess, icon: 'success' })
+      this.setData({ oldPassword: '', newPassword: '', confirmPassword: '' })
+    } catch (error) {
+      wx.hideLoading()
+      wx.showToast({ title: error.message || TEXT.messages.changeFailed, icon: 'none' })
+    }
   },
 
   logout() {
@@ -162,7 +127,7 @@ Page({
       content: TEXT.messages.logoutContent,
       success: (res) => {
         if (!res.confirm) return
-        wx.removeStorageSync('adminUser')
+        authService.adminLogout()
         wx.redirectTo({
           url: '/pages/admin-login/admin-login'
         })

@@ -5,33 +5,45 @@
         <text class="eyebrow">设备</text>
         <view class="page-title equipment-title">{{equipment.equipmentName || '设备详情'}}</view>
         <view class="page-subtitle" wx:if="{{equipment.equipmentNo}}">{{equipment.equipmentNo}}</view>
-        <view class="equipment-hero-actions">
-          <button class="hero-primary" bindtap="createGauge" wx:if="{{equipmentId && !isAdminView}}">新增压力表</button>
-        </view>
-      </view>
-    </view>
-
-    <view class="equipment-dashboard panel" wx:if="{{equipmentId}}">
-      <view class="panel-section">
-        <view class="section-title">概览</view>
-        <view class="dashboard-grid">
-          <view class="dashboard-item"><text class="dashboard-number">{{dashboard.totalGauges}}</text><text class="dashboard-label">压力表</text></view>
-          <view class="dashboard-item danger"><text class="dashboard-number">{{dashboard.expired}}</text><text class="dashboard-label">过期</text></view>
-          <view class="dashboard-item warning"><text class="dashboard-number">{{dashboard.expiring}}</text><text class="dashboard-label">临期</text></view>
-          <view class="dashboard-item success"><text class="dashboard-number">{{dashboard.normal}}</text><text class="dashboard-label">正常</text></view>
-        </view>
       </view>
     </view>
 
     <view class="equipment-card panel">
       <view class="panel-section">
         <view class="section-title">基础信息</view>
-        <view class="detail-row"><text class="detail-label">设备名称</text><view class="detail-value"><text class="detail-static" wx:if="{{isAdminView}}">{{equipment.equipmentName || '-'}}</text><input class="detail-input" wx:else value="{{equipment.equipmentName}}" bindinput="onInput" data-field="equipmentName" placeholder="设备名称" /></view></view>
-        <view class="detail-row"><text class="detail-label">设备编号</text><view class="detail-value"><text class="detail-static" wx:if="{{isAdminView}}">{{equipment.equipmentNo || '-'}}</text><input class="detail-input" wx:else value="{{equipment.equipmentNo}}" bindinput="onInput" data-field="equipmentNo" placeholder="设备编号" /></view></view>
-        <view class="detail-row"><text class="detail-label">安装位置</text><view class="detail-value"><text class="detail-static" wx:if="{{isAdminView}}">{{equipment.location || '-'}}</text><input class="detail-input" wx:else value="{{equipment.location}}" bindinput="onInput" data-field="location" placeholder="安装位置" /></view></view>
-        <view class="detail-row" wx:if="{{equipment.enterpriseName}}"><text class="detail-label">企业</text><view class="detail-value"><text class="detail-static">{{equipment.enterpriseName}}</text></view></view>
-        <view class="detail-row" wx:if="{{equipment.district}}"><text class="detail-label">辖区</text><view class="detail-value"><text class="detail-static">{{equipment.district}}</text></view></view>
-        <view class="detail-row no-border" wx:if="{{equipment.createTime}}"><text class="detail-label">建档时间</text><view class="detail-value"><text class="detail-static">{{equipment.createTime}}</text></view></view>
+        <view class="detail-row">
+          <text class="detail-label">设备名称</text>
+          <view class="detail-value">
+            <text class="detail-static" wx:if="{{mode !== 'create'}}">{{equipment.equipmentName || '-'}}</text>
+            <input class="detail-input" wx:else value="{{equipment.equipmentName}}" bindinput="onInput" data-field="equipmentName" placeholder="设备名称" />
+          </view>
+        </view>
+        <view class="detail-row">
+          <text class="detail-label">设备编号</text>
+          <view class="detail-value">
+            <text class="detail-static" wx:if="{{mode !== 'create'}}">{{equipment.equipmentNo || '-'}}</text>
+            <input class="detail-input" wx:else value="{{equipment.equipmentNo}}" bindinput="onInput" data-field="equipmentNo" placeholder="设备编号" />
+          </view>
+        </view>
+        <view class="detail-row">
+          <text class="detail-label">安装位置</text>
+          <view class="detail-value">
+            <text class="detail-static" wx:if="{{mode !== 'create'}}">{{equipment.location || '-'}}</text>
+            <input class="detail-input" wx:else value="{{equipment.location}}" bindinput="onInput" data-field="location" placeholder="安装位置" />
+          </view>
+        </view>
+        <view class="detail-row" wx:if="{{equipment.enterpriseName}}">
+          <text class="detail-label">企业</text>
+          <view class="detail-value"><text class="detail-static">{{equipment.enterpriseName}}</text></view>
+        </view>
+        <view class="detail-row" wx:if="{{equipment.district}}">
+          <text class="detail-label">辖区</text>
+          <view class="detail-value"><text class="detail-static">{{equipment.district}}</text></view>
+        </view>
+        <view class="detail-row no-border" wx:if="{{equipment.createTime}}">
+          <text class="detail-label">建档时间</text>
+          <view class="detail-value"><text class="detail-static">{{equipment.createTime}}</text></view>
+        </view>
       </view>
     </view>
 
@@ -53,7 +65,10 @@
                 <text class="gauge-pill" wx:if="{{item.lastRecord}}">{{item.lastRecord.conclusion || '-'}}</text>
               </view>
             </view>
-            <view class="gauge-side"><text class="gauge-tag">{{item.status || '-'}}</text><text class="gauge-arrow">></text></view>
+            <view class="gauge-side">
+              <text class="gauge-tag">{{item.status || '-'}}</text>
+              <text class="gauge-arrow">></text>
+            </view>
           </view>
         </view>
       </view>
@@ -67,6 +82,7 @@
   </view>
 
   <view class="equipment-bottom-bar" wx:if="{{!isAdminView}}">
-    <button class="bottom-primary" bindtap="saveEquipment" loading="{{saving}}">{{saving ? '保存中...' : '保存'}}</button>
+    <button wx:if="{{mode === 'create'}}" class="bottom-primary" bindtap="saveEquipment" loading="{{saving}}">{{saving ? '保存中...' : '保存'}}</button>
+    <button wx:elif="{{equipmentId}}" class="bottom-primary" bindtap="createGauge">新增压力表</button>
   </view>
 </view>

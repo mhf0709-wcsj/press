@@ -106,7 +106,7 @@ Page({
       reminderVisible: true,
       reminderCard: {
         title: TEXT.entryReminderTitle,
-        summary: `您有 ${expiredCount} 台已过期，${expiringCount} 台将在 30 天内到期。`,
+        summary: `您有 ${expiredCount} 台逾期，${expiringCount} 台将在 30 天内到期。`,
         items: (data.recentItems || []).slice(0, 3).map((item) => ({
           title: item.factoryNo || item.instrumentName || TEXT.archive,
           subtitle: item.instrumentName || TEXT.gauges,

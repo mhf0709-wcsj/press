@@ -1,5 +1,6 @@
 const equipmentService = require('../../services/equipment-service')
-const _ = wx.cloud.database().command
+const deviceService = require('../../services/device-service')
+const recordService = require('../../services/record-service')
 
 Page({
   data: {
@@ -25,6 +26,8 @@ Page({
   },
 
   onLoad(options) {
+    wx.setNavigationBarTitle({ title: '设备详情' })
+
     const enterpriseUser = wx.getStorageSync('enterpriseUser')
     const adminUser = wx.getStorageSync('adminUser')
     const isAdminView = options.adminView === '1' || (!enterpriseUser && !!adminUser)
@@ -37,7 +40,7 @@ Page({
 
     if (options.mode === 'create') {
       if (isAdminView) {
-        wx.showToast({ title: '监管预览模式不可新建', icon: 'none' })
+        wx.showToast({ title: '管理端不能新建设备', icon: 'none' })
         return
       }
       this.setData({
@@ -55,12 +58,18 @@ Page({
       if (options.highlightGaugeId) {
         this.setData({ highlightGaugeId: options.highlightGaugeId })
       }
-      this.loadEquipment(id)
-      this.loadGauges(id)
+      Promise.all([
+        this.loadEquipment(id),
+        this.loadGauges(id)
+      ]).finally(() => {
+        this.hasLoadedOnce = true
+      })
     }
   },
 
   onShow() {
+    if (!this.hasLoadedOnce) return
+
     const { equipmentId, mode } = this.data
     if (!equipmentId || mode === 'create') return
 
@@ -82,12 +91,10 @@ Page({
 
   async loadGauges(equipmentId) {
     try {
-      const db = wx.cloud.database()
-      const res = await db.collection('devices').where({
-        equipmentId,
-        isDeleted: false
-      }).orderBy('createTime', 'desc').limit(100).get()
-      const gauges = res.data || []
+      const gauges = (await deviceService.loadDevices({
+        enterpriseUser: wx.getStorageSync('enterpriseUser'),
+        fromAdmin: this.data.isAdminView
+      })).filter((item) => item.equipmentId === equipmentId)
       this.setData({ gauges })
       await this.loadGaugeLatestRecords(equipmentId, gauges)
       this.scrollToHighlight()
@@ -96,21 +103,7 @@ Page({
 
   async loadGaugeLatestRecords(equipmentId, gauges) {
     try {
-      const db = wx.cloud.database()
-      const recRes = await db.collection('pressure_records')
-        .where({ equipmentId })
-        .field({
-          deviceId: true,
-          verificationDate: true,
-          expiryDate: true,
-          conclusion: true,
-          certNo: true,
-          createTime: true
-        })
-        .limit(1000)
-        .get()
-
-      const records = recRes.data || []
+      const records = (await recordService.getRecords({ limit: 100 })).filter((item) => item.equipmentId === equipmentId)
       const latestByDevice = {}
       for (const record of records) {
         const deviceId = record.deviceId
@@ -230,7 +223,11 @@ Page({
             return
           }
           if (this.data.isInitSetup) {
-            wx.reLaunch({ url: '/pages/workbench/workbench' })
+            wx.setStorageSync('selectedEquipmentForNewGauge', {
+              id: res._id,
+              name: res.equipmentName || ''
+            })
+            wx.switchTab({ url: '/pages/ai-assistant/ai-assistant' })
             return
           }
           wx.redirectTo({ url: `/pages/equipment-detail/equipment-detail?id=${res._id}` })

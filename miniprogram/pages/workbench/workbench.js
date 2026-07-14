@@ -1,6 +1,7 @@
-﻿const db = wx.cloud.database()
-const _ = db.command
+const dataAccess = require('../../services/data-access-service')
 const equipmentService = require('../../services/equipment-service')
+const expiryReminderService = require('../../services/expiry-reminder-service')
+const { runSingleFlight } = require('../../utils/request-control')
 
 const TEXT = {
   eyebrow: '设备中心',
@@ -19,8 +20,8 @@ const TEXT = {
   cards: {
     equipment: '设备',
     gauge: '压力表',
-    inactive: '停用',
-    scrap: '报废'
+    expired: '逾期',
+    inactiveScrap: '停用/报废'
   },
   fallbackGaugeTitle: '压力表',
   fallbackGaugeSubtitle: '',
@@ -32,8 +33,8 @@ function buildSummaryCards(values = {}) {
   return [
     { key: 'equipment', label: TEXT.cards.equipment, value: Number(values.equipment || 0), tone: '' },
     { key: 'gauge', label: TEXT.cards.gauge, value: Number(values.gauge || 0), tone: '' },
-    { key: 'inactive', label: TEXT.cards.inactive, value: Number(values.inactive || 0), tone: 'warning' },
-    { key: 'scrap', label: TEXT.cards.scrap, value: Number(values.scrap || 0), tone: 'danger' }
+    { key: 'expired', label: TEXT.cards.expired, value: Number(values.expired || 0), tone: 'danger' },
+    { key: 'inactiveScrap', label: TEXT.cards.inactiveScrap, value: Number(values.inactiveScrap || 0), tone: 'warning' }
   ]
 }
 
@@ -52,21 +53,45 @@ Page({
   },
 
   onLoad() {
-    this.bootstrap()
+    wx.setNavigationBarTitle({ title: '设备中心' })
+    this.bootstrap().finally(() => {
+      this.hasLoadedOnce = true
+    })
   },
 
   onShow() {
+    if (!this.hasLoadedOnce) return
+
+    wx.setNavigationBarTitle({ title: '设备中心' })
     this.bootstrap()
   },
 
   onPullDownRefresh() {
-    this.bootstrap().finally(() => wx.stopPullDownRefresh())
+    this.bootstrap({ force: true }).finally(() => wx.stopPullDownRefresh())
   },
 
-  async bootstrap() {
+  bootstrap(options = {}) {
+    return runSingleFlight(this, 'bootstrap', () => this.performBootstrap(options), {
+      queueLatest: !!options.force
+    })
+  },
+
+  async performBootstrap(options = {}) {
     const enterpriseUser = wx.getStorageSync('enterpriseUser')
     if (!enterpriseUser || !enterpriseUser.companyName) {
       wx.reLaunch({ url: '/pages/login/login' })
+      return
+    }
+
+    const app = getApp()
+    const ledgerVersion = Number(app.globalData.ledgerVersion || 0)
+    const now = Date.now()
+    if (
+      !options.force &&
+      this.lastBootstrapAt &&
+      this.loadedLedgerVersion === ledgerVersion &&
+      now - this.lastBootstrapAt < 15000
+    ) {
       return
     }
 
@@ -77,7 +102,7 @@ Page({
 
     try {
       await Promise.all([
-        this.loadDashboard(enterpriseUser),
+        this.loadDashboard(enterpriseUser, options),
         this.loadBindingReminder(enterpriseUser),
         this.loadInactiveDevices(enterpriseUser)
       ])
@@ -92,41 +117,31 @@ Page({
         inactiveDevices: []
       })
     } finally {
+      this.lastBootstrapAt = Date.now()
+      this.loadedLedgerVersion = ledgerVersion
       this.setData({ loading: false })
     }
   },
 
-  async loadDashboard(enterpriseUser) {
+  async loadDashboard(enterpriseUser, options = {}) {
     const companyName = enterpriseUser.companyName
 
     try {
-      const [equipmentRes, gaugeRes, inactiveRes, scrapRes] = await Promise.all([
-        db.collection('equipments').where({
-          enterpriseName: companyName,
-          isDeleted: false
-        }).count(),
-        db.collection('devices').where({
-          enterpriseName: companyName,
-          isDeleted: false
-        }).count(),
-        db.collection('devices').where({
-          enterpriseName: companyName,
-          status: '停用',
-          isDeleted: false
-        }).count(),
-        db.collection('devices').where({
-          enterpriseName: companyName,
-          status: '报废',
-          isDeleted: false
-        }).count()
+      const [equipmentCount, gaugeCount, inactiveScrapCount, expiryDashboard] = await Promise.all([
+        dataAccess.count('equipments', { isDeleted: false }),
+        dataAccess.count('devices', { isDeleted: false }),
+        dataAccess.count('devices', { status: { in: ['停用', '报废'] }, isDeleted: false }),
+        expiryReminderService.getEnterpriseExpiryDashboard(enterpriseUser, 30, {
+          force: !!options.force
+        })
       ])
 
       this.setData({
         summaryCards: buildSummaryCards({
-          equipment: equipmentRes.total,
-          gauge: gaugeRes.total,
-          inactive: inactiveRes.total,
-          scrap: scrapRes.total
+          equipment: equipmentCount,
+          gauge: gaugeCount,
+          expired: Number(expiryDashboard?.data?.expiredCount || 0),
+          inactiveScrap: inactiveScrapCount
         })
       })
     } catch (error) {
@@ -165,19 +180,14 @@ Page({
 
   async loadInactiveDevices(enterpriseUser) {
     try {
-      const res = await db.collection('devices')
-        .where({
-          enterpriseName: enterpriseUser.companyName,
-          status: _.in(['停用', '报废']),
-          isDeleted: false
-        })
-        .orderBy('updateTime', 'desc')
-        .orderBy('createTime', 'desc')
-        .limit(5)
-        .get()
+      const devices = await dataAccess.list('devices', {
+        filters: { status: { in: ['停用', '报废'] }, isDeleted: false },
+        orderBy: { field: 'updateTime', direction: 'desc' },
+        limit: 5
+      })
 
       this.setData({
-        inactiveDevices: (res.data || []).map((item) => ({
+        inactiveDevices: devices.map((item) => ({
           _id: item._id,
           title: item.deviceName || item.factoryNo || TEXT.fallbackGaugeTitle,
           subtitle: item.equipmentName || item.factoryNo || TEXT.fallbackGaugeSubtitle,
@@ -195,12 +205,12 @@ Page({
       wx.navigateTo({ url: '/pages/device-list/device-list' })
       return
     }
-    if (key === 'inactive') {
-      wx.navigateTo({ url: `/pages/device-list/device-list?statuses=${encodeURIComponent('停用')}` })
+    if (key === 'expired') {
+      wx.navigateTo({ url: '/pages/device-list/device-list?expiry=expired' })
       return
     }
-    if (key === 'scrap') {
-      wx.navigateTo({ url: `/pages/device-list/device-list?statuses=${encodeURIComponent('报废')}` })
+    if (key === 'inactiveScrap') {
+      wx.navigateTo({ url: `/pages/device-list/device-list?statuses=${encodeURIComponent('停用,报废')}` })
       return
     }
     wx.navigateTo({ url: '/pages/archive/archive' })
@@ -213,6 +223,7 @@ Page({
   handleBindingReminder() {
     const first = this.data.bindingReminder?.items?.[0]
     if (first?._id) {
+      wx.setNavigationBarTitle({ title: '设备中心' })
       wx.navigateTo({ url: `/pages/equipment-detail/equipment-detail?id=${first._id}` })
       return
     }
@@ -222,6 +233,7 @@ Page({
   openUnboundEquipment(e) {
     const { id } = e.currentTarget.dataset
     if (!id) return
+    wx.setNavigationBarTitle({ title: '设备中心' })
     wx.navigateTo({ url: `/pages/equipment-detail/equipment-detail?id=${id}` })
   },
 
@@ -240,13 +252,6 @@ Page({
     if (status === '停用') return '停用'
     if (status === '报废') return '报废'
     return status
-  },
-
-  formatDate(date) {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
   }
 })
 

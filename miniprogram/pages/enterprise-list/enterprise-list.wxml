@@ -27,7 +27,7 @@
               </view>
               <view class="cell-side">
                 <text class="district-tag">{{item.district || text.noDistrict}}</text>
-                <text class="risk-tag danger" wx:if="{{mode === 'risk' && item.expiredCount > 0}}">{{item.expiredCount}} 过期</text>
+                <text class="risk-tag danger" wx:if="{{mode === 'risk' && item.expiredCount > 0}}">{{item.expiredCount}} 逾期</text>
                 <text class="risk-tag warning" wx:if="{{mode === 'risk' && item.expiringCount > 0}}">{{item.expiringCount}} 即将到期</text>
               </view>
             </view>

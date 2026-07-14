@@ -79,8 +79,8 @@ class OCRService {
         wx.getImageInfo({ src: imagePath, success: resolve, fail: reject })
       })
 
-      const maxSide = 1600
-      const options = { quality: 70 }
+      const maxSide = 2400
+      const options = { quality: 85 }
 
       if (imageInfo.width > maxSide || imageInfo.height > maxSide) {
         if (imageInfo.width >= imageInfo.height) {
@@ -90,7 +90,9 @@ class OCRService {
         }
       }
 
-      const compressedPath = await this.compressImage(imagePath, options)
+      const compressedPath = imageInfo.width <= maxSide && imageInfo.height <= maxSide
+        ? imagePath
+        : await this.compressImage(imagePath, options)
       const cloudPath = `ocr-temp/enterprise_${Date.now()}.jpg`
       const fileID = await this.uploadImage(compressedPath, cloudPath)
       const result = await this.callOCRFunction(fileID)
@@ -109,7 +111,7 @@ class OCRService {
     return new Promise((resolve, reject) => {
       wx.cloud.callFunction({
         name: 'baiduOcr',
-        data: { fileID },
+        data: { fileID, adminToken: wx.getStorageSync('adminUser')?.token || '' },
         success: (res) => {
           wx.hideLoading()
           if (res.result && res.result.success && res.result.text) {

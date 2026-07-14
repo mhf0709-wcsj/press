@@ -1,6 +1,10 @@
 const { formatDate } = require('../utils/helpers/date')
 const { STORAGE_KEYS } = require('../constants/index')
+const { getLedgerVersion } = require('../utils/data-change')
 const debugLog = () => {}
+const dashboardCache = new Map()
+const dashboardRequests = new Map()
+const DASHBOARD_CACHE_TTL = 30 * 1000
 
 class ExpiryReminderService {
   buildDeferredStorageKey(enterpriseUser) {
@@ -20,12 +24,12 @@ class ExpiryReminderService {
   buildEntryReminderContent(data = {}) {
     const expiredCount = Number(data.expiredCount || 0)
     const expiringCount = Number(data.expiringCount || 0)
-    const lines = [`您有 ${expiredCount} 台已过期，${expiringCount} 台将在 30 天内到期。`]
+    const lines = [`您有 ${expiredCount} 台已逾期，${expiringCount} 台将在 30 天内到期。`]
     const items = Array.isArray(data.recentItems) ? data.recentItems.slice(0, 3) : []
 
     items.forEach((item) => {
       const title = item.factoryNo || item.instrumentName || '压力表'
-      const suffix = item.expiryStatus === 'expired' ? '已过期' : `到期：${item.expiryDate || '-'}`
+      const suffix = item.expiryStatus === 'expired' ? '已逾期' : `到期：${item.expiryDate || '-'}`
       lines.push(`• ${title} ${suffix}`)
     })
 
@@ -81,29 +85,51 @@ class ExpiryReminderService {
     })
   }
 
-  async getEnterpriseExpiryDashboard(enterpriseUser, days = 30) {
+  async getEnterpriseExpiryDashboard(enterpriseUser, days = 30, options = {}) {
     if (!enterpriseUser || (!enterpriseUser._id && !enterpriseUser.companyName)) {
       return null
     }
 
-    try {
-      const res = await wx.cloud.callFunction({
-        name: 'expiryReminder',
-        data: {
-          action: 'getEnterpriseExpiryDashboard',
-          payload: {
-            enterpriseId: enterpriseUser._id || '',
-            enterpriseName: enterpriseUser.companyName || '',
-            days
-          }
-        }
-      })
-
-      return res.result || null
-    } catch (err) {
-      console.error('获取企业到期看板失败:', err)
-      return null
+    const identity = enterpriseUser._id || enterpriseUser.companyName
+    const cacheKey = `${identity}:${days}:${getLedgerVersion()}`
+    const cached = dashboardCache.get(cacheKey)
+    if (!options.force && cached && Date.now() - cached.createdAt < DASHBOARD_CACHE_TTL) {
+      return cached.data
     }
+    if (!options.force && dashboardRequests.has(cacheKey)) {
+      return dashboardRequests.get(cacheKey)
+    }
+
+    const request = (async () => {
+      try {
+        const res = await wx.cloud.callFunction({
+          name: 'expiryReminder',
+          data: {
+            action: 'getEnterpriseExpiryDashboard',
+            payload: {
+              enterpriseId: enterpriseUser._id || '',
+              enterpriseName: enterpriseUser.companyName || '',
+              days
+            }
+          }
+        })
+
+        const result = res.result || null
+        if (result?.success) {
+          if (dashboardCache.size > 20) dashboardCache.clear()
+          dashboardCache.set(cacheKey, { data: result, createdAt: Date.now() })
+        }
+        return result
+      } catch (err) {
+        console.error('获取企业到期看板失败:', err)
+        return null
+      } finally {
+        dashboardRequests.delete(cacheKey)
+      }
+    })()
+
+    dashboardRequests.set(cacheKey, request)
+    return request
   }
 
   async checkExpiryReminder(enterpriseName, days = 30) {
@@ -299,15 +325,8 @@ class ExpiryReminderService {
   }
 
   async saveSubscribeStatus(enterpriseId, subscribed) {
-    const db = wx.cloud.database()
-
     try {
-      await db.collection('enterprises').doc(enterpriseId).update({
-        data: {
-          subscribeMessage: subscribed,
-          subscribeTime: new Date().toISOString()
-        }
-      })
+      await this.confirmWxSubscription({ _id: enterpriseId }, subscribed ? 'accepted' : '')
     } catch (err) {
       console.error('保存订阅状态失败:', err)
     }

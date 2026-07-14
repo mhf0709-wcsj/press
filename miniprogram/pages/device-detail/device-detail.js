@@ -1,7 +1,7 @@
-﻿const db = wx.cloud.database()
 const deviceService = require('../../services/device-service')
 const equipmentService = require('../../services/equipment-service')
 const lifecycleService = require('../../services/lifecycle-service')
+const recordService = require('../../services/record-service')
 
 const STATUS_OPTIONS = ['\u5728\u7528', '\u5907\u7528', '\u9001\u68c0', '\u505c\u7528', '\u62a5\u5e9f']
 
@@ -62,6 +62,7 @@ Page({
       const scene = decodeURIComponent(options.scene)
       this.setData({ deviceId: scene, mode: 'view' })
       await this.loadDeviceBundle(scene)
+      this.hasLoadedOnce = true
       return
     }
 
@@ -91,11 +92,14 @@ Page({
     if (options.id) {
       this.setData({ deviceId: options.id, mode: 'view' })
       await this.loadDeviceBundle(options.id)
+      this.hasLoadedOnce = true
     }
   },
 
   onShow() {
-    if (this.hasLoadedOnce && this.data.deviceId) {
+    if (!this.hasLoadedOnce) return
+
+    if (this.data.deviceId) {
       this.loadDeviceBundle(this.data.deviceId)
     }
   },
@@ -172,16 +176,8 @@ Page({
 
   async loadArchiveRecords(deviceId) {
     try {
-      const res = await db.collection('pressure_records')
-        .where({
-          deviceId,
-          isDeleted: db.command.neq(true)
-        })
-        .orderBy('createTime', 'desc')
-        .limit(100)
-        .get()
-
-      this.setData({ archiveRecords: res.data || [] })
+      const records = await recordService.getRecords({ limit: 100 })
+      this.setData({ archiveRecords: records.filter((item) => item.deviceId === deviceId) })
     } catch (error) {
       this.setData({ archiveRecords: [] })
     }

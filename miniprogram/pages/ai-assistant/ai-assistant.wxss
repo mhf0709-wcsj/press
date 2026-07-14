@@ -240,6 +240,38 @@
   margin-top: var(--space-4);
 }
 
+.recognition-status {
+  margin-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10rpx;
+}
+
+.recognition-badge {
+  padding: 8rpx 14rpx;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-caption);
+  color: #237a49;
+  background: rgba(52, 199, 89, 0.11);
+}
+
+.recognition-badge.warning {
+  color: #9a6700;
+  background: rgba(255, 159, 10, 0.13);
+}
+
+.recognition-badge.risk {
+  color: #b42318;
+  background: rgba(255, 59, 48, 0.1);
+}
+
+.recognition-review {
+  font-size: var(--font-size-caption);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
 .result-field-list {
   display: flex;
   flex-direction: column;

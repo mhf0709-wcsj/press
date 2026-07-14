@@ -1,21 +1,23 @@
 const deviceService = require('../../services/device-service')
+const recordService = require('../../services/record-service')
+const { runSingleFlight } = require('../../utils/request-control')
 
 const TEXT = {
-  loginFirst: '\u8bf7\u5148\u767b\u5f55',
-  listTitle: '\u538b\u529b\u8868\u5217\u8868',
-  listSubtitle: '',
-  inactiveTitle: '\u505c\u7528\u53ca\u62a5\u5e9f\u538b\u529b\u8868',
-  inactiveSubtitle: '',
-  loading: '\u52a0\u8f7d\u4e2d...',
-  loadFailed: '\u52a0\u8f7d\u5931\u8d25',
-  deleteTitle: '\u5220\u9664\u538b\u529b\u8868',
-  deletePrompt: '\u5220\u9664\u540e\uff0c\u8fd9\u5757\u538b\u529b\u8868\u5c06\u4ece\u4f01\u4e1a\u7aef\u5217\u8868\u4e2d\u79fb\u9664\uff0c\u7ba1\u7406\u7aef\u4f1a\u4fdd\u7559\u5220\u9664\u7559\u75d5\u3002\n\n\u662f\u5426\u7ee7\u7eed\u5220\u9664\u201c{name}\u201d\uff1f',
-  deletePromptAgainTitle: '\u518d\u6b21\u786e\u8ba4\u5220\u9664',
-  deletePromptAgain: '\u8bf7\u518d\u6b21\u786e\u8ba4\uff1a\n\n\u5220\u9664\u540e\u5c06\u65e0\u6cd5\u5728\u4f01\u4e1a\u7aef\u76f4\u63a5\u6062\u590d\u3002\n\n\u786e\u5b9a\u5220\u9664\u201c{name}\u201d\u5417\uff1f',
-  deleteSuccess: '\u5df2\u5220\u9664',
-  deleteSuccessWithLog: '\u5df2\u5220\u9664\u5e76\u8bb0\u5f55\u7559\u75d5',
-  deleteFailed: '\u5220\u9664\u5931\u8d25',
-  createHint: '\u8bf7\u5148\u9009\u62e9\u8bbe\u5907'
+  loginFirst: '请先登录',
+  listTitle: '压力表列表',
+  inactiveTitle: '停用及报废压力表',
+  expiredTitle: '逾期压力表',
+  loading: '加载中...',
+  loadFailed: '加载失败',
+  deleteTitle: '删除压力表',
+  deletePrompt: '删除后，这块压力表将从企业端列表中移除，管理端会保留删除留痕。\n\n是否继续删除“{name}”？',
+  deletePromptAgainTitle: '再次确认删除',
+  deletePromptAgain: '请再次确认：\n\n删除后将无法在企业端直接恢复。\n\n确定删除“{name}”吗？',
+  deleteSuccess: '已删除',
+  deleteSuccessWithLog: '已删除并记录留痕',
+  deleteFailed: '删除失败',
+  createHint: '请先选择设备',
+  openDetailFailed: '打开详情失败'
 }
 
 Page({
@@ -25,8 +27,8 @@ Page({
     isLoading: false,
     enterpriseUser: null,
     statuses: [],
+    expiryFilter: '',
     pageTitle: TEXT.listTitle,
-    pageSubtitle: TEXT.listSubtitle,
     swipeOpenId: '',
     deletingId: ''
   },
@@ -42,36 +44,62 @@ Page({
       .split(',')
       .map((item) => item.trim())
       .filter(Boolean)
-
-    const isInactiveOnly = statuses.length > 0 && statuses.every((item) => ['\u505c\u7528', '\u62a5\u5e9f'].includes(item))
+    const isInactiveOnly = statuses.length > 0 && statuses.every((item) => ['停用', '报废'].includes(item))
+    const expiryFilter = String(options.expiry || '')
+    const isExpiredOnly = expiryFilter === 'expired'
 
     this.setData({
       enterpriseUser: user,
       statuses,
-      pageTitle: isInactiveOnly ? TEXT.inactiveTitle : TEXT.listTitle,
-      pageSubtitle: isInactiveOnly ? TEXT.inactiveSubtitle : TEXT.listSubtitle
+      expiryFilter,
+      pageTitle: isExpiredOnly ? TEXT.expiredTitle : (isInactiveOnly ? TEXT.inactiveTitle : TEXT.listTitle)
     })
-    this.loadData()
+    this.loadData().finally(() => {
+      this.hasLoadedOnce = true
+    })
   },
 
   onShow() {
+    if (!this.hasLoadedOnce) return
+
     if (this.data.enterpriseUser) {
-      this.loadData()
+      this.loadData({ silent: true })
     }
   },
 
   onPullDownRefresh() {
-    this.loadData().then(() => {
+    this.loadData({ force: true }).then(() => {
       wx.stopPullDownRefresh()
     })
   },
 
-  async loadData() {
-    if (this.data.isLoading || !this.data.enterpriseUser) return
+  loadData(options = {}) {
+    return runSingleFlight(this, 'loadData', () => this.performLoadData(options), {
+      queueLatest: !!options.force
+    })
+  },
+
+  async performLoadData(options = {}) {
+    if (!this.data.enterpriseUser) return
+
+    const app = getApp()
+    const ledgerVersion = Number(app.globalData.ledgerVersion || 0)
+    const now = Date.now()
+    if (
+      !options.force &&
+      this.lastLoadAt &&
+      this.loadedLedgerVersion === ledgerVersion &&
+      now - this.lastLoadAt < 10000
+    ) {
+      return
+    }
+
     this.setData({ isLoading: true, swipeOpenId: '' })
 
     try {
-      wx.showLoading({ title: TEXT.loading })
+      if (!options.silent) {
+        wx.showLoading({ title: TEXT.loading })
+      }
       let devices = await deviceService.searchDevices(this.data.searchKeyword, {
         enterpriseUser: this.data.enterpriseUser
       })
@@ -80,13 +108,55 @@ Page({
         devices = devices.filter((item) => this.data.statuses.includes(item.status))
       }
 
+      if (this.data.expiryFilter === 'expired') {
+        devices = await this.filterExpiredDevices(devices)
+      }
+
       this.setData({ devices })
     } catch (error) {
       wx.showToast({ title: TEXT.loadFailed, icon: 'none' })
     } finally {
-      wx.hideLoading()
+      if (!options.silent) {
+        wx.hideLoading()
+      }
+      this.lastLoadAt = Date.now()
+      this.loadedLedgerVersion = ledgerVersion
       this.setData({ isLoading: false })
     }
+  },
+
+  async filterExpiredDevices(devices = []) {
+    if (!devices.length) return []
+
+    const today = this.formatDate(new Date())
+    const resolved = devices.filter((device) => device.latestExpiryDate)
+    const legacy = devices.filter((device) => !device.latestExpiryDate)
+    const expiredIds = new Set(
+      resolved
+        .filter((device) => device.latestExpiryDate < today)
+        .map((device) => device._id)
+    )
+
+    if (!legacy.length) {
+      return devices.filter((device) => expiredIds.has(device._id))
+    }
+
+    const records = await recordService.getRecords({ limit: 100 })
+
+    const latestByDevice = {}
+    records.forEach((record) => {
+      const keys = [record.deviceId, record.factoryNo, record.certNo].filter(Boolean)
+      keys.forEach((key) => {
+        if (!latestByDevice[key]) latestByDevice[key] = record
+      })
+    })
+
+    legacy.forEach((device) => {
+      const latest = latestByDevice[device._id] || latestByDevice[device.factoryNo] || latestByDevice[device.certNo]
+      if (latest?.expiryDate && latest.expiryDate < today) expiredIds.add(device._id)
+    })
+
+    return devices.filter((device) => expiredIds.has(device._id))
   },
 
   onSearchInput(e) {
@@ -94,7 +164,7 @@ Page({
   },
 
   onSearch() {
-    this.loadData()
+    this.loadData({ force: true })
   },
 
   onTouchStart(e) {
@@ -126,28 +196,24 @@ Page({
     }
   },
 
-  closeSwipe() {
-    if (this.data.swipeOpenId) {
-      this.setData({ swipeOpenId: '' })
-    }
-  },
-
   goToDetail(e) {
-    const id = e.currentTarget.dataset.id
+    const id = e.currentTarget.dataset.id || e.target.dataset.id
     if (!id) return
-
-    if (this.data.swipeOpenId && this.data.swipeOpenId !== id) {
-      this.setData({ swipeOpenId: '' })
-      return
-    }
 
     if (this.data.swipeOpenId === id) {
       this.setData({ swipeOpenId: '' })
       return
     }
 
+    if (this.data.swipeOpenId && this.data.swipeOpenId !== id) {
+      this.setData({ swipeOpenId: '' })
+    }
+
     wx.navigateTo({
-      url: `/pages/device-detail/device-detail?id=${id}`
+      url: `/pages/device-detail/device-detail?id=${id}`,
+      fail: () => {
+        wx.showToast({ title: TEXT.openDetailFailed, icon: 'none' })
+      }
     })
   },
 
@@ -156,7 +222,7 @@ Page({
     const item = this.data.devices.find((entry) => entry._id === id)
     if (!id || !item || this.data.deletingId) return
 
-    const name = item.deviceName || item.factoryNo || '\u8be5\u538b\u529b\u8868'
+    const name = item.deviceName || item.factoryNo || '该压力表'
     const firstConfirm = await this.confirmModal(
       TEXT.deleteTitle,
       TEXT.deletePrompt.replace('{name}', name)
@@ -178,7 +244,6 @@ Page({
         devices: this.data.devices.filter((entry) => entry._id !== id),
         swipeOpenId: ''
       })
-      this.setData({ swipeOpenId: '' })
       wx.showToast({
         title: result.relatedRecordCount > 0 ? TEXT.deleteSuccessWithLog : TEXT.deleteSuccess,
         icon: 'success'
@@ -209,5 +274,12 @@ Page({
   createNewDevice() {
     wx.showToast({ title: TEXT.createHint, icon: 'none' })
     wx.navigateTo({ url: '/pages/archive/archive' })
+  },
+
+  formatDate(date) {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
   }
 })

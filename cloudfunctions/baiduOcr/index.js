@@ -1,7 +1,9 @@
 const cloud = require('wx-server-sdk')
 const axios = require('axios')
+const crypto = require('crypto')
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
+const db = cloud.database()
 
 const BAIDU_API_KEY = process.env.BAIDU_API_KEY || ''
 const BAIDU_SECRET_KEY = process.env.BAIDU_SECRET_KEY || ''
@@ -10,30 +12,40 @@ let cachedToken = null
 let tokenExpireTime = 0
 
 exports.main = async (event) => {
-  const { fileID } = event || {}
+  const { fileID, imageBase64 } = event || {}
 
-  if (!fileID) {
+  if (!fileID && !imageBase64) {
     return { success: false, error: '缺少图片参数' }
   }
 
   try {
-    const fileRes = await cloud.downloadFile({ fileID })
-    const buffer = fileRes.fileContent
-    const imageBase64 = buffer.toString('base64')
+    await assertAuthorized(event)
+    let imageContent = String(imageBase64 || '').trim()
+
+    if (!imageContent && fileID) {
+      const fileRes = await cloud.downloadFile({ fileID })
+      const buffer = fileRes.fileContent
+      imageContent = buffer.toString('base64')
+    }
+
+    if (!imageContent) {
+      return { success: false, error: '图片内容为空' }
+    }
+
     const accessToken = await getAccessToken()
 
     let ocrResult = null
     let apiUsed = ''
 
     try {
-      ocrResult = await callBaiduOcr(accessToken, imageBase64, 'accurate_basic')
+      ocrResult = await callBaiduOcr(accessToken, imageContent, 'accurate_basic')
       apiUsed = 'accurate_basic'
     } catch (error) {
       try {
-        ocrResult = await callBaiduOcr(accessToken, imageBase64, 'general_basic')
+        ocrResult = await callBaiduOcr(accessToken, imageContent, 'general_basic')
         apiUsed = 'general_basic'
       } catch (fallbackError) {
-        ocrResult = await callBaiduOcr(accessToken, imageBase64, 'accurate')
+        ocrResult = await callBaiduOcr(accessToken, imageContent, 'accurate')
         apiUsed = 'accurate'
       }
     }
@@ -44,7 +56,7 @@ exports.main = async (event) => {
 
     const lines = ocrResult.words_result
       .filter((item) => {
-        if (item.probability && item.probability.average < 0.5) {
+        if (item.probability && item.probability.average < 0.2) {
           return false
         }
         return true
@@ -70,6 +82,22 @@ exports.main = async (event) => {
       detail: String(error)
     }
   }
+}
+
+async function assertAuthorized(event = {}) {
+  if (event.adminToken) {
+    const tokenHash = crypto.createHash('sha256').update(String(event.adminToken)).digest('hex')
+    const result = await db.collection('auth_sessions').where({ tokenHash }).limit(1).get()
+    const session = result.data?.[0]
+    const expiresAt = session?.expiresAt ? new Date(session.expiresAt) : null
+    if (session && expiresAt && expiresAt.getTime() > Date.now()) return
+    throw new Error('管理端登录已失效')
+  }
+
+  const openid = cloud.getWXContext().OPENID
+  if (!openid) throw new Error('请先登录')
+  const result = await db.collection('enterprises').where({ openid }).limit(1).get()
+  if (!result.data?.length) throw new Error('企业账号尚未绑定')
 }
 
 async function getAccessToken() {

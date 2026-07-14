@@ -11,45 +11,7 @@
         <view class="login-desc" wx:if="{{text.desc}}">{{text.desc}}</view>
       </view>
 
-      <button
-        class="btn-primary-solid login-submit wechat-submit {{loading ? 'is-loading' : ''}}"
-        bindtap="handleWechatLogin"
-        disabled="{{loading}}"
-      >
-        <text>{{loading ? text.wechatSubmitting : text.wechatSubmit}}</text>
-      </button>
-
-      <view class="wechat-hint" wx:if="{{text.wechatHint}}">{{text.wechatHint}}</view>
-
-      <view class="manual-toggle" bindtap="toggleManualLogin">
-        <text>{{text.manualToggle}}</text>
-      </view>
-
-      <view class="login-form" wx:if="{{manualVisible}}">
-        <view class="field-block">
-          <view class="field-label">{{text.companyLabel}}</view>
-          <input
-            class="field-input"
-            placeholder="{{text.companyPlaceholder}}"
-            value="{{companyName}}"
-            bindinput="onInputCompanyName"
-            placeholder-class="input-placeholder"
-          />
-        </view>
-
-        <view class="field-block">
-          <view class="field-label">{{text.phoneLabel}}</view>
-          <input
-            class="field-input"
-            type="number"
-            maxlength="11"
-            placeholder="{{text.phonePlaceholder}}"
-            value="{{phone}}"
-            bindinput="onInputPhone"
-            placeholder-class="input-placeholder"
-          />
-        </view>
-
+      <view class="login-form">
         <button
           class="btn-primary-solid login-submit manual-submit {{loading ? 'is-loading' : ''}}"
           bindtap="handleLogin"
@@ -64,7 +26,7 @@
           <text class="assist-text">{{text.assistText}}</text>
           <text class="assist-link" bindtap="goToRegister">{{text.register}}</text>
         </view>
-        <button class="btn-ghost-link admin-entry" bindtap="goToAdminLogin">{{text.adminLogin}}</button>
+        <view class="admin-entry" bindtap="goToAdminLogin">{{text.adminLogin}}</view>
       </view>
     </view>
 

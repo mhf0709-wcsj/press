@@ -39,6 +39,10 @@
                   <view class="message-bubble assistant-bubble result-bubble" wx:if="{{item.kind === 'result'}}">
                     <text class="result-title">{{item.title}}</text>
                     <text class="result-summary">{{item.summary}}</text>
+                    <view class="recognition-status" wx:if="{{item.confidenceText}}">
+                      <text class="recognition-badge {{item.confidenceTone}}">{{item.confidenceText}}</text>
+                      <text class="recognition-review">{{item.reviewHint}}</text>
+                    </view>
                     <image
                       wx:if="{{item.imagePath}}"
                       class="result-image"
@@ -52,6 +56,14 @@
                         <text class="result-field-label">{{item.label}}</text>
                         <text class="result-field-value">{{item.value}}</text>
                       </view>
+                    </view>
+                    <view class="debug-toggle" wx:if="{{item.diagnostics && item.diagnostics.length}}" data-id="{{item.id}}" bindtap="toggleDebugPanel">
+                      <text class="debug-toggle-text">识别依据</text>
+                      <text class="debug-toggle-arrow">{{debugExpandedMap[item.id] ? '收起' : '展开'}}</text>
+                    </view>
+                    <view class="debug-card" wx:if="{{debugExpandedMap[item.id] && item.diagnostics && item.diagnostics.length}}">
+                      <text class="debug-title">{{item.recognitionMode}}</text>
+                      <text class="debug-line" wx:for="{{item.diagnostics}}" wx:key="key">{{item.label}}：{{item.source}}</text>
                     </view>
                     <view class="result-action" bindtap="goToDraftConfirm">
                       <text class="result-action-text">{{text.confirmDraft}}</text>

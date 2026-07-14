@@ -1,4 +1,4 @@
-const db = wx.cloud.database()
+const dataAccess = require('../../services/data-access-service')
 
 const TEXT = {
   heroTopline: '企业',
@@ -28,8 +28,15 @@ Page({
   onLoad(options) {
     const mode = options.mode === 'risk' ? 'risk' : 'all'
     this.setData({ mode }, () => {
-      this.loadEnterpriseList()
+      this.loadEnterpriseList().finally(() => {
+        this.hasLoadedOnce = true
+      })
     })
+  },
+
+  onShow() {
+    if (!this.hasLoadedOnce) return
+    this.loadEnterpriseList()
   },
 
   onPullDownRefresh() {
@@ -42,8 +49,8 @@ Page({
 
     try {
       if (this.data.mode === 'risk') {
-        const stored = wx.getStorageSync('dashboardRiskEnterprises') || []
-        const enterpriseList = stored.map((item) => ({
+        const riskEnterprises = await this.loadRiskEnterprises()
+        const enterpriseList = riskEnterprises.map((item) => ({
           _id: item.enterpriseName || item.phone || String(Math.random()),
           companyName: item.enterpriseName || '-',
           district: item.district || '',
@@ -61,12 +68,12 @@ Page({
         return
       }
 
-      const res = await db.collection('enterprises')
-        .orderBy('createTime', 'desc')
-        .limit(100)
-        .get()
+      const enterprises = await dataAccess.list('enterprises', {
+        orderBy: { field: 'createTime', direction: 'desc' },
+        limit: 100
+      })
 
-      const enterpriseList = (res.data || []).map((item) => ({
+      const enterpriseList = enterprises.map((item) => ({
         ...item,
         createTimeStr: this.formatDateTime(item.createTime)
       }))
@@ -82,6 +89,31 @@ Page({
         title: '\u52a0\u8f7d\u5931\u8d25',
         icon: 'none'
       })
+    }
+  },
+
+  async loadRiskEnterprises() {
+    const adminUser = wx.getStorageSync('adminUser') || {}
+    const data = {
+      action: 'getExpiringSummary',
+      days: 30
+    }
+    if (adminUser.role === 'district' && adminUser.district) {
+      data.district = adminUser.district
+    }
+
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'expiryReminder',
+        data
+      })
+      if (!res.result?.success) throw new Error('风险企业加载失败')
+
+      const list = res.result.data?.enterpriseStats || []
+      wx.setStorageSync('dashboardRiskEnterprises', list)
+      return list
+    } catch (error) {
+      return wx.getStorageSync('dashboardRiskEnterprises') || []
     }
   },
 

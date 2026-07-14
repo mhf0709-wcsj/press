@@ -26,6 +26,9 @@ const TARGET_COLLECTIONS = [
 ]
 
 exports.main = async (event = {}) => {
+  if (!process.env.MAINTENANCE_SECRET || event.maintenanceSecret !== process.env.MAINTENANCE_SECRET) {
+    return { success: false, message: 'Unauthorized.' }
+  }
   const action = event.action || 'normalizeDistrictNames'
 
   if (action === 'normalizeDistrictNames') {

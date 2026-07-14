@@ -217,3 +217,28 @@
   color: var(--color-text-secondary);
   text-align: center;
 }
+
+.pagination-row {
+  margin-top: var(--space-4);
+  display: flex;
+  justify-content: center;
+}
+
+.pagination-button {
+  min-width: 220rpx;
+  min-height: 72rpx;
+  padding: 0 28rpx;
+  border-radius: var(--radius-pill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 122, 255, 0.1);
+  color: var(--color-brand);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+}
+
+.pagination-button.disabled {
+  background: rgba(17, 24, 39, 0.04);
+  color: var(--color-text-tertiary);
+}

@@ -60,8 +60,12 @@ class AIExtractService {
   }
 
   async compressForExtraction(imagePath, imageInfo) {
-    const maxSide = 1600
-    const options = { quality: 72 }
+    const maxSide = 2400
+    if (imageInfo.width <= maxSide && imageInfo.height <= maxSide) {
+      return imagePath
+    }
+
+    const options = { quality: 85 }
 
     if (imageInfo.width > maxSide || imageInfo.height > maxSide) {
       if (imageInfo.width >= imageInfo.height) {
@@ -91,7 +95,7 @@ class AIExtractService {
     return new Promise((resolve, reject) => {
       wx.cloud.callFunction({
         name: 'baiduOcr',
-        data: { fileID },
+        data: { fileID, adminToken: wx.getStorageSync('adminUser')?.token || '' },
         success: (res) => {
           if (res.result && res.result.success) {
             resolve(res.result)
@@ -110,6 +114,7 @@ class AIExtractService {
         name: 'aiAssistant',
         data: {
           action: 'extractRecordFromImage',
+          adminToken: wx.getStorageSync('adminUser')?.token || '',
           ...payload
         },
         success: (res) => {

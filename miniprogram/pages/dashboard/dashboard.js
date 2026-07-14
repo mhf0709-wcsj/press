@@ -1,4 +1,5 @@
-const db = wx.cloud.database()
+const { runSingleFlight } = require('../../utils/request-control')
+const dataAccess = require('../../services/data-access-service')
 
 const TEXT = {
   heroTitle: '\u9884\u89c8\u5e73\u53f0',
@@ -15,10 +16,10 @@ const TEXT = {
   enterpriseRiskTitle: '\u91cd\u70b9\u4f01\u4e1a',
   emptyRisk: '\u6682\u65e0',
   totalRecords: '\u68c0\u5b9a\u8bb0\u5f55',
-  expiredCount: '\u5df2\u8fc7\u671f',
+  expiredCount: '逾期',
   expiringCount: '30\u5929\u5185\u5230\u671f',
   enterpriseCount: '\u6d89\u53ca\u4f01\u4e1a',
-  focusExpiredSuffix: '\u8fc7\u671f',
+  focusExpiredSuffix: '逾期',
   focusExpiringSuffix: '\u5373\u5c06\u5230\u671f',
   viewAll: '\u67e5\u770b\u5168\u90e8',
   noPhone: '-',
@@ -61,13 +62,12 @@ Page({
   },
 
   onShow() {
-    if (this.data.adminName) {
-      this.loadAllData()
-    }
+    if (!this.hasLoadedOnce || !this.data.adminName) return
+    this.loadAllData()
   },
 
   onPullDownRefresh() {
-    this.loadAllData().finally(() => {
+    this.loadAllData({ force: true }).finally(() => {
       wx.stopPullDownRefresh()
     })
   },
@@ -91,7 +91,13 @@ Page({
     })
   },
 
-  async loadAllData() {
+  loadAllData(options = {}) {
+    return runSingleFlight(this, 'loadAllData', () => this.performLoadAllData(), {
+      queueLatest: !!options.force
+    })
+  },
+
+  async performLoadAllData() {
     this.setData({ loading: true })
     wx.showLoading({ title: TEXT.loading })
 
@@ -120,6 +126,7 @@ Page({
         icon: 'none'
       })
     } finally {
+      this.hasLoadedOnce = true
       wx.hideLoading()
       this.setData({ loading: false })
     }
@@ -138,25 +145,10 @@ Page({
   },
 
   async loadOverviewData() {
-    const countRes = await this.buildScopedRecordQuery().count()
+    const total = await dataAccess.count('pressure_records', { isDeleted: { neq: true } })
     this.setData({
-      'overviewData.totalRecords': countRes.total || 0
+      'overviewData.totalRecords': total
     })
-  },
-
-  buildScopedRecordQuery() {
-    let query = db.collection('pressure_records')
-    if (this.data.adminDistrict) {
-      query = query.where({
-        district: this.data.adminDistrict,
-        isDeleted: db.command.neq(true)
-      })
-    } else {
-      query = query.where({
-        isDeleted: db.command.neq(true)
-      })
-    }
-    return query
   },
 
   async loadExpiryData() {
@@ -193,17 +185,10 @@ Page({
 
   async loadDistrictStats() {
     try {
-      const res = await db.collection('equipments')
-        .where({
-          isDeleted: db.command.neq(true)
-        })
-        .field({
-          district: true
-        })
-        .limit(1000)
-        .get()
-
-      const equipments = res.data || []
+      const equipments = await dataAccess.list('equipments', {
+        filters: { isDeleted: { neq: true } },
+        limit: 100
+      })
       const total = equipments.length
       const districtMap = {}
 

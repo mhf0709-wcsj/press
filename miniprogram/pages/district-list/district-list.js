@@ -1,4 +1,4 @@
-const db = wx.cloud.database()
+const dataAccess = require('../../services/data-access-service')
 
 const TEXT = {
   heroTopline: '辖区',
@@ -19,6 +19,13 @@ Page({
   },
 
   onLoad() {
+    this.loadDistrictData().finally(() => {
+      this.hasLoadedOnce = true
+    })
+  },
+
+  onShow() {
+    if (!this.hasLoadedOnce) return
     this.loadDistrictData()
   },
 
@@ -31,12 +38,10 @@ Page({
     this.setData({ loading: true })
 
     try {
-      const res = await db.collection('equipments')
-        .field({ district: true })
-        .limit(1000)
-        .get()
-
-      const equipments = res.data || []
+      const equipments = await dataAccess.list('equipments', {
+        filters: { isDeleted: { neq: true } },
+        limit: 100
+      })
       const totalEquipments = equipments.length
       const districtMap = {}
 

@@ -116,6 +116,21 @@
   font-weight: 600;
 }
 
+.camera-equipment-create {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8rpx;
+  padding: 0 0 18rpx;
+  font-size: 24rpx;
+  color: #8a94a6;
+}
+
+.camera-equipment-create-link {
+  color: #007aff;
+  font-weight: 600;
+}
+
 .camera-picker-text,
 .camera-static-text {
   font-size: 28rpx;

@@ -1,7 +1,9 @@
 ﻿const { CLOUD_CONFIG, ROUTES } = require('./constants/index.js')
 const { storage } = require('./utils/index.js')
+const { DISTRICTS } = require('./constants/index.js')
 const { cache } = require('./utils/cache.js')
 const { ErrorHandler } = require('./utils/error-handler.js')
+const authService = require('./services/auth-service.js')
 
 const debugLog = () => {}
 
@@ -12,7 +14,8 @@ App({
     systemInfo: null,
     isConnected: true,
     entryReminderToken: 0,
-    entryReminderHandledToken: 0
+    entryReminderHandledToken: 0,
+    ledgerVersion: 0
   },
 
   onLaunch() {
@@ -43,8 +46,8 @@ App({
     if (!wx.cloud) {
       console.error('[Cloud] unavailable')
       wx.showModal({
-        title: 'Version Error',
-        content: 'Current WeChat version is too low. Please upgrade and try again.',
+        title: '版本提示',
+        content: '当前微信版本过低，请升级微信后重试。',
         showCancel: false
       })
       return
@@ -60,7 +63,10 @@ App({
 
   getSystemInfo() {
     try {
-      const res = wx.getSystemInfoSync()
+      const deviceInfo = wx.getDeviceInfo ? wx.getDeviceInfo() : {}
+      const windowInfo = wx.getWindowInfo ? wx.getWindowInfo() : {}
+      const appBaseInfo = wx.getAppBaseInfo ? wx.getAppBaseInfo() : {}
+      const res = { ...deviceInfo, ...windowInfo, ...appBaseInfo }
       this.globalData.systemInfo = res
       debugLog('[App] system:', res.model, res.system)
       cache.set('systemInfo', res, 24 * 60 * 60 * 1000)
@@ -75,7 +81,7 @@ App({
 
       if (!res.isConnected) {
         wx.showToast({
-          title: 'Network disconnected',
+          title: '网络连接已断开',
           icon: 'none',
           duration: 2000
         })
@@ -106,30 +112,39 @@ App({
     return new Promise((resolve) => {
       resolve({
         version: '1.0.0',
-        districts: ['district-a', 'district-b', 'district-c', 'district-d', 'district-e', 'district-f'],
+        districts: [...DISTRICTS],
         maxImageSize: 10 * 1024 * 1024
       })
     })
   },
 
-  checkAuth() {
+  async checkAuth() {
     const enterpriseUser = storage.getEnterpriseUser()
     const adminUser = storage.getAdminUser()
 
     if (enterpriseUser) {
-      debugLog('[Auth] enterprise login:', enterpriseUser.companyName)
-      this.globalData.userInfo = enterpriseUser
-      this.globalData.isLogin = true
-      wx.switchTab({ url: ROUTES.AI_ASSISTANT })
-      return
+      try {
+        const result = await authService.wechatLogin()
+        if (result.registered && result.enterprise) {
+          storage.setEnterpriseUser(result.enterprise)
+          this.globalData.userInfo = result.enterprise
+          this.globalData.isLogin = true
+          wx.switchTab({ url: ROUTES.AI_ASSISTANT })
+          return
+        }
+      } catch (error) {}
+      storage.remove('enterpriseUser')
     }
 
     if (adminUser) {
-      debugLog('[Auth] admin login')
-      this.globalData.userInfo = adminUser
-      this.globalData.isLogin = true
-      wx.redirectTo({ url: ROUTES.DASHBOARD })
-      return
+      const valid = await authService.validateAdminSession()
+      if (valid) {
+        const currentAdmin = storage.getAdminUser()
+        this.globalData.userInfo = currentAdmin
+        this.globalData.isLogin = true
+        wx.redirectTo({ url: ROUTES.DASHBOARD })
+        return
+      }
     }
 
     debugLog('[Auth] no login')

@@ -1,4 +1,4 @@
-<view class="page-shell device-list-page" bindtap="closeSwipe">
+<view class="page-shell device-list-page">
   <view class="content-wrapper device-list-wrapper">
     <view class="device-list-hero panel">
       <view class="panel-section">
@@ -23,21 +23,26 @@
     </view>
 
     <view class="device-list-stack" wx:if="{{devices.length > 0}}">
-      <view class="swipe-row" wx:for="{{devices}}" wx:key="_id">
+      <view
+        class="swipe-row"
+        wx:for="{{devices}}"
+        wx:key="_id"
+        data-id="{{item._id}}"
+        bindtouchstart="onTouchStart"
+        bindtouchend="onTouchEnd"
+      >
         <view class="swipe-delete-wrap {{swipeOpenId === item._id ? 'open' : ''}}">
           <view class="swipe-delete" catchtap="onDeleteDevice" data-id="{{item._id}}">
             <text>{{deletingId === item._id ? '删除中' : '删除'}}</text>
           </view>
         </view>
 
-        <view
-          class="swipe-card {{swipeOpenId === item._id ? 'open' : ''}}"
-          bindtap="goToDetail"
-          catchtouchstart="onTouchStart"
-          catchtouchend="onTouchEnd"
-          data-id="{{item._id}}"
-        >
-          <view class="device-item panel">
+        <view class="swipe-card {{swipeOpenId === item._id ? 'open' : ''}}">
+          <navigator
+            class="device-item panel"
+            url="/pages/device-detail/device-detail?id={{item._id}}"
+            hover-class="none"
+          >
             <view class="panel-section">
               <view class="device-item-head">
                 <text class="device-item-title">{{item.deviceName || '压力表'}}</text>
@@ -60,7 +65,7 @@
                 <text class="device-item-value">{{item.createTime || '-'}}</text>
               </view>
             </view>
-          </view>
+          </navigator>
         </view>
       </view>
     </view>

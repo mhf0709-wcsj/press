@@ -1,7 +1,9 @@
-const db = wx.cloud.database()
+const { DISTRICTS } = require('../../constants/index')
+const authService = require('../../services/auth-service')
+const { storage } = require('../../utils/index')
 
 const TEXT = {
-  brandName: '\u538b\u529b\u8868\u667a\u80fd\u52a9\u624b',
+  brandName: '\u538b\u529b\u8868\u667a\u80fd\u7ba1\u5bb6',
   title: '\u8865\u5168\u4f01\u4e1a\u4fe1\u606f',
   desc: '',
   manualTitle: '\u4f01\u4e1a\u6ce8\u518c',
@@ -50,7 +52,7 @@ Page({
     phone: '',
     district: '',
     districtIndex: -1,
-    districtOptions: ['\u5927\u5cc3\u6240', '\u73ca\u6eaa\u6240', '\u5de8\u5c7f\u6240', '\u5cc3\u53e3\u6240', '\u9ec4\u5766\u6240', '\u897f\u5751\u6240', '\u7389\u58f6\u6240', '\u5357\u7530\u6240', '\u767e\u4e08\u6f08\u6240'],
+    districtOptions: [...DISTRICTS],
     loading: false
   },
 
@@ -87,12 +89,7 @@ Page({
     const payload = this.validateForm()
     if (!payload) return
 
-    if (this.data.bindMode) {
-      await this.handleBindEnterprise(payload)
-      return
-    }
-
-    this.handleManualRegister(payload)
+    await this.handleBindEnterprise(payload)
   },
 
   validateForm() {
@@ -147,20 +144,10 @@ Page({
     wx.showLoading({ title: TEXT.loading, mask: true })
 
     try {
-      const res = await wx.cloud.callFunction({
-        name: 'enterpriseAuth',
-        data: {
-          action: 'bindEnterprise',
-          ...payload
-        }
-      })
+      const result = await authService.bindEnterprise(payload)
+      if (!result.enterprise) throw new Error(TEXT.registerFailed)
 
-      const result = res.result || {}
-      if (!result.success || !result.enterprise) {
-        throw new Error(result.error || TEXT.registerFailed)
-      }
-
-      wx.setStorageSync('enterpriseUser', result.enterprise)
+      storage.setEnterpriseUser(result.enterprise)
       wx.removeStorageSync('enterpriseAuthPending')
       wx.hideLoading()
       wx.showToast({ title: TEXT.bindSuccess, icon: 'success' })
@@ -174,63 +161,6 @@ Page({
     } finally {
       this.setData({ loading: false })
     }
-  },
-
-  handleManualRegister(payload) {
-    this.setData({ loading: true })
-    wx.showLoading({ title: TEXT.loading, mask: true })
-
-    db.collection('enterprises').where({
-      companyName: payload.companyName
-    }).get()
-      .then((res) => {
-        if (res.data && res.data.length > 0) {
-          wx.hideLoading()
-          wx.showToast({ title: TEXT.existsCompany, icon: 'none' })
-          return Promise.reject(new Error('company_exists'))
-        }
-
-        return db.collection('enterprises').where({
-          phone: payload.phone
-        }).get()
-      })
-      .then((res) => {
-        if (res.data && res.data.length > 0) {
-          wx.hideLoading()
-          wx.showToast({ title: TEXT.existsPhone, icon: 'none' })
-          return Promise.reject(new Error('phone_exists'))
-        }
-
-        return db.collection('enterprises').add({
-          data: {
-            ...payload,
-            createTime: new Date(),
-            updateTime: new Date()
-          }
-        })
-      })
-      .then((res) => {
-        wx.setStorageSync('enterpriseUser', {
-          _id: res._id,
-          ...payload
-        })
-        wx.hideLoading()
-        wx.showToast({ title: TEXT.registerSuccess, icon: 'success' })
-        setTimeout(() => {
-          wx.redirectTo({ url: '/pages/equipment-detail/equipment-detail?mode=create&init=1' })
-        }, 1400)
-      })
-      .catch((err) => {
-        if (err && (err.message === 'company_exists' || err.message === 'phone_exists')) {
-          return
-        }
-        wx.hideLoading()
-        console.error('Manual register failed:', err)
-        wx.showToast({ title: TEXT.registerFailed, icon: 'none' })
-      })
-      .finally(() => {
-        this.setData({ loading: false })
-      })
   },
 
   goBack() {

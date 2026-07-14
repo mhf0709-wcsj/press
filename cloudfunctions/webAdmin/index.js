@@ -50,6 +50,23 @@ function normalizeAdmin(admin) {
   }
 }
 
+function normalizeEnterprise(enterprise) {
+  return {
+    id: enterprise._id,
+    companyName: enterprise.companyName || enterprise.enterpriseName || '',
+    phone: enterprise.phone || enterprise.contactPhone || enterprise.legalPersonPhone || '',
+    legalPerson: enterprise.legalPerson || enterprise.contact || '',
+    creditCode: enterprise.creditCode || '',
+    district: enterprise.district || ''
+  }
+}
+
+function formatDateTime(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
+
 async function getAdminByCredential(username, password) {
   const result = await db.collection('admins').where({
     username,
@@ -121,6 +138,423 @@ async function handleLogin(payload = {}) {
   return {
     admin: normalizeAdmin(admin),
     token: `web_admin_${Date.now()}`
+  }
+}
+
+async function handleEnterpriseLogin(payload = {}) {
+  const companyName = String(payload.companyName || '').trim()
+  const phone = String(payload.phone || '').trim()
+
+  if (!companyName || !phone) {
+    throw new Error('请输入企业名称和法人手机号')
+  }
+
+  const result = await db.collection('enterprises').where({
+    companyName,
+    phone
+  }).limit(1).get()
+
+  const enterprise = result.data && result.data.length > 0 ? result.data[0] : null
+  if (!enterprise) {
+    throw new Error('企业名称或手机号不匹配')
+  }
+
+  await db.collection('enterprises').doc(enterprise._id).update({
+    data: {
+      lastLoginTime: new Date(),
+      updateTime: new Date()
+    }
+  })
+
+  return {
+    enterprise: normalizeEnterprise(enterprise),
+    token: `web_enterprise_${Date.now()}`
+  }
+}
+
+async function handleEnterpriseRegister(payload = {}) {
+  const companyName = String(payload.companyName || '').trim()
+  const creditCode = String(payload.creditCode || '').trim().toUpperCase()
+  const legalPerson = String(payload.legalPerson || '').trim()
+  const phone = String(payload.phone || '').trim()
+  const district = String(payload.district || '').trim()
+
+  if (!companyName) throw new Error('请输入企业名称')
+  if (!creditCode || creditCode.length !== 18) throw new Error('请输入18位统一社会信用代码')
+  if (!legalPerson) throw new Error('请输入企业法人')
+  if (!/^1[3-9]\d{9}$/.test(phone)) throw new Error('请输入正确的法人手机号')
+  if (!district) throw new Error('请选择辖区')
+
+  const [companyRes, creditRes, phoneRes] = await Promise.all([
+    db.collection('enterprises').where({ companyName }).limit(1).get(),
+    db.collection('enterprises').where({ creditCode }).limit(1).get(),
+    db.collection('enterprises').where({ phone }).limit(1).get()
+  ])
+
+  if (companyRes.data && companyRes.data.length) throw new Error('该企业已注册')
+  if (creditRes.data && creditRes.data.length) throw new Error('该统一社会信用代码已存在')
+  if (phoneRes.data && phoneRes.data.length) throw new Error('该手机号已被注册')
+
+  const now = new Date()
+  const addRes = await db.collection('enterprises').add({
+    data: {
+      companyName,
+      creditCode,
+      legalPerson,
+      phone,
+      district,
+      createTime: now,
+      updateTime: now,
+      lastLoginTime: now,
+      authType: 'web'
+    }
+  })
+
+  const docRes = await db.collection('enterprises').doc(addRes._id).get()
+  return {
+    enterprise: normalizeEnterprise(docRes.data),
+    token: `web_enterprise_${Date.now()}`
+  }
+}
+
+function buildEnterpriseWhere(enterprise) {
+  const companyName = enterprise.companyName || enterprise.enterpriseName || ''
+  if (!companyName) throw new Error('缺少企业身份')
+  return {
+    enterpriseName: companyName,
+    isDeleted: false
+  }
+}
+
+function parseDateInput(value) {
+  const text = String(value || '').trim()
+  if (!text) return null
+  const normalized = text
+    .replace(/年/g, '-')
+    .replace(/月/g, '-')
+    .replace(/日/g, '')
+    .replace(/\./g, '-')
+    .replace(/\//g, '-')
+  const date = new Date(normalized)
+  if (Number.isNaN(date.getTime())) return null
+  return date
+}
+
+function calculateExpiryDate(value) {
+  const date = parseDateInput(value)
+  if (!date) return ''
+  const expiryDate = new Date(date)
+  expiryDate.setMonth(expiryDate.getMonth() + 6)
+  expiryDate.setDate(expiryDate.getDate() - 1)
+  return formatDate(expiryDate)
+}
+
+async function handleGetEnterpriseDashboard(payload = {}) {
+  const enterprise = payload.enterprise || {}
+  const companyName = enterprise.companyName || ''
+  const today = startOfToday()
+
+  const [equipments, gauges, records] = await Promise.all([
+    fetchAll('equipments', { enterpriseName: companyName, isDeleted: false }, 'createTime', 'desc'),
+    fetchAll('devices', { enterpriseName: companyName, isDeleted: false }, 'createTime', 'desc'),
+    fetchAll('pressure_records', { enterpriseName: companyName, isDeleted: false }, 'createTime', 'desc')
+  ])
+
+  const expiredCount = records.filter((item) => isExpiredDate(item.expiryDate)).length
+  const expiringCount = records.filter((item) => !isExpiredDate(item.expiryDate) && isExpiringDate(item.expiryDate, 30)).length
+  const inactiveCount = gauges.filter((item) => ['停用', '报废'].includes(item.status)).length
+  const unboundCount = equipments.filter((item) => Number(item.gaugeCount || 0) === 0).length
+
+  return {
+    summary: {
+      equipmentCount: equipments.length,
+      gaugeCount: gauges.length,
+      expiredCount,
+      expiringCount,
+      inactiveCount,
+      unboundCount
+    },
+    recentRecords: records.slice(0, 8).map((item) => ({
+      _id: item._id,
+      certNo: item.certNo || '',
+      factoryNo: item.factoryNo || '',
+      instrumentName: item.instrumentName || '',
+      equipmentName: item.equipmentName || '',
+      conclusion: item.conclusion || '',
+      verificationDate: formatDate(item.verificationDate),
+      expiryDate: formatDate(item.expiryDate),
+      isExpired: new Date(item.expiryDate) < today
+    })),
+    unboundEquipments: equipments
+      .filter((item) => Number(item.gaugeCount || 0) === 0)
+      .slice(0, 8)
+      .map((item) => ({
+        _id: item._id,
+        equipmentName: item.equipmentName || '',
+        equipmentNo: item.equipmentNo || '',
+        location: item.location || ''
+      }))
+  }
+}
+
+async function handleGetEnterpriseEquipments(payload = {}) {
+  const enterprise = payload.enterprise || {}
+  const keyword = String(payload.keyword || '').trim()
+  const whereCondition = buildEnterpriseWhere(enterprise)
+  const list = await fetchAll('equipments', whereCondition, 'createTime', 'desc')
+
+  return {
+    list: list
+      .filter((item) => matchKeyword([item.equipmentName, item.equipmentNo, item.location], keyword))
+      .map((item) => ({
+        _id: item._id,
+        equipmentName: item.equipmentName || '',
+        equipmentNo: item.equipmentNo || '',
+        location: item.location || '',
+        district: item.district || '',
+        gaugeCount: Number(item.gaugeCount || 0),
+        createTime: formatDate(item.createTime)
+      }))
+  }
+}
+
+async function handleSaveEnterpriseEquipment(payload = {}) {
+  const enterprise = payload.enterprise || {}
+  const data = payload.data || {}
+  const companyName = enterprise.companyName || ''
+  const now = formatDateTime(new Date())
+  const equipmentName = String(data.equipmentName || '').trim()
+
+  if (!companyName) throw new Error('缺少企业身份')
+  if (!equipmentName) throw new Error('请输入设备名称')
+
+  const doc = {
+    equipmentNo: data.equipmentNo || `EQ-${Date.now()}`,
+    equipmentName,
+    enterpriseName: companyName,
+    district: data.district || enterprise.district || '',
+    location: data.location || '',
+    gaugeCount: Number(data.gaugeCount || 0),
+    isDeleted: false,
+    updateTime: now
+  }
+
+  if (data._id) {
+    await db.collection('equipments').doc(data._id).update({ data: doc })
+    return { _id: data._id, ...doc }
+  }
+
+  const res = await db.collection('equipments').add({
+    data: {
+      ...doc,
+      deletedAt: '',
+      deletedBy: '',
+      deletedById: '',
+      createTime: now
+    }
+  })
+  return { _id: res._id, ...doc }
+}
+
+async function handleDeleteEnterpriseEquipment(payload = {}) {
+  const enterprise = payload.enterprise || {}
+  const id = payload.id
+  if (!id) throw new Error('缺少设备ID')
+  const current = await db.collection('equipments').doc(id).get()
+  if (!current.data || current.data.enterpriseName !== enterprise.companyName) {
+    throw new Error('无权删除该设备')
+  }
+  const now = formatDateTime(new Date())
+  await db.collection('equipments').doc(id).update({
+    data: {
+      isDeleted: true,
+      deletedAt: now,
+      deletedBy: enterprise.companyName || '企业用户',
+      deletedById: enterprise.id || '',
+      updateTime: now
+    }
+  })
+  return { success: true }
+}
+
+async function handleGetEnterpriseGauges(payload = {}) {
+  const enterprise = payload.enterprise || {}
+  const keyword = String(payload.keyword || '').trim()
+  const status = String(payload.status || '').trim()
+  const whereCondition = buildEnterpriseWhere(enterprise)
+  const list = await fetchAll('devices', whereCondition, 'createTime', 'desc')
+
+  return {
+    list: list
+      .filter((item) => !status || item.status === status)
+      .filter((item) => matchKeyword([item.deviceName, item.deviceNo, item.factoryNo, item.equipmentName, item.modelSpec], keyword))
+      .map((item) => ({
+        _id: item._id,
+        deviceName: item.deviceName || '',
+        deviceNo: item.deviceNo || '',
+        factoryNo: item.factoryNo || '',
+        equipmentId: item.equipmentId || '',
+        equipmentName: item.equipmentName || '',
+        status: item.status || '',
+        manufacturer: item.manufacturer || '',
+        modelSpec: item.modelSpec || '',
+        createTime: formatDate(item.createTime)
+      }))
+  }
+}
+
+async function handleGetEnterpriseRecords(payload = {}) {
+  const enterprise = payload.enterprise || {}
+  const keyword = String(payload.keyword || '').trim()
+  const filterType = String(payload.filterType || '').trim()
+  const whereCondition = buildEnterpriseWhere(enterprise)
+  const records = await fetchAll('pressure_records', whereCondition, 'createTime', 'desc')
+
+  return {
+    list: records
+      .filter((item) => {
+        const expired = isExpiredDate(item.expiryDate)
+        if (filterType === 'expired' && !expired) return false
+        if (filterType === 'expiring' && (expired || !isExpiringDate(item.expiryDate, 30))) return false
+        return true
+      })
+      .filter((item) => matchKeyword([item.certNo, item.factoryNo, item.instrumentName, item.equipmentName, item.deviceName], keyword))
+      .map((item) => ({
+        _id: item._id,
+        certNo: item.certNo || '',
+        factoryNo: item.factoryNo || '',
+        instrumentName: item.instrumentName || '',
+        equipmentName: item.equipmentName || '',
+        conclusion: item.conclusion || '',
+        verificationDate: formatDate(item.verificationDate),
+        expiryDate: formatDate(item.expiryDate),
+        status: item.status || ''
+      }))
+  }
+}
+
+async function handleSaveEnterpriseAiRecord(payload = {}) {
+  const enterprise = payload.enterprise || {}
+  const extractedData = payload.extractedData || {}
+  const equipmentId = String(payload.equipmentId || '').trim()
+  const fileID = String(payload.fileID || '').trim()
+
+  const companyName = enterprise.companyName || enterprise.enterpriseName || ''
+  if (!companyName) throw new Error('缺少企业身份')
+  if (!equipmentId) throw new Error('请选择所属设备')
+
+  const equipmentRes = await db.collection('equipments').doc(equipmentId).get()
+  const equipment = equipmentRes.data
+  if (!equipment || equipment.isDeleted) {
+    throw new Error('所选设备不存在')
+  }
+  if (equipment.enterpriseName !== companyName) {
+    throw new Error('无权使用该设备')
+  }
+
+  const parsedVerificationDate = parseDateInput(extractedData.verificationDate)
+  if (!parsedVerificationDate) {
+    throw new Error('请补全检定日期后再保存')
+  }
+  const verificationDate = formatDate(parsedVerificationDate)
+
+  const now = formatDateTime(new Date())
+  const deviceNo = `DEV-${Date.now()}`
+  const deviceName = String(extractedData.instrumentName || '压力表').trim() || '压力表'
+  const factoryNo = String(extractedData.factoryNo || '').trim()
+  const modelSpec = String(extractedData.modelSpec || '').trim()
+  const manufacturer = String(extractedData.manufacturer || '').trim()
+  const conclusion = String(extractedData.conclusion || '合格').trim() || '合格'
+  const sendUnit = String(extractedData.sendUnit || '').trim()
+  const certNo = String(extractedData.certNo || '').trim()
+  const verificationStd = String(extractedData.verificationStd || '').trim()
+  const district = String(extractedData.district || equipment.district || enterprise.district || '').trim()
+  const gaugeStatus = String(extractedData.gaugeStatus || '在用').trim() || '在用'
+
+  const deviceDoc = {
+    deviceNo,
+    deviceName,
+    deviceType: '压力表',
+    enterpriseId: enterprise.id || enterprise._id || companyName,
+    enterpriseName: companyName,
+    district,
+    factoryNo,
+    equipmentId: equipment._id,
+    equipmentName: equipment.equipmentName || '',
+    status: gaugeStatus,
+    manufacturer,
+    modelSpec,
+    installLocation: equipment.location || '',
+    recordCount: 1,
+    isDeleted: false,
+    deletedAt: '',
+    deletedBy: '',
+    deletedById: '',
+    createTime: now,
+    updateTime: now
+  }
+
+  const deviceAddRes = await db.collection('devices').add({ data: deviceDoc })
+
+  const recordDoc = {
+    certNo,
+    sendUnit,
+    instrumentName: deviceName,
+    modelSpec,
+    factoryNo,
+    manufacturer,
+    verificationStd,
+    conclusion,
+    verificationDate,
+    expiryDate: calculateExpiryDate(verificationDate),
+    district,
+    status: 'valid',
+    isDeleted: false,
+    deletedAt: '',
+    deletedBy: '',
+    createTime: now,
+    updateTime: now,
+    ocrSource: 'web_ai_assistant',
+    hasImage: !!fileID,
+    hasInstallPhoto: false,
+    enterpriseId: enterprise.id || enterprise._id || companyName,
+    enterpriseName: companyName,
+    enterprisePhone: enterprise.phone || '',
+    enterpriseLegalPerson: enterprise.legalPerson || '',
+    createdBy: 'enterprise_web',
+    equipmentId: equipment._id,
+    equipmentName: equipment.equipmentName || '',
+    deviceId: deviceAddRes._id,
+    deviceName,
+    deviceNo,
+    deviceStatus: gaugeStatus
+  }
+
+  if (fileID) {
+    recordDoc.fileID = fileID
+  }
+
+  const recordAddRes = await db.collection('pressure_records').add({
+    data: recordDoc
+  })
+
+  const gaugeCountRes = await db.collection('devices').where({
+    equipmentId: equipment._id,
+    isDeleted: false
+  }).count()
+
+  await db.collection('equipments').doc(equipment._id).update({
+    data: {
+      gaugeCount: Number(gaugeCountRes.total || 0),
+      updateTime: now
+    }
+  })
+
+  return {
+    success: true,
+    recordId: recordAddRes._id,
+    deviceId: deviceAddRes._id,
+    equipmentId: equipment._id
   }
 }
 
@@ -373,6 +807,9 @@ async function handleGetEnterprises(payload = {}) {
 
 exports.main = async (event) => {
   try {
+    if (process.env.WEB_ADMIN_ENABLED !== 'true') {
+      throw new Error('网页监管接口已停用，请使用小程序安全数据接口')
+    }
     const action = event.action
     const payload = event.payload || {}
     let data = null
@@ -382,6 +819,15 @@ exports.main = async (event) => {
     else if (action === 'getDashboard') data = await handleGetDashboard(payload)
     else if (action === 'getRecords') data = await handleGetRecords(payload)
     else if (action === 'getEnterprises') data = await handleGetEnterprises(payload)
+    else if (action === 'enterpriseLogin') data = await handleEnterpriseLogin(payload)
+    else if (action === 'enterpriseRegister') data = await handleEnterpriseRegister(payload)
+    else if (action === 'getEnterpriseDashboard') data = await handleGetEnterpriseDashboard(payload)
+    else if (action === 'getEnterpriseEquipments') data = await handleGetEnterpriseEquipments(payload)
+    else if (action === 'saveEnterpriseEquipment') data = await handleSaveEnterpriseEquipment(payload)
+    else if (action === 'deleteEnterpriseEquipment') data = await handleDeleteEnterpriseEquipment(payload)
+    else if (action === 'getEnterpriseGauges') data = await handleGetEnterpriseGauges(payload)
+    else if (action === 'getEnterpriseRecords') data = await handleGetEnterpriseRecords(payload)
+    else if (action === 'saveEnterpriseAiRecord') data = await handleSaveEnterpriseAiRecord(payload)
     else throw new Error('不支持的操作类型')
 
     return { success: true, data }

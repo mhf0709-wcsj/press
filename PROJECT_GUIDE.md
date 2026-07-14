@@ -35,6 +35,7 @@
 - `pressure_records`：压力表检定记录
 - `deletion_logs`：删除留痕
 - `admins`：管理端账号
+- `auth_sessions`：管理端短期会话，仅云函数可读写
 - `kb_docs`、`kb_chunks`：AI 知识库
 - `enterprise_alert_settings`、`expiry_alert_logs`：提醒配置和日志
 
@@ -62,6 +63,17 @@
 `expiryReminder`：
 
 - `DEVICE_EXPIRY_TEMPLATE_ID`：设备到期提醒订阅消息模板 ID，可选
+- `REMINDER_TASK_SECRET`：定时扫描任务调用密钥
+
+`initAdmin`：
+
+- `INITIAL_ADMIN_USERNAME`：首次管理员用户名
+- `INITIAL_ADMIN_PASSWORD`：首次管理员强密码，至少 8 位且包含字母和数字
+- `ADMIN_BOOTSTRAP_SECRET`：一次性初始化调用密钥
+
+`dataMaintenance`：
+
+- `MAINTENANCE_SECRET`：数据维护任务调用密钥
 
 安全要求：
 
@@ -149,7 +161,8 @@ AI 管家不能直接绕过业务规则改库，推荐链路是：
 
 云函数检查：
 
-- 正式环境部署 `aiAssistant`、`baiduOcr`、`enterpriseAuth`、`expiryReminder`、`initAdmin`、`webAdmin`。
+- 正式环境部署 `aiAssistant`、`baiduOcr`、`enterpriseAuth`、`dataAccess`、`expiryReminder`、`initAdmin`。
+- `webAdmin` 默认停用，不作为小程序正式版依赖。
 - 环境变量已在云开发控制台配置。
 - 正式环境和体验版使用同一个目标云环境。
 
@@ -165,7 +178,7 @@ AI 管家不能直接绕过业务规则改库，推荐链路是：
 
 管理端冒烟：
 
-- `admin / admin123` 可登录。
+- 使用云端已初始化的管理员账号登录，代码中不存在默认密码。
 - 预览平台数据正常。
 - 管理工作台入口清晰。
 - 台账中心可筛选数据。
@@ -199,3 +212,23 @@ AI 管家不能直接绕过业务规则改库，推荐链路是：
 权限差异：
 
 - iOS、鸿蒙、开发者工具数据不一致时，优先检查登录态、云环境、云函数权限和集合权限。
+
+## 8. 正式环境数据权限
+
+小程序端不再直接调用数据库集合，所有业务数据统一经过 `dataAccess`、`enterpriseAuth`、`aiAssistant` 和 `expiryReminder` 云函数校验。
+
+云开发控制台中，下列集合应设置为“所有用户不可直接读写”或等价的自定义安全规则；云函数使用服务端 SDK，不受客户端规则影响：
+
+- `admins`
+- `auth_sessions`
+- `enterprises`
+- `equipments`
+- `devices`
+- `pressure_records`
+- `deletion_logs`
+- `lifecycle_logs`
+- `enterprise_alert_settings`
+- `kb_docs`
+- `kb_chunks`
+
+管理员旧明文密码会在首次成功登录时自动升级为 PBKDF2 加盐哈希，并删除原 `password` 字段。登录连续失败 5 次后锁定 15 分钟，管理会话有效期为 12 小时。

@@ -3,18 +3,8 @@ const equipmentService = require('../../services/equipment-service')
 const deviceService = require('../../services/device-service')
 const lifecycleService = require('../../services/lifecycle-service')
 const { calculateExpiryDate } = require('../../utils/helpers/date')
+const { DISTRICTS } = require('../../constants/index')
 
-const DISTRICT_OPTIONS = [
-  '\u5927\u5cc3\u6240',
-  '\u73ca\u6eaa\u6240',
-  '\u5de8\u5c7f\u6240',
-  '\u5cc3\u53e3\u6240',
-  '\u9ec4\u5766\u6240',
-  '\u897f\u5751\u6240',
-  '\u7389\u58f6\u6240',
-  '\u5357\u7530\u6240',
-  '\u767e\u4e08\u6f08\u6240'
-]
 const CONCLUSION_OPTIONS = ['\u5408\u683c', '\u4e0d\u5408\u683c']
 const DEVICE_STATUS_OPTIONS = ['\u5728\u7528', '\u5907\u7528', '\u9001\u68c0', '\u505c\u7528', '\u62a5\u5e9f']
 
@@ -35,7 +25,7 @@ Page({
       district: '',
       deviceStatus: '\u5728\u7528'
     },
-    districtOptions: DISTRICT_OPTIONS,
+    districtOptions: [...DISTRICTS],
     districtIndex: -1,
     conclusionOptions: CONCLUSION_OPTIONS,
     conclusionIndex: -1,
@@ -122,7 +112,7 @@ Page({
   },
 
   findDistrictIndex(district) {
-    return DISTRICT_OPTIONS.findIndex((item) => item === district)
+    return this.data.districtOptions.findIndex((item) => item === district)
   },
 
   findEquipmentIndex(equipmentId) {
@@ -141,7 +131,7 @@ Page({
     const index = Number(e.detail.value || -1)
     this.setData({
       districtIndex: index,
-      'formData.district': DISTRICT_OPTIONS[index] || ''
+      'formData.district': this.data.districtOptions[index] || ''
     })
   },
 

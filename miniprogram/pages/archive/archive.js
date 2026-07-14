@@ -1,4 +1,5 @@
 const equipmentService = require('../../services/equipment-service')
+const { runSingleFlight } = require('../../utils/request-control')
 
 const TEXT = {
   loginFirst: '请先登录',
@@ -25,19 +26,25 @@ Page({
   },
 
   onLoad() {
-    this.loadEnterpriseInfo()
+    wx.setNavigationBarTitle({ title: '设备档案' })
+    this.loadEnterpriseInfo().finally(() => {
+      this.hasLoadedOnce = true
+    })
   },
 
   onShow() {
+    if (!this.hasLoadedOnce) return
+
+    wx.setNavigationBarTitle({ title: '设备档案' })
     if (this.data.enterpriseUser) {
-      this.loadEquipments()
+      this.loadEquipments({ silent: true })
     }
   },
 
-  loadEnterpriseInfo() {
+  async loadEnterpriseInfo() {
     const enterpriseUser = wx.getStorageSync('enterpriseUser')
     this.setData({ enterpriseUser })
-    this.loadEquipments()
+    await this.loadEquipments()
   },
 
   onPullDownRefresh() {
@@ -47,21 +54,31 @@ Page({
     })
   },
 
-  async loadEquipments() {
+  loadEquipments(options = {}) {
+    return runSingleFlight(this, 'loadEquipments', () => this.performLoadEquipments(options), {
+      queueLatest: !options.silent
+    })
+  },
+
+  async performLoadEquipments(options = {}) {
     const enterpriseUser = this.data.enterpriseUser || wx.getStorageSync('enterpriseUser')
     if (!enterpriseUser || !enterpriseUser.companyName) {
       wx.showToast({ title: TEXT.loginFirst, icon: 'none' })
       return
     }
 
-    wx.showLoading({ title: TEXT.loading })
+    if (!options.silent) {
+      wx.showLoading({ title: TEXT.loading })
+    }
     try {
       const equipments = await equipmentService.searchEquipments(this.data.searchKeyword, { enterpriseUser })
       this.setData({ equipments, enterpriseUser, swipeIndex: -1 })
     } catch (error) {
       wx.showToast({ title: TEXT.loadFailed, icon: 'none' })
     } finally {
-      wx.hideLoading()
+      if (!options.silent) {
+        wx.hideLoading()
+      }
     }
   },
 
@@ -83,6 +100,7 @@ Page({
 
     const id = e.currentTarget.dataset.id
     if (!id) return
+    wx.setNavigationBarTitle({ title: '设备档案' })
     wx.navigateTo({ url: `/pages/equipment-detail/equipment-detail?id=${id}` })
   },
 
@@ -173,6 +191,7 @@ Page({
   },
 
   createEquipment() {
+    wx.setNavigationBarTitle({ title: '设备档案' })
     wx.navigateTo({ url: '/pages/equipment-detail/equipment-detail?mode=create' })
   }
 })

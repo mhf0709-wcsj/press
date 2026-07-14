@@ -146,6 +146,12 @@
               <text class="empty-text">{{text.emptyDeletions}}</text>
             </view>
           </view>
+
+          <view class="pagination-row" wx:if="{{(viewMode === 'records' && records.length) || (viewMode === 'equipments' && equipments.length) || (viewMode === 'deletions' && deletionLogs.length)}}">
+            <view class="pagination-button {{hasMore ? '' : 'disabled'}}" bindtap="loadMore">
+              <text>{{loadingMore ? text.loadingMore : (hasMore ? text.loadMore : text.noMore)}}</text>
+            </view>
+          </view>
         </view>
       </view>
     </view>

@@ -1,3 +1,5 @@
+const authService = require('../../services/auth-service')
+
 const TEXT = {
   heroTopline: '管理端',
   heroTitle: '管理工作台',
@@ -89,7 +91,7 @@ Page({
       content: TEXT.messages.logoutContent,
       success: (res) => {
         if (!res.confirm) return
-        wx.removeStorageSync('adminUser')
+        authService.adminLogout()
         wx.redirectTo({
           url: '/pages/admin-login/admin-login'
         })

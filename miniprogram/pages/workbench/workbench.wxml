@@ -14,7 +14,6 @@
             <view class="section-title">{{text.dashboardTitle}}</view>
             <view class="section-note" wx:if="{{text.dashboardNote}}">{{text.dashboardNote}}</view>
           </view>
-          <view class="device-create" bindtap="goToCreateEquipment">{{text.createEquipment}}</view>
         </view>
 
         <view class="device-grid">

@@ -1,7 +1,8 @@
 ﻿const { CLOUD_CONFIG } = require('../../constants/index')
 const deletionLogService = require('../../services/deletion-log-service')
-
-let db = null
+const { DISTRICTS: DISTRICT_NAMES } = require('../../constants/index')
+const { runSingleFlight } = require('../../utils/request-control')
+const dataAccess = require('../../services/data-access-service')
 
 const TEXT = {
   heroTopline: '台账',
@@ -16,9 +17,12 @@ const TEXT = {
   modeEquipments: '\u8bbe\u5907\u6863\u6848',
   modeDeletions: '\u5220\u9664\u7559\u75d5',
   refresh: '\u5237\u65b0',
+  loadMore: '加载更多',
+  loadingMore: '正在加载...',
+  noMore: '已加载全部',
   fromDashboard: '\u8fd4\u56de\u9996\u9875',
   scopeAll: '\u5168\u90e8\u8bb0\u5f55',
-  scopeExpired: '\u5df2\u8fc7\u671f',
+  scopeExpired: '逾期',
   scopeExpiring: '30\u5929\u5185\u5230\u671f',
   scopeRisk: '\u98ce\u9669\u8bb0\u5f55',
   emptyRecords: '\u6682\u65e0\u8bb0\u5f55',
@@ -44,15 +48,7 @@ const TEXT = {
 
 const DISTRICTS = [
   '\u5168\u90e8\u8f96\u533a',
-  '\u5927\u5cc3\u6240',
-  '\u73ca\u6eaa\u6240',
-  '\u5de8\u5c7f\u6240',
-  '\u5cc3\u53e3\u6240',
-  '\u9ec4\u5766\u6240',
-  '\u897f\u5751\u6240',
-  '\u7389\u58f6\u6240',
-  '\u5357\u7530\u6240',
-  '\u767e\u4e08\u6f08\u6240'
+  ...DISTRICT_NAMES
 ]
 
 Page({
@@ -72,7 +68,9 @@ Page({
     adminDistrict: '',
     fromDashboard: false,
     filterType: '',
-    selectedConclusion: ''
+    selectedConclusion: '',
+    hasMore: false,
+    loadingMore: false
   },
 
   onLoad(options = {}) {
@@ -105,12 +103,10 @@ Page({
   },
 
   initCloudContext() {
-    if (db) return Promise.resolve()
     wx.cloud.init({
       env: CLOUD_CONFIG.ENV,
       traceUser: true
     })
-    db = wx.cloud.database()
     return Promise.resolve()
   },
 
@@ -134,11 +130,18 @@ Page({
   },
 
   onPullDownRefresh() {
-    this.loadAllData().finally(() => wx.stopPullDownRefresh())
+    this.loadAllData({ force: true }).finally(() => wx.stopPullDownRefresh())
   },
 
-  async loadAllData() {
-    this.setData({ loading: true })
+  loadAllData(options = {}) {
+    return runSingleFlight(this, 'loadAllData', () => this.performLoadAllData(), {
+      queueLatest: !!options.force
+    })
+  },
+
+  async performLoadAllData() {
+    this.currentPage = 0
+    this.setData({ loading: true, hasMore: false })
     wx.showLoading({ title: '\u52a0\u8f7d\u4e2d...' })
 
     try {
@@ -157,6 +160,7 @@ Page({
       this.hasLoadedOnce = true
       wx.hideLoading()
       this.setData({ loading: false })
+      this.flushPendingCurrentRefresh()
     }
   },
 
@@ -172,19 +176,15 @@ Page({
     } catch (error) {}
   },
 
-  loadCurrentView() {
-    if (this.data.viewMode === 'records') return this.loadRecords()
-    if (this.data.viewMode === 'equipments') return this.loadEquipments()
-    return this.loadDeletionLogs()
+  loadCurrentView(options = {}) {
+    if (this.data.viewMode === 'records') return this.loadRecords(options)
+    if (this.data.viewMode === 'equipments') return this.loadEquipments(options)
+    return this.loadDeletionLogs(options)
   },
 
   async loadEnterprises() {
-    const res = await db.collection('enterprises')
-      .field({ companyName: true })
-      .limit(200)
-      .get()
-
-    const enterprises = (res.data || [])
+    const list = await dataAccess.list('enterprises', { limit: 100 })
+    const enterprises = list
       .filter((item) => item.companyName)
       .map((item) => ({ companyName: item.companyName }))
 
@@ -193,27 +193,29 @@ Page({
     })
   },
 
-  async loadRecords() {
+  async loadRecords(options = {}) {
+    const pageSize = 30
+    const page = options.append ? Number(this.currentPage || 0) : 0
     const whereCondition = this.buildRecordWhereCondition()
-    let query = db.collection('pressure_records')
-
-    if (Object.keys(whereCondition).length > 0) {
-      query = query.where(whereCondition)
-    }
-
-    const res = await query
-      .orderBy('createTime', 'desc')
-      .limit(100)
-      .get()
-
+    const source = await dataAccess.list('pressure_records', {
+      filters: whereCondition,
+      keyword: this.data.searchKeyword,
+      keywordFields: ['certNo', 'factoryNo', 'instrumentName', 'enterpriseName', 'equipmentName'],
+      orderBy: { field: 'createTime', direction: 'desc' },
+      skip: page * pageSize,
+      limit: pageSize
+    })
+    const records = this.filterRecordsByKeyword(source)
+    this.currentPage = page + 1
     this.setData({
-      records: this.filterRecordsByKeyword(res.data || [])
+      records: options.append ? [...this.data.records, ...records] : records,
+      hasMore: source.length === pageSize
     })
   },
 
   buildRecordWhereCondition() {
     const condition = {
-      isDeleted: db.command.neq(true)
+      isDeleted: { neq: true }
     }
 
     if (this.deviceIdFilter) condition.deviceId = this.deviceIdFilter
@@ -233,16 +235,15 @@ Page({
     }
 
     if (this.data.filterType) {
-      const command = db.command
       const today = this.formatDate(new Date())
       const future = this.formatDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))
 
       if (this.data.filterType === 'expired') {
-        condition.expiryDate = command.lt(today)
+        condition.expiryDate = { lt: today }
       } else if (this.data.filterType === 'expiring') {
-        condition.expiryDate = command.and([command.gte(today), command.lte(future)])
+        condition.expiryDate = { gte: today, lte: future }
       } else if (this.data.filterType === 'expiry' || this.data.filterType === 'risk') {
-        condition.expiryDate = command.lte(future)
+        condition.expiryDate = { lte: future }
       }
     }
 
@@ -266,27 +267,29 @@ Page({
     })
   },
 
-  async loadEquipments() {
+  async loadEquipments(options = {}) {
+    const pageSize = 30
+    const page = options.append ? Number(this.currentPage || 0) : 0
     const whereCondition = this.buildEquipmentWhereCondition()
-    let query = db.collection('equipments')
-
-    if (Object.keys(whereCondition).length > 0) {
-      query = query.where(whereCondition)
-    }
-
-    const res = await query
-      .orderBy('createTime', 'desc')
-      .limit(100)
-      .get()
-
+    const source = await dataAccess.list('equipments', {
+      filters: whereCondition,
+      keyword: this.data.searchKeyword,
+      keywordFields: ['equipmentName', 'equipmentNo', 'enterpriseName', 'location'],
+      orderBy: { field: 'createTime', direction: 'desc' },
+      skip: page * pageSize,
+      limit: pageSize
+    })
+    const equipments = this.filterEquipmentsByKeyword(source)
+    this.currentPage = page + 1
     this.setData({
-      equipments: this.filterEquipmentsByKeyword(res.data || [])
+      equipments: options.append ? [...this.data.equipments, ...equipments] : equipments,
+      hasMore: source.length === pageSize
     })
   },
 
   buildEquipmentWhereCondition() {
     const condition = {
-      isDeleted: db.command.neq(true)
+      isDeleted: { neq: true }
     }
 
     if (this.data.adminDistrict) {
@@ -317,13 +320,21 @@ Page({
     })
   },
 
-  async loadDeletionLogs() {
+  async loadDeletionLogs(options = {}) {
+    const pageSize = 30
+    const page = options.append ? Number(this.currentPage || 0) : 0
     const logs = await deletionLogService.loadLogs({
       enterpriseName: this.data.selectedEnterprise,
       district: this.data.adminDistrict || this.data.selectedDistrict,
-      keyword: this.data.searchKeyword
+      keyword: this.data.searchKeyword,
+      skip: page * pageSize,
+      limit: pageSize
     })
-    this.setData({ deletionLogs: logs })
+    this.currentPage = page + 1
+    this.setData({
+      deletionLogs: options.append ? [...this.data.deletionLogs, ...logs] : logs,
+      hasMore: Number(logs.sourceCount ?? logs.length) === pageSize
+    })
   },
 
   onSearch(e) {
@@ -333,34 +344,60 @@ Page({
 
     clearTimeout(this.searchTimer)
     this.searchTimer = setTimeout(() => {
-      this.loadAllData()
+      this.refreshCurrentView()
     }, 250)
   },
 
   onDistrictChange(e) {
     const district = this.data.districtOptions[e.detail.value]
-    this.setData({ selectedDistrict: district }, () => this.loadAllData())
+    this.setData({
+      selectedDistrict: district,
+      selectedEnterprise: TEXT.allEnterprises
+    }, () => this.loadAllData({ force: true }))
   },
 
   onEnterpriseChange(e) {
     const enterprise = this.data.enterprises[e.detail.value]
-    this.setData({ selectedEnterprise: enterprise.companyName }, () => this.loadAllData())
+    this.setData({ selectedEnterprise: enterprise.companyName }, () => this.refreshCurrentView())
   },
 
   switchViewMode(e) {
     const mode = e.currentTarget.dataset.mode
     if (!mode || mode === this.data.viewMode) return
-    this.setData({ viewMode: mode }, () => this.loadAllData())
+    this.setData({ viewMode: mode }, () => this.refreshCurrentView())
   },
 
   setQuickFilter(e) {
     const filter = e.currentTarget.dataset.filter
     if (filter === this.data.filterType) return
-    this.setData({ filterType: filter || '' }, () => this.loadAllData())
+    this.setData({ filterType: filter || '' }, () => this.refreshCurrentView())
+  },
+
+  async refreshCurrentView() {
+    if (this.data.loading) {
+      this.pendingCurrentRefresh = true
+      return
+    }
+    this.setData({ loading: true })
+    this.currentPage = 0
+    try {
+      await this.loadCurrentView()
+    } catch (error) {
+      wx.showToast({ title: '\u6570\u636e\u52a0\u8f7d\u5931\u8d25', icon: 'none' })
+    } finally {
+      this.setData({ loading: false })
+      this.flushPendingCurrentRefresh()
+    }
+  },
+
+  flushPendingCurrentRefresh() {
+    if (!this.pendingCurrentRefresh) return
+    this.pendingCurrentRefresh = false
+    setTimeout(() => this.refreshCurrentView(), 0)
   },
 
   refreshData() {
-    this.loadAllData()
+    this.loadAllData({ force: true })
   },
 
   goToDashboard() {
@@ -377,6 +414,18 @@ Page({
     const id = e.currentTarget.dataset.id
     if (!id) return
     wx.navigateTo({ url: `/pages/equipment-detail/equipment-detail?id=${id}&adminView=1` })
+  },
+
+  async loadMore() {
+    if (!this.data.hasMore || this.data.loading || this.data.loadingMore) return
+    this.setData({ loadingMore: true })
+    try {
+      await this.loadCurrentView({ append: true })
+    } catch (error) {
+      wx.showToast({ title: '加载更多失败', icon: 'none' })
+    } finally {
+      this.setData({ loadingMore: false })
+    }
   },
 
   formatDate(date) {

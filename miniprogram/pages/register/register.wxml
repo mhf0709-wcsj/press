@@ -7,8 +7,8 @@
       </view>
 
       <view class="register-copy">
-        <view class="register-title">{{bindMode ? text.title : text.manualTitle}}</view>
-        <view class="register-desc" wx:if="{{bindMode ? text.desc : text.manualDesc}}">{{bindMode ? text.desc : text.manualDesc}}</view>
+        <view class="register-title">{{text.title}}</view>
+        <view class="register-desc" wx:if="{{text.desc}}">{{text.desc}}</view>
         <view class="register-desc" wx:if="{{text.setupHint}}">{{text.setupHint}}</view>
       </view>
 
@@ -76,7 +76,7 @@
         bindtap="handleRegister"
         disabled="{{loading}}"
       >
-        <text>{{loading ? (bindMode ? text.submitting : text.manualSubmitting) : (bindMode ? text.submit : text.manualSubmit)}}</text>
+        <text>{{loading ? text.submitting : text.submit}}</text>
       </button>
 
       <view class="register-actions">

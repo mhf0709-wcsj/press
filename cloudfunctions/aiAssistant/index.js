@@ -1,5 +1,6 @@
 ﻿const cloud = require('wx-server-sdk')
 const https = require('https')
+const crypto = require('crypto')
 const { getKnowledgeBase, getRelevantKnowledge } = require('./knowledge')
 const { buildVector, cosine, chunkText, formatDateTime } = require('./rag')
 const { createCrudHandlers } = require('./crud')
@@ -20,23 +21,23 @@ const DASHSCOPE_ENDPOINT = process.env.DASHSCOPE_ENDPOINT || 'https://dashscope.
  * 支持知识问答、OCR 识别、对话式查询和对话式修改。
  */
 exports.main = async (event, context) => {
-  const { action, question, userType, userInfo } = event
+  const { action, question } = event
   const wxContext = cloud.getWXContext()
   const openid = wxContext.OPENID
   const conversationContext = normalizeConversationContext(event.conversationContext)
 
   try {
+    const permission = await resolvePermission(event, openid)
+
     if (action === 'extractRecordFromImage') {
       return await handleImageExtraction(event)
     }
 
     if (action === 'kbInit') {
+      if (!permission.canQueryAll) throw new Error('仅总管理员可以初始化知识库')
       await seedKbIfNeeded()
       return { success: true, answer: '知识库初始化完成' }
     }
-
-    // 解析用户权限
-    const permission = parsePermission(userType, userInfo, openid)
 
     if (action === 'crudPlan') {
       const structuredIntent = await rewriteCrudIntent(String(question || ''), permission, conversationContext)
@@ -213,7 +214,7 @@ function buildCrudIntentDebugSummary(intent) {
   const fieldLabelMap = {
     factoryNo: '出厂编号',
     certNo: '证书编号',
-    deviceNo: '设备编号',
+    deviceNo: '压力表编号',
     equipmentNo: '所属设备编号',
     deviceName: '压力表名称',
     equipmentName: '设备名称',
@@ -643,16 +644,167 @@ async function handleImageExtraction(event) {
     }
   }
 
-  const data = extractRecordFields(rawText)
+  const ruleData = extractRecordFields(rawText)
+  let modelData = null
+
+  if (DASHSCOPE_API_KEY) {
+    try {
+      modelData = await extractRecordFieldsWithModel(rawText, ruleData)
+    } catch (error) {
+      console.error('AI extraction enhancement failed:', error)
+    }
+  }
+
+  const merged = mergeExtractedRecordFields(ruleData, modelData, rawText)
+  const data = merged.data
   return {
     success: true,
     data: {
       ...data,
       ocrSource: 'ai_extract',
       rawText,
-      confidence: estimateConfidence(data)
+      confidence: estimateConfidence(data, merged.fieldConfidence),
+      recognitionMeta: {
+        mode: modelData ? 'ai_enhanced' : 'rule_fallback',
+        fieldSources: merged.fieldSources,
+        fieldConfidence: merged.fieldConfidence,
+        lowConfidenceFields: merged.lowConfidenceFields
+      }
     }
   }
+}
+
+async function extractRecordFieldsWithModel(rawText, ruleData) {
+  const content = await callDashScopeChat([
+    {
+      role: 'system',
+      content: [
+        '你是压力表检定证书字段提取器。',
+        '只能依据 OCR 原文提取，不得猜测或补造。',
+        '重点区分“检定日期”和“有效期至”：verificationDate 只能取检定日期。',
+        '型号规格优先提取“型号/规格”标签后的完整值；压力范围示例为 (0-1.6) MPa。',
+        '只输出一个 JSON 对象，不要输出 Markdown。',
+        '字段固定为 certNo、factoryNo、sendUnit、instrumentName、modelSpec、manufacturer、verificationStd、conclusion、verificationDate。',
+        '没有依据的字段填写空字符串，verificationDate 格式为 YYYY-MM-DD，conclusion 只能是合格、不合格或空字符串。'
+      ].join('\n')
+    },
+    {
+      role: 'user',
+      content: `规则初步结果：${JSON.stringify(ruleData)}\n\nOCR 原文：\n${rawText.slice(0, 12000)}`
+    }
+  ])
+
+  return parseExtractionJson(content)
+}
+
+function parseExtractionJson(content) {
+  const jsonText = extractFirstJsonObject(String(content || ''))
+  if (!jsonText) return null
+
+  try {
+    const parsed = JSON.parse(jsonText)
+    if (!parsed || typeof parsed !== 'object') return null
+
+    const allowedFields = [
+      'certNo',
+      'factoryNo',
+      'sendUnit',
+      'instrumentName',
+      'modelSpec',
+      'manufacturer',
+      'verificationStd',
+      'conclusion',
+      'verificationDate'
+    ]
+    const result = {}
+    allowedFields.forEach((field) => {
+      const value = parsed[field]
+      result[field] = typeof value === 'string' ? value.trim().slice(0, 300) : ''
+    })
+    return result
+  } catch (error) {
+    console.error('parseExtractionJson failed:', error)
+    return null
+  }
+}
+
+function mergeExtractedRecordFields(ruleData, modelData, rawText) {
+  const model = modelData || {}
+  const fields = [
+    'certNo',
+    'factoryNo',
+    'sendUnit',
+    'instrumentName',
+    'modelSpec',
+    'manufacturer',
+    'verificationStd',
+    'conclusion',
+    'verificationDate'
+  ]
+  const selected = {}
+  const fieldSources = {}
+  const fieldConfidence = {}
+
+  fields.forEach((field) => {
+    const ruleValue = String(ruleData[field] || '').trim()
+    const modelValue = String(model[field] || '').trim()
+    const modelSupported = modelValue && isValueSupportedByOcr(field, modelValue, rawText)
+    const value = modelSupported ? modelValue : ruleValue
+    selected[field] = value
+
+    if (!value) {
+      fieldSources[field] = '未识别'
+      fieldConfidence[field] = 0
+    } else if (modelSupported && ruleValue && normalizeEvidence(modelValue) === normalizeEvidence(ruleValue)) {
+      fieldSources[field] = '规则与 AI 一致'
+      fieldConfidence[field] = 0.98
+    } else if (modelSupported) {
+      fieldSources[field] = 'AI 校正'
+      fieldConfidence[field] = 0.86
+    } else {
+      fieldSources[field] = '规则提取'
+      fieldConfidence[field] = 0.78
+    }
+  })
+
+  const conclusion = ['合格', '不合格'].includes(selected.conclusion)
+    ? selected.conclusion
+    : ruleData.conclusion
+  const data = {
+    certNo: selected.certNo,
+    factoryNo: selected.factoryNo,
+    sendUnit: cleanupLineValue(selected.sendUnit),
+    instrumentName: cleanupLineValue(selected.instrumentName),
+    modelSpec: normalizeModelSpec(selected.modelSpec, rawText),
+    manufacturer: cleanupLineValue(selected.manufacturer),
+    verificationStd: normalizeStd(selected.verificationStd),
+    conclusion: conclusion || '',
+    verificationDate: normalizeDateValue(selected.verificationDate) || ruleData.verificationDate || ''
+  }
+
+  const lowConfidenceFields = fields.filter((field) => !data[field] || fieldConfidence[field] < 0.8)
+  return { data, fieldSources, fieldConfidence, lowConfidenceFields }
+}
+
+function isValueSupportedByOcr(field, value, rawText) {
+  const source = String(rawText || '')
+  if (!value || !source) return false
+
+  if (field === 'verificationDate') {
+    const normalized = normalizeDateValue(value)
+    if (!normalized) return false
+    const [year, month, day] = normalized.split('-').map(Number)
+    const pattern = new RegExp(`${year}\\s*(?:年|[.\\-/])\\s*0?${month}\\s*(?:月|[.\\-/])\\s*0?${day}`)
+    return pattern.test(source)
+  }
+
+  return normalizeEvidence(source).includes(normalizeEvidence(value))
+}
+
+function normalizeEvidence(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fa5]/g, '')
 }
 
 function extractRecordFields(text) {
@@ -711,12 +863,22 @@ function extractRecordFields(text) {
 }
 
 function normalizeExtractText(text) {
-  return String(text || '')
+  let normalized = String(text || '')
     .replace(/\r/g, '\n')
     .replace(/：/g, ':')
     .replace(/（/g, '(')
     .replace(/）/g, ')')
     .replace(/[ \t]+/g, ' ')
+
+  for (let i = 0; i < 4; i += 1) {
+    normalized = normalized.replace(/([\u4e00-\u9fa5])\s+(?=[\u4e00-\u9fa5])/g, '$1')
+  }
+
+  return normalized
+    .replace(/([\u4e00-\u9fa5])\s*\/\s*([\u4e00-\u9fa5])/g, '$1/$2')
+    .replace(/([\u4e00-\u9fa5])\s*:\s*/g, '$1:')
+    .replace(/\(\s*/g, '(')
+    .replace(/\s*\)/g, ')')
 }
 
 function firstMatch(text, patterns) {
@@ -731,7 +893,7 @@ function cleanupLineValue(value) {
   if (!value) return ''
   const cleaned = String(value)
     .split(/\n/)[0]
-    .split(/(?:证书编号|出厂编号|型号规格|制造单位|检定依据|检定结论|检定日期)/)[0]
+    .split(/(?:证书编号|出厂编号|型号规格|规格型号|制造单位|检定依据|检定结论|检定日期|有效期至)/)[0]
     .trim()
   if (isOnlyFieldLabel(cleaned)) return ''
   return cleaned
@@ -777,6 +939,7 @@ function normalizeStd(value) {
 
 function extractConclusion(text) {
   if (/不合格/.test(text)) return '\u4e0d\u5408\u683c'
+  if (/该压力表合格/.test(text)) return '\u5408\u683c'
   if (/合格|符合/.test(text)) return '\u5408\u683c'
   return ''
 }
@@ -824,7 +987,7 @@ function formatYmd(date) {
   return `${year}-${month}-${day}`
 }
 
-function estimateConfidence(data) {
+function estimateConfidence(data, fieldConfidence = {}) {
   const fields = [
     'certNo',
     'factoryNo',
@@ -836,47 +999,42 @@ function estimateConfidence(data) {
     'conclusion',
     'verificationDate'
   ]
-  const hitCount = fields.filter((key) => data[key]).length
-  return Number((hitCount / fields.length).toFixed(2))
+  const populated = fields.filter((key) => data[key])
+  const completeness = populated.length / fields.length
+  const evidenceScore = populated.length
+    ? populated.reduce((sum, key) => sum + Number(fieldConfidence[key] || 0.72), 0) / populated.length
+    : 0
+  return Number((completeness * 0.4 + evidenceScore * 0.6).toFixed(2))
 }
 
-function parsePermission(userType, userInfo, openid) {
-  const permission = {
-    type: 'guest',
-    scope: '未登录',
-    query: {},
-    canQueryAll: false
-  }
-
-  if (userType === 'enterprise' && userInfo) {
-    permission.type = 'enterprise'
-    permission.scope = userInfo.companyName || '本企业'
-    permission.query = { 
-      _openid: openid
-    }
-    if (userInfo.companyName) {
-      permission.query = {
-        _: _.or([
-          { _openid: openid },
-          { enterpriseName: userInfo.companyName },
-          { companyName: userInfo.companyName }
-        ])
+async function resolvePermission(event, openid) {
+  if (event.adminToken) {
+    const tokenHash = crypto.createHash('sha256').update(String(event.adminToken)).digest('hex')
+    const sessionRes = await db.collection('auth_sessions').where({ tokenHash }).limit(1).get()
+    const session = sessionRes.data?.[0]
+    const expiresAt = session?.expiresAt ? new Date(session.expiresAt) : null
+    if (!session || !expiresAt || expiresAt.getTime() <= Date.now()) throw new Error('管理端登录已失效')
+    if (session.role === 'district' && session.district) {
+      return {
+        type: 'district_admin',
+        scope: session.district,
+        query: { district: session.district },
+        canQueryAll: false
       }
     }
-  } else if (userType === 'admin' && userInfo) {
-    if (userInfo.role === 'super' || userInfo.role === 'admin' || !userInfo.district) {
-      permission.type = 'super_admin'
-      permission.scope = '全部辖区'
-      permission.query = {}
-      permission.canQueryAll = true
-    } else if (userInfo.district) {
-      permission.type = 'district_admin'
-      permission.scope = userInfo.district
-      permission.query = { district: userInfo.district }
-    }
+    return { type: 'super_admin', scope: '全部辖区', query: {}, canQueryAll: true }
   }
 
-  return permission
+  if (!openid) throw new Error('请先登录')
+  const enterpriseRes = await db.collection('enterprises').where({ openid }).limit(1).get()
+  const enterprise = enterpriseRes.data?.[0]
+  if (!enterprise) throw new Error('企业账号尚未绑定')
+  return {
+    type: 'enterprise',
+    scope: enterprise.companyName || '本企业',
+    query: { enterpriseName: enterprise.companyName || '' },
+    canQueryAll: false
+  }
 }
 
 function detectIntent(question) {
@@ -889,7 +1047,7 @@ function detectIntent(question) {
     monthly: ['本月', '这个月', '当月'],
     yearly: ['今年', '本年', '年度'],
     qualified: ['合格', '不合格', '通过', '未通过'],
-    list: ['列表', '清单', '明细', '哪些']
+    list: ['列表', '清单', '明细', '哪些', '看一下', '看下', '帮我看', '帮我查', '详情', '状态']
   }
 
   const knowledgeKeywords = ['周期', '规程', '标准', '要求', '规定', '怎么', '如何', '什么是', '为什么']

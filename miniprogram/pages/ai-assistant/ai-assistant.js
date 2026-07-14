@@ -7,9 +7,11 @@ const equipmentService = require('../../services/equipment-service')
 const expiryReminderService = require('../../services/expiry-reminder-service')
 const formValidator = require('../../utils/form-validator')
 const { calculateExpiryDate } = require('../../utils/helpers/date')
+const { DISTRICTS } = require('../../constants/index')
+const { markLedgerChanged } = require('../../utils/data-change')
 
 const DRAFT_STATUS_OPTIONS = ['在用', '备用', '送检', '停用', '报废']
-const DRAFT_DISTRICT_OPTIONS = ['\u5927\u5cc3\u6240', '\u73ca\u6eaa\u6240', '\u5cc3\u53e3\u6240', '\u9ec4\u5766\u6240', '\u897f\u5751\u6240', '\u7389\u58f6\u6240', '\u5357\u7530\u6240', '\u767e\u4e08\u6f08\u6240']
+const DRAFT_DISTRICT_OPTIONS = [...DISTRICTS]
 
 const TEXT = {
   heroTopline: '智能管家',
@@ -75,7 +77,7 @@ const TEXT = {
     installPhotoUploaded: '好的，安装照片我已经收到了。',
     contextCrudFailed: '我没能识别出你想继续修改刚才哪条记录，你可以再明确说一次。'
   },
-  shareTitle: 'AI智能管家 - 对话式建档'
+  shareTitle: '压力表智能管家 - 对话式建档'
 }
 
 Page({
@@ -113,14 +115,19 @@ Page({
     const ready = await this.bootstrap()
     if (!ready) return
     this.ensureGuideConversation()
+    this.maybeAppendSelectedEquipmentMessage()
     this.maybeAppendUnboundEquipmentMessage()
     await this.maybeShowEntryReminder()
+    this.hasLoadedOnce = true
   },
 
   async onShow() {
+    if (!this.hasLoadedOnce) return
+
     const ready = await this.bootstrap()
     if (!ready) return
     this.ensureGuideConversation()
+    this.maybeAppendSelectedEquipmentMessage()
     this.maybeAppendUnboundEquipmentMessage()
     await this.maybeShowEntryReminder()
   },
@@ -136,11 +143,26 @@ Page({
   async bootstrap() {
     const profile = this.resolveUserProfile()
     this.setData(profile)
+
+    const app = getApp()
+    const ledgerVersion = Number(app.globalData.ledgerVersion || 0)
+    const now = Date.now()
+    if (
+      profile.userType === 'enterprise' &&
+      this.lastBootstrapAt &&
+      this.loadedLedgerVersion === ledgerVersion &&
+      now - this.lastBootstrapAt < 15000
+    ) {
+      return true
+    }
+
     if (profile.userType === 'enterprise') {
       const ready = await this.ensureEnterpriseEquipmentSetup(profile.userInfo)
       if (ready) {
         await this.loadUnboundEquipmentCount(profile.userInfo)
       }
+      this.lastBootstrapAt = Date.now()
+      this.loadedLedgerVersion = ledgerVersion
       return ready
     }
     return true
@@ -212,7 +234,7 @@ Page({
       reminderVisible: true,
       reminderCard: {
         title: '今日到期提醒',
-        summary: `您有 ${expiredCount} 台已过期，${expiringCount} 台将在 30 天内到期。`,
+        summary: `您有 ${expiredCount} 台逾期，${expiringCount} 台将在 30 天内到期。`,
         items: (data.recentItems || []).slice(0, 3).map((item) => ({
           title: item.factoryNo || item.instrumentName || TEXT.extractionTitle,
           subtitle: item.instrumentName || TEXT.fields.instrumentName,
@@ -284,6 +306,16 @@ Page({
     ])
   },
 
+  maybeAppendSelectedEquipmentMessage() {
+    const selected = wx.getStorageSync('selectedEquipmentForNewGauge')
+    if (!selected?.id || this.lastPromptedEquipmentId === selected.id) return
+
+    this.lastPromptedEquipmentId = selected.id
+    this.appendMessages([
+      this.createTextMessage('assistant', `已选择设备“${selected.name || '未命名设备'}”，请上传该设备上的压力表检定证书。`)
+    ])
+  },
+
   createBaseMessage(role, kind) {
     return {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -309,12 +341,32 @@ Page({
   },
 
   createResultMessage(result) {
+    const confidence = Number(result.confidence || 0)
+    const confidencePercent = Math.round(confidence * 100)
+    const lowConfidenceLabels = (result.recognitionMeta?.lowConfidenceFields || [])
+      .map((key) => TEXT.fields[key] || '')
+      .filter(Boolean)
+    const diagnostics = (result.fields || [])
+      .map((field) => ({
+        key: field.key,
+        label: field.label,
+        source: result.recognitionMeta?.fieldSources?.[field.key] || ''
+      }))
+      .filter((field) => field.source)
+
     return {
       ...this.createBaseMessage('assistant', 'result'),
       title: TEXT.extractionTitle,
       summary: result.summary,
       fields: result.fields,
-      imagePath: result.imagePath
+      imagePath: result.imagePath,
+      confidenceText: confidencePercent ? `识别可信度 ${confidencePercent}%` : '',
+      confidenceTone: confidence >= 0.85 ? 'good' : (confidence >= 0.7 ? 'warning' : 'risk'),
+      reviewHint: lowConfidenceLabels.length
+        ? `建议重点核对：${lowConfidenceLabels.join('、')}`
+        : '关键字段识别结果较完整',
+      recognitionMode: result.recognitionMeta?.mode === 'ai_enhanced' ? '规则与 AI 联合识别' : '规则识别',
+      diagnostics
     }
   },
 
@@ -500,6 +552,7 @@ Page({
       name: 'aiAssistant',
       data: {
         action: 'crudPlan',
+        adminToken: wx.getStorageSync('adminUser')?.token || '',
         question,
         userType: this.getCloudUserType(),
         userInfo: this.data.userInfo,
@@ -514,6 +567,7 @@ Page({
       name: 'aiAssistant',
       data: {
         action: 'crudExecute',
+        adminToken: wx.getStorageSync('adminUser')?.token || '',
         payload,
         userType: this.getCloudUserType(),
         userInfo: this.data.userInfo,
@@ -524,7 +578,11 @@ Page({
   },
 
   looksLikeCrudQuestion(question) {
-    return /(查|查询|查找|搜索|看看|列出|找出|修改|改成|改为|更新|变更|新增|创建|录入|添加|删除|移除|作废)/.test(question)
+    const text = String(question || '').trim()
+    if (/(查|查询|查找|搜索|看看|看一下|看下|帮我看|帮我查|列出|找出|修改|改成|改为|更新|变更|新增|创建|录入|添加|删除|移除|作废)/.test(text)) {
+      return true
+    }
+    return /(压力表|设备|检定记录|证书).*(编号|状态|型号|详情|哪|有没有|是否)/.test(text)
   },
 
   looksLikeDraftUndoQuestion(question) {
@@ -676,6 +734,7 @@ Page({
         name: 'aiAssistant',
         data: {
           question,
+          adminToken: wx.getStorageSync('adminUser')?.token || '',
           userType: this.getCloudUserType(),
           userInfo: this.data.userInfo,
           conversationContext: this.buildConversationContext()
@@ -732,6 +791,7 @@ Page({
 
     try {
       const result = await this.requestCrudExecute(payload)
+      markLedgerChanged()
       this.setData({
         messages: [...this.data.messages, this.createTextMessage('assistant', result.answer || TEXT.answers.fallback)],
         isCrudExecuting: false,
@@ -984,7 +1044,15 @@ Page({
         userInfo: this.data.userInfo
       })
 
-      const draft = this.buildVisionDraft(result, imagePath)
+      const selected = wx.getStorageSync('selectedEquipmentForNewGauge')
+      const draft = this.buildVisionDraft({
+        ...result,
+        selectedEquipmentId: result.selectedEquipmentId || selected?.id || '',
+        selectedEquipmentName: result.selectedEquipmentName || selected?.name || ''
+      }, imagePath)
+      if (selected?.id) {
+        wx.removeStorageSync('selectedEquipmentForNewGauge')
+      }
       wx.setStorageSync('aiAssistantRecordDraft', draft)
 
       this.setData({
@@ -1051,7 +1119,9 @@ Page({
       imagePath,
       extractedData: nextResult,
       summary: this.buildResultSummary(nextResult, nextResult.categoryLabel, nextResult.selectedEquipmentName),
-      fields: this.buildDraftFields(nextResult)
+      fields: this.buildDraftFields(nextResult),
+      confidence: Number(result.confidence || previousDraft?.confidence || 0),
+      recognitionMeta: result.recognitionMeta || previousDraft?.recognitionMeta || null
     }
   },
 
@@ -1310,7 +1380,10 @@ Page({
     })
 
     const summary = edits.map(({ config, value }) => `${config.label}改为“${value}”`).join('，')
-    const nextDraft = this.refreshVisionDraft(nextResult, { pushHistory: true })
+    const nextDraft = this.refreshVisionDraft(nextResult, {
+      pushHistory: true,
+      manuallyEditedFields: edits.map(({ config }) => config.key)
+    })
 
     this.appendMessages(this.buildDraftFollowUpMessages(nextDraft, {
       changeSummary: summary,
@@ -1323,6 +1396,25 @@ Page({
   refreshVisionDraft(nextResult, options = {}) {
     const currentDraft = this.data.visionDraft
     const draft = this.buildVisionDraft(nextResult, currentDraft?.imagePath || '', currentDraft)
+    const manuallyEditedFields = Array.isArray(options.manuallyEditedFields)
+      ? options.manuallyEditedFields
+      : []
+    if (manuallyEditedFields.length) {
+      const currentMeta = draft.recognitionMeta || {}
+      const fieldSources = { ...(currentMeta.fieldSources || {}) }
+      const fieldConfidence = { ...(currentMeta.fieldConfidence || {}) }
+      manuallyEditedFields.forEach((key) => {
+        fieldSources[key] = '用户修正'
+        fieldConfidence[key] = 1
+      })
+      draft.recognitionMeta = {
+        ...currentMeta,
+        fieldSources,
+        fieldConfidence,
+        lowConfidenceFields: (currentMeta.lowConfidenceFields || [])
+          .filter((key) => !manuallyEditedFields.includes(key))
+      }
+    }
     const nextSkippedKeys = options.keepSkipped ? (this.data.skippedDraftFieldKeys || []) : []
     wx.setStorageSync('aiAssistantRecordDraft', draft)
     this.setData({
@@ -1495,7 +1587,10 @@ Page({
       [field.key]: value
     }
 
-    const nextDraft = this.refreshVisionDraft(nextResult, { pushHistory: true })
+    const nextDraft = this.refreshVisionDraft(nextResult, {
+      pushHistory: true,
+      manuallyEditedFields: [field.key]
+    })
     this.appendMessages(this.buildDraftFollowUpMessages(nextDraft, {
       includeResultMessage: true,
       changeSummary: `${field.label}已补充为“${value}”`
@@ -1787,16 +1882,9 @@ Page({
 
     const runtime = this.getRuntimeUserOptions()
     const wantedStatus = recordData.gaugeStatus || '在用'
-    const db = wx.cloud.database()
-    const _ = db.command
-    const existed = await db.collection('devices')
-      .where({ equipmentId, factoryNo, isDeleted: false })
-      .limit(1)
-      .get()
-
-    if (existed.data && existed.data[0]) {
-      return existed.data[0]
-    }
+    const devices = await deviceService.loadDevices(runtime)
+    const existed = devices.find((item) => item.equipmentId === equipmentId && item.factoryNo === factoryNo)
+    if (existed) return existed
 
     return deviceService.createDevice({
       deviceName: recordData.instrumentName || '压力表',

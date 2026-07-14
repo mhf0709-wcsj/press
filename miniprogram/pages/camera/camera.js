@@ -8,7 +8,7 @@ const expiryReminderService = require('../../services/expiry-reminder-service')
 const recordService = require('../../services/record-service')
 const formValidator = require('../../utils/form-validator')
 const { formatDate, formatDateTime, calculateExpiryDate } = require('../../utils/helpers/date')
-const { SUBSCRIBE_TEMPLATE_IDS } = require('../../constants/index')
+const { DISTRICTS, SUBSCRIBE_TEMPLATE_IDS } = require('../../constants/index')
 const debugLog = () => {}
 
 Page({
@@ -26,7 +26,7 @@ Page({
     fromAdmin: false,
     showExpiryModal: false,
     expiryReminder: null,
-    districtOptions: ['大峃所', '珊溪所', '巨屿所', '峃口所', '黄坦所', '西坑所', '玉壶所', '南田所', '百丈漈所'],
+    districtOptions: [...DISTRICTS],
     districtIndex: 0,
     equipments: [],
     equipmentIndex: -1,
@@ -618,18 +618,12 @@ Page({
     if (!factoryNo) throw new Error('缺少出厂编号，无法生成压力表档案')
     const wantedStatus = this.data.gaugeStatus || '在用'
 
-    const db = wx.cloud.database()
-    const _ = db.command
-    const existed = await db.collection('devices')
-      .where({ equipmentId, factoryNo, isDeleted: false })
-      .limit(1)
-      .get()
-
-    if (existed.data && existed.data[0]) {
-      const gauge = existed.data[0]
+    const devices = await deviceService.loadDevices({ enterpriseUser, fromAdmin, district })
+    const gauge = devices.find((item) => item.equipmentId === equipmentId && item.factoryNo === factoryNo)
+    if (gauge) {
       if (wantedStatus && gauge.status !== wantedStatus) {
         try {
-          await db.collection('devices').doc(gauge._id).update({ data: { status: wantedStatus } })
+          await deviceService.updateDevice(gauge._id, { status: wantedStatus })
           gauge.status = wantedStatus
         } catch (e) {}
       }
@@ -728,6 +722,7 @@ Page({
         return
       }
 
+      wx.setNavigationBarTitle({ title: '确认并保存' })
       wx.navigateTo({
         url: `/pages/equipment-detail/equipment-detail?id=${equipmentId}&highlightGaugeId=${gauge._id}`
       })
