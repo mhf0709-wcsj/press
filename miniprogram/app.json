@@ -11,10 +11,12 @@
     "pages/equipment-detail/equipment-detail",
     "pages/login/login",
     "pages/register/register",
+    "pages/enterprise-profile/enterprise-profile",
     "pages/admin-login/admin-login",
     "pages/dashboard/dashboard",
     "pages/admin/admin",
     "pages/admin-workbench/admin-workbench",
+    "pages/admin-accounts/admin-accounts",
     "pages/admin-notices/admin-notices",
     "pages/enterprise-list/enterprise-list",
     "pages/district-list/district-list"

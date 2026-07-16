@@ -7,7 +7,6 @@ const TEXT = {
   desc: '使用当前微信账号安全登录',
   submit: '微信账号登录',
   submitting: '验证中...',
-  assistText: '首次使用？',
   register: '申请开通企业账号',
   adminLogin: '管理端登录',
   loginSuccess: '登录成功',

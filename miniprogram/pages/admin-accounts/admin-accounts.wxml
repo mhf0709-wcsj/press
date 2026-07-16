@@ -1,0 +1,100 @@
+<view class="page-shell accounts-page">
+  <scroll-view scroll-y class="accounts-scroll">
+    <view class="accounts-wrapper">
+      <view class="accounts-hero">
+        <view>
+          <view class="accounts-eyebrow">总管理端</view>
+          <view class="accounts-title">辖区账号</view>
+          <view class="accounts-summary">共 {{accounts.length}} 个辖区管理员</view>
+        </view>
+        <button class="create-button" bindtap="openCreate">新增账号</button>
+      </view>
+
+      <view class="search-panel">
+        <input
+          class="search-input"
+          value="{{keyword}}"
+          placeholder="搜索用户名或辖区"
+          placeholder-class="search-placeholder"
+          bindinput="onSearchInput"
+        />
+      </view>
+
+      <view class="account-list" wx:if="{{!loading && filteredAccounts.length}}">
+        <view class="account-card" wx:for="{{filteredAccounts}}" wx:key="_id">
+          <view class="account-main">
+            <view class="account-avatar">{{item.initial}}</view>
+            <view class="account-copy">
+              <view class="account-name">{{item.username}}</view>
+              <view class="account-meta">{{item.district}} · 辖区管理员</view>
+            </view>
+            <view class="account-status">正常</view>
+          </view>
+          <view class="account-login">最近登录：{{item.lastLoginLabel}}</view>
+          <view class="account-actions">
+            <button class="account-action edit-action" data-id="{{item._id}}" bindtap="openEdit">编辑</button>
+            <button class="account-action delete-action" data-id="{{item._id}}" bindtap="confirmDelete">删除</button>
+          </view>
+        </view>
+      </view>
+
+      <view class="empty-state" wx:elif="{{!loading}}">
+        <view class="empty-title">{{keyword ? '没有匹配的账号' : '暂无辖区管理员'}}</view>
+        <view class="empty-action" wx:if="{{!keyword}}" bindtap="openCreate">新增第一个账号</view>
+      </view>
+
+      <view class="loading-state" wx:else>正在加载账号...</view>
+    </view>
+  </scroll-view>
+
+  <view class="editor-mask" wx:if="{{showEditor}}" bindtap="closeEditor" catchtouchmove="noop">
+    <view class="editor-card" catchtap="noop">
+      <view class="editor-header">
+        <view class="editor-title">{{editorMode === 'create' ? '新增辖区账号' : '编辑辖区账号'}}</view>
+        <view class="editor-close" bindtap="closeEditor">×</view>
+      </view>
+
+      <view class="editor-field">
+        <view class="editor-label">用户名</view>
+        <input
+          class="editor-input"
+          value="{{editorForm.username}}"
+          data-field="username"
+          placeholder="3-32 位字母、数字或下划线"
+          placeholder-class="editor-placeholder"
+          bindinput="onEditorInput"
+        />
+      </view>
+
+      <view class="editor-field">
+        <view class="editor-label">管理辖区</view>
+        <picker mode="selector" range="{{districtOptions}}" value="{{editorForm.districtIndex}}" bindchange="onDistrictChange">
+          <view class="editor-input picker-input">
+            <text class="{{editorForm.district ? 'picker-value' : 'editor-placeholder'}}">{{editorForm.district || '请选择管理辖区'}}</text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="editor-field">
+        <view class="editor-label">{{editorMode === 'create' ? '初始密码' : '重置密码（选填）'}}</view>
+        <input
+          class="editor-input"
+          password
+          value="{{editorForm.password}}"
+          data-field="password"
+          placeholder="至少 8 位并包含字母和数字"
+          placeholder-class="editor-placeholder"
+          bindinput="onEditorInput"
+        />
+      </view>
+
+      <view class="editor-actions">
+        <button class="editor-button cancel-button" bindtap="closeEditor">取消</button>
+        <button class="editor-button save-button {{saving ? 'is-saving' : ''}}" bindtap="saveAccount" disabled="{{saving}}">
+          {{saving ? '保存中...' : '确认保存'}}
+        </button>
+      </view>
+    </view>
+  </view>
+</view>

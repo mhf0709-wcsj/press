@@ -70,12 +70,8 @@
       <view class="panel-section">
         <view class="section-title" wx:if="{{enterpriseUser}}">{{text.assets}}</view>
         <view class="profile-menu-list">
-          <view class="list-cell" bindtap="goToEquipmentLibrary" wx:if="{{enterpriseUser}}">
-            <view class="cell-title">{{text.archive}}</view>
-            <view class="cell-meta">></view>
-          </view>
-          <view class="list-cell" bindtap="goToGaugeLibrary" wx:if="{{enterpriseUser}}">
-            <view class="cell-title">{{text.gauges}}</view>
+          <view class="list-cell" bindtap="goToEnterpriseProfile" wx:if="{{enterpriseUser}}">
+            <view class="cell-title">{{text.enterpriseProfile}}</view>
             <view class="cell-meta">></view>
           </view>
           <view class="list-cell" bindtap="clearCache">

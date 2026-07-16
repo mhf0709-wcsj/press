@@ -9,23 +9,64 @@ const SESSION_TTL_MS = 12 * 60 * 60 * 1000
 const PASSWORD_ITERATIONS = 120000
 const MAX_LOGIN_FAILURES = 5
 const LOCK_TIME_MS = 15 * 60 * 1000
+const ALLOWED_DISTRICTS = ['大峃所', '珊溪所', '巨屿所', '峃口所', '黄坦所', '西坑所', '玉壶所', '南田所', '百丈漈所']
 
 exports.main = async (event = {}) => {
   try {
     const handlers = {
       wechatLogin,
       bindEnterprise,
+      updateEnterpriseProfile,
       adminLogin,
       validateAdminSession,
       changeAdminPassword,
       adminLogout,
-      reviewEnterprise
+      reviewEnterprise,
+      listDistrictAdmins,
+      createDistrictAdmin,
+      updateDistrictAdmin,
+      deleteDistrictAdmin
     }
     const handler = handlers[event.action]
     if (!handler) throw new Error('不支持的鉴权操作')
     return { success: true, ...(await handler(event)) }
   } catch (error) {
     return { success: false, error: error.message || '鉴权服务异常' }
+  }
+}
+
+async function updateEnterpriseProfile(event) {
+  const openid = requireOpenid()
+  const legalPerson = clean(event.legalPerson)
+  const phone = clean(event.phone)
+  const district = clean(event.district)
+
+  if (!legalPerson) throw new Error('请输入企业法人')
+  if (!/^1[3-9]\d{9}$/.test(phone)) throw new Error('请输入正确的联系电话')
+  if (!ALLOWED_DISTRICTS.includes(district)) throw new Error('请选择正确的所在辖区')
+
+  const res = await db.collection('enterprises').where({ openid }).limit(1).get()
+  const enterprise = res.data?.[0]
+  if (!enterprise) throw new Error('未找到当前企业资料，请重新登录')
+  if (normalizeApprovalStatus(enterprise) !== 'approved') throw new Error('企业账号尚未通过审核')
+
+  await assertEnterpriseFieldsAvailable({
+    companyName: clean(enterprise.companyName),
+    creditCode: clean(enterprise.creditCode).toUpperCase(),
+    phone,
+    excludeId: enterprise._id
+  })
+
+  const updateTime = new Date()
+  const updateData = { legalPerson, phone, district, updateTime }
+  await db.collection('enterprises').doc(enterprise._id).update({ data: updateData })
+
+  return {
+    enterprise: sanitizeEnterprise({
+      ...enterprise,
+      ...updateData,
+      approvalStatus: 'approved'
+    })
   }
 }
 
@@ -221,6 +262,97 @@ async function assertEnterpriseFieldsAvailable({ companyName, creditCode, phone,
   if (conflicts.length) throw new Error('企业名称、信用代码或手机号已存在，请联系管理员核验')
 }
 
+async function listDistrictAdmins(event) {
+  await requireSuperAdmin(event.adminToken)
+  const res = await db.collection('admins').where({ role: 'district' }).limit(100).get()
+  const accounts = (res.data || [])
+    .map(sanitizeManagedAdmin)
+    .sort((left, right) => clean(left.district).localeCompare(clean(right.district), 'zh-CN') || clean(left.username).localeCompare(clean(right.username)))
+  return { accounts }
+}
+
+async function createDistrictAdmin(event) {
+  const operator = await requireSuperAdmin(event.adminToken)
+  const username = validateManagedUsername(event.username)
+  const district = validateManagedDistrict(event.district)
+  const password = validateManagedPassword(event.password)
+
+  const existing = await db.collection('admins').where({ username }).limit(1).get()
+  if (existing.data?.length) throw new Error('用户名已存在')
+
+  const passwordData = hashPassword(password)
+  const now = new Date()
+  const addRes = await db.collection('admins').add({
+    data: {
+      username,
+      role: 'district',
+      district,
+      status: 'active',
+      passwordHash: passwordData.hash,
+      passwordSalt: passwordData.salt,
+      passwordIterations: passwordData.iterations,
+      createdBy: operator.username || '',
+      createTime: now,
+      updateTime: now
+    }
+  })
+  return {
+    account: sanitizeManagedAdmin({
+      _id: addRes._id,
+      username,
+      role: 'district',
+      district,
+      status: 'active',
+      createTime: now,
+      updateTime: now
+    })
+  }
+}
+
+async function updateDistrictAdmin(event) {
+  await requireSuperAdmin(event.adminToken)
+  const accountId = clean(event.accountId)
+  if (!accountId) throw new Error('缺少辖区账号ID')
+
+  const currentRes = await db.collection('admins').doc(accountId).get()
+  const current = currentRes.data
+  if (!current || current.role !== 'district') throw new Error('辖区账号不存在')
+
+  const username = validateManagedUsername(event.username)
+  const district = validateManagedDistrict(event.district)
+  const password = String(event.password || '')
+  const duplicateRes = await db.collection('admins').where({ username }).limit(2).get()
+  if ((duplicateRes.data || []).some((item) => item._id !== accountId)) throw new Error('用户名已存在')
+
+  const updateData = { username, district, updateTime: new Date() }
+  if (password) {
+    const passwordData = hashPassword(validateManagedPassword(password))
+    updateData.passwordHash = passwordData.hash
+    updateData.passwordSalt = passwordData.salt
+    updateData.passwordIterations = passwordData.iterations
+    updateData.password = _.remove()
+    updateData.passwordChangedAt = new Date()
+  }
+
+  await db.collection('admins').doc(accountId).update({ data: updateData })
+  await db.collection('auth_sessions').where({ adminId: accountId }).remove()
+  return { account: sanitizeManagedAdmin({ ...current, ...updateData }) }
+}
+
+async function deleteDistrictAdmin(event) {
+  await requireSuperAdmin(event.adminToken)
+  const accountId = clean(event.accountId)
+  if (!accountId) throw new Error('缺少辖区账号ID')
+
+  const currentRes = await db.collection('admins').doc(accountId).get()
+  const current = currentRes.data
+  if (!current || current.role !== 'district') throw new Error('辖区账号不存在')
+
+  await db.collection('auth_sessions').where({ adminId: accountId }).remove()
+  await db.collection('admins').doc(accountId).remove()
+  return { deleted: true, accountId }
+}
+
 async function adminLogin(event) {
   const username = clean(event.username)
   const password = String(event.password || '')
@@ -329,6 +461,12 @@ async function getAdminSession(token) {
   return session
 }
 
+async function requireSuperAdmin(token) {
+  const session = await getAdminSession(token)
+  if (!['admin', 'super_admin'].includes(session.role)) throw new Error('仅总管理员可以管理辖区账号')
+  return session
+}
+
 async function createAdminSession(data) {
   try {
     return await db.collection('auth_sessions').add({ data })
@@ -382,6 +520,26 @@ function clean(value) {
   return String(value || '').trim()
 }
 
+function validateManagedUsername(value) {
+  const username = clean(value)
+  if (!/^[A-Za-z0-9_-]{3,32}$/.test(username)) throw new Error('用户名需为 3-32 位字母、数字、下划线或短横线')
+  return username
+}
+
+function validateManagedDistrict(value) {
+  const district = clean(value)
+  if (!ALLOWED_DISTRICTS.includes(district)) throw new Error('请选择正确的管理辖区')
+  return district
+}
+
+function validateManagedPassword(value) {
+  const password = String(value || '')
+  if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    throw new Error('密码至少 8 位并同时包含字母和数字')
+  }
+  return password
+}
+
 function normalizeApprovalStatus(enterprise) {
   const status = clean(enterprise?.approvalStatus)
   return ['pending', 'approved', 'rejected'].includes(status) ? status : 'approved'
@@ -399,5 +557,18 @@ function sanitizeAdmin(item) {
     username: item.username || '',
     role: item.role || 'admin',
     district: item.district || ''
+  }
+}
+
+function sanitizeManagedAdmin(item) {
+  return {
+    _id: item._id || '',
+    username: item.username || '',
+    role: 'district',
+    district: item.district || '',
+    status: item.status || 'active',
+    lastLoginTime: item.lastLoginTime || null,
+    createTime: item.createTime || null,
+    updateTime: item.updateTime || null
   }
 }

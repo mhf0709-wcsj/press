@@ -19,11 +19,39 @@ exports.main = async (event = {}) => {
     }
 
     const existingRes = await db.collection('admins').where({ username }).limit(1).get()
-    if (existingRes.data?.length) return { success: true, created: false, message: '管理员账号已存在' }
-
     const salt = crypto.randomBytes(16).toString('hex')
     const passwordHash = crypto.pbkdf2Sync(password, salt, ITERATIONS, 32, 'sha256').toString('hex')
     const now = new Date()
+
+    if (existingRes.data?.length) {
+      if (event.action !== 'resetPassword') {
+        return { success: true, created: false, message: '管理员账号已存在' }
+      }
+
+      const admin = existingRes.data[0]
+      await db.collection('admins').doc(admin._id).update({
+        data: {
+          passwordHash,
+          passwordSalt: salt,
+          passwordIterations: ITERATIONS,
+          password: db.command.remove(),
+          failedLoginCount: 0,
+          lockedUntil: db.command.remove(),
+          passwordChangedAt: now,
+          updateTime: now
+        }
+      })
+      await db.collection('auth_sessions').where({ adminId: admin._id }).remove().catch(() => null)
+
+      return {
+        success: true,
+        created: false,
+        reset: true,
+        message: '管理员密码重置成功',
+        data: { _id: admin._id, username, role: admin.role || 'admin' }
+      }
+    }
+
     const createResult = await db.collection('admins').add({
       data: {
         username,

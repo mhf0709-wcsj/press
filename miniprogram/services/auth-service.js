@@ -19,6 +19,10 @@ module.exports = {
     return callAuth('bindEnterprise', payload)
   },
 
+  async updateEnterpriseProfile(payload) {
+    return callAuth('updateEnterpriseProfile', payload)
+  },
+
   async adminLogin(username, password) {
     const result = await callAuth('adminLogin', { username, password })
     const admin = { ...result.admin, token: result.token }
@@ -57,6 +61,26 @@ module.exports = {
       decision,
       reason
     })
+  },
+
+  async listDistrictAdmins() {
+    const admin = storage.getAdminUser()
+    return callAuth('listDistrictAdmins', { adminToken: admin?.token || '' })
+  },
+
+  async createDistrictAdmin(payload) {
+    const admin = storage.getAdminUser()
+    return callAuth('createDistrictAdmin', { adminToken: admin?.token || '', ...payload })
+  },
+
+  async updateDistrictAdmin(accountId, payload) {
+    const admin = storage.getAdminUser()
+    return callAuth('updateDistrictAdmin', { adminToken: admin?.token || '', accountId, ...payload })
+  },
+
+  async deleteDistrictAdmin(accountId) {
+    const admin = storage.getAdminUser()
+    return callAuth('deleteDistrictAdmin', { adminToken: admin?.token || '', accountId })
   },
 
   async adminLogout() {

@@ -56,19 +56,20 @@ Page({
     }
 
     const isDistrictAdmin = adminInfo.role === 'district' && adminInfo.district
+    const isAdmin = ['admin', 'super_admin'].includes(adminInfo.role)
     this.setData({
-      isAdmin: !isDistrictAdmin,
+      isAdmin,
       adminDistrict: isDistrictAdmin ? adminInfo.district : '',
       adminInfo,
       displayRole: isDistrictAdmin ? TEXT.districtRole : TEXT.adminRole,
       loginTime: this.formatDateTime(new Date()),
       adminName: isDistrictAdmin ? `${adminInfo.district}辖区` : '总管理端',
-      entries: this.buildEntries()
+      entries: this.buildEntries(this.data.pendingEnterpriseCount, isAdmin)
     })
   },
 
-  buildEntries(pendingEnterpriseCount = this.data.pendingEnterpriseCount) {
-    return [
+  buildEntries(pendingEnterpriseCount = this.data.pendingEnterpriseCount, isAdmin = this.data.isAdmin) {
+    const entries = [
       {
         key: 'ledger',
         title: '台账中心',
@@ -82,6 +83,12 @@ Page({
           : '',
         action: 'goToEnterpriseList'
       },
+      ...(isAdmin ? [{
+        key: 'accounts',
+        title: '辖区账号管理',
+        subtitle: '管理辖区管理员账号',
+        action: 'goToAdminAccounts'
+      }] : []),
       {
         key: 'notices',
         title: '企业提醒',
@@ -96,7 +103,7 @@ Page({
       const pendingEnterpriseCount = await dataAccess.count('enterprises', { approvalStatus: 'pending' })
       this.setData({
         pendingEnterpriseCount,
-        entries: this.buildEntries(pendingEnterpriseCount)
+        entries: this.buildEntries(pendingEnterpriseCount, this.data.isAdmin)
       })
     } catch (error) {}
   },
@@ -142,6 +149,13 @@ Page({
   goToEnterpriseNotices() {
     wx.navigateTo({
       url: '/pages/admin-notices/admin-notices'
+    })
+  },
+
+  goToAdminAccounts() {
+    if (!this.data.isAdmin) return
+    wx.navigateTo({
+      url: '/pages/admin-accounts/admin-accounts'
     })
   },
 

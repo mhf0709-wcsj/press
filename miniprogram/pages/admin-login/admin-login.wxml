@@ -45,8 +45,13 @@
       </button>
 
       <view class="admin-actions">
-        <text class="admin-text-link" bindtap="togglePasswordEditor">{{text.changePasswordLink}}</text>
-        <button class="btn-ghost-link admin-entry" bindtap="goToEnterprise">{{text.backToEnterprise}}</button>
+        <button class="admin-action-button" bindtap="togglePasswordEditor">
+          {{text.changePasswordLink}}
+        </button>
+        <view class="admin-action-divider"></view>
+        <button class="admin-action-button" bindtap="goToEnterprise">
+          {{text.backToEnterprise}}
+        </button>
       </view>
 
       <view class="admin-password-inline" wx:if="{{showPasswordEditor}}">
@@ -74,7 +79,7 @@
           bindinput="onInputResetConfirmPassword"
           placeholder-class="input-placeholder"
         />
-        <button class="btn-ghost-solid admin-reset-submit" bindtap="handleChangePassword">确认修改</button>
+        <button class="admin-reset-submit" bindtap="handleChangePassword">确认修改</button>
       </view>
     </view>
   </view>

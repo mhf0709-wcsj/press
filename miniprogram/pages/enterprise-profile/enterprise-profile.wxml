@@ -1,0 +1,59 @@
+<view class="page-shell enterprise-profile-page">
+  <view class="profile-shell">
+    <view class="profile-hero">
+      <view class="profile-eyebrow">企业账户</view>
+      <view class="profile-heading">企业资料</view>
+      <view class="profile-summary">维护联系人和所属辖区信息</view>
+    </view>
+
+    <view class="profile-form-card">
+      <view class="form-group readonly-group">
+        <view class="field-label">企业名称</view>
+        <view class="readonly-value">{{companyName}}</view>
+      </view>
+
+      <view class="form-group readonly-group">
+        <view class="field-label">统一社会信用代码</view>
+        <view class="readonly-value code-value">{{creditCode}}</view>
+      </view>
+
+      <view class="form-group">
+        <view class="field-label">企业法人</view>
+        <input
+          class="field-input"
+          value="{{legalPerson}}"
+          placeholder="请输入企业法人"
+          placeholder-class="input-placeholder"
+          bindinput="onInputLegalPerson"
+        />
+      </view>
+
+      <view class="form-group">
+        <view class="field-label">联系电话</view>
+        <input
+          class="field-input"
+          type="number"
+          maxlength="11"
+          value="{{phone}}"
+          placeholder="请输入联系电话"
+          placeholder-class="input-placeholder"
+          bindinput="onInputPhone"
+        />
+      </view>
+
+      <view class="form-group form-group-last">
+        <view class="field-label">所在辖区</view>
+        <picker mode="selector" range="{{districtOptions}}" value="{{districtIndex}}" bindchange="onDistrictChange">
+          <view class="field-input picker-input">
+            <text class="{{district ? 'picker-value' : 'input-placeholder'}}">{{district || '请选择所在辖区'}}</text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+      </view>
+    </view>
+
+    <button class="profile-save {{loading ? 'is-loading' : ''}}" bindtap="handleSave" disabled="{{loading}}">
+      {{loading ? '保存中...' : '保存企业资料'}}
+    </button>
+  </view>
+</view>

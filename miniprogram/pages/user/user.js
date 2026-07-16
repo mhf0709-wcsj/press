@@ -24,9 +24,8 @@ const TEXT = {
   entryReminderCancel: '\u7a0d\u540e\u5904\u7406',
   entryReminderBadge: '\u5230\u671f\u63d0\u9192',
   entryReminderFallbackSubtitle: '',
-  assets: '\u6863\u6848\u5165\u53e3',
-  archive: '\u8bbe\u5907\u6863\u6848',
-  gauges: '\u538b\u529b\u8868\u6863\u6848',
+  assets: '\u8d26\u6237\u4e0e\u5de5\u5177',
+  enterpriseProfile: '\u4fee\u6539\u4f01\u4e1a\u8d44\u6599',
   clearCache: '\u6e05\u7406\u7f13\u5b58',
   logout: '\u9000\u51fa\u767b\u5f55',
   version: '\u538b\u529b\u8868\u68c0\u5b9a\u667a\u80fd\u4f53 v1.2.0'
@@ -143,12 +142,8 @@ Page({
     })
   },
 
-  goToEquipmentLibrary() {
-    wx.navigateTo({ url: '/pages/archive/archive' })
-  },
-
-  goToGaugeLibrary() {
-    wx.navigateTo({ url: '/pages/device-list/device-list' })
+  goToEnterpriseProfile() {
+    wx.navigateTo({ url: '/pages/enterprise-profile/enterprise-profile' })
   },
 
   goToLogin() {

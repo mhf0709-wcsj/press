@@ -22,15 +22,15 @@
       </view>
 
       <view class="login-actions">
-        <view class="assist-row">
-          <text class="assist-text">{{text.assistText}}</text>
-          <text class="assist-link" bindtap="goToRegister">{{text.register}}</text>
-        </view>
-        <view class="admin-entry" bindtap="goToAdminLogin">{{text.adminLogin}}</view>
+        <button class="login-action-button" bindtap="goToRegister">
+          {{text.register}}
+        </button>
+        <view class="login-action-divider"></view>
+        <button class="login-action-button" bindtap="goToAdminLogin">
+          {{text.adminLogin}}
+        </button>
       </view>
     </view>
-
-    <view class="version-text">Version 1.2.0</view>
   </view>
 </view>
 

@@ -1,0 +1,329 @@
+.accounts-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top right, rgba(220, 228, 242, 0.88), transparent 28%),
+    #f5f7fa;
+}
+
+.accounts-scroll {
+  height: 100vh;
+}
+
+.accounts-wrapper {
+  padding: 28rpx 28rpx calc(56rpx + env(safe-area-inset-bottom));
+}
+
+.accounts-hero {
+  padding: 34rpx 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+  border: 1rpx solid rgba(214, 222, 235, 0.92);
+  border-radius: 32rpx;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18rpx 50rpx rgba(28, 48, 86, 0.07);
+}
+
+.accounts-eyebrow {
+  font-size: 23rpx;
+  color: #748096;
+}
+
+.accounts-title {
+  margin-top: 7rpx;
+  font-size: 46rpx;
+  line-height: 1.15;
+  font-weight: 700;
+  color: #172033;
+}
+
+.accounts-summary {
+  margin-top: 10rpx;
+  font-size: 25rpx;
+  color: #7e899a;
+}
+
+.create-button {
+  min-width: 154rpx;
+  min-height: 72rpx;
+  margin: 0;
+  padding: 0 24rpx;
+  border: none;
+  border-radius: 999rpx;
+  background: #147cff;
+  color: #ffffff;
+  font-size: 26rpx;
+  font-weight: 600;
+  line-height: 72rpx;
+  box-shadow: 0 10rpx 24rpx rgba(20, 124, 255, 0.22);
+}
+
+.create-button::after,
+.account-action::after,
+.editor-button::after {
+  border: none;
+}
+
+.search-panel {
+  margin-top: 22rpx;
+  padding: 18rpx;
+  border: 1rpx solid rgba(214, 222, 235, 0.9);
+  border-radius: 26rpx;
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.search-input {
+  width: 100%;
+  height: 72rpx;
+  padding: 0 22rpx;
+  box-sizing: border-box;
+  border-radius: 18rpx;
+  background: #f4f6f9;
+  color: #20283a;
+  font-size: 27rpx;
+}
+
+.search-placeholder,
+.editor-placeholder {
+  color: #a1a9b7;
+}
+
+.account-list {
+  margin-top: 22rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.account-card {
+  padding: 28rpx;
+  border: 1rpx solid rgba(214, 222, 235, 0.9);
+  border-radius: 28rpx;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 12rpx 34rpx rgba(28, 48, 86, 0.055);
+}
+
+.account-main {
+  display: flex;
+  align-items: center;
+}
+
+.account-avatar {
+  width: 76rpx;
+  height: 76rpx;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 22rpx;
+  background: linear-gradient(180deg, #253550 0%, #142036 100%);
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.account-copy {
+  min-width: 0;
+  flex: 1;
+  margin-left: 20rpx;
+}
+
+.account-name {
+  color: #172033;
+  font-size: 30rpx;
+  font-weight: 650;
+}
+
+.account-meta,
+.account-login {
+  color: #7b8799;
+  font-size: 24rpx;
+}
+
+.account-meta {
+  margin-top: 6rpx;
+}
+
+.account-status {
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  background: #ecfdf3;
+  color: #16834a;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.account-login {
+  margin-top: 22rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #edf0f5;
+}
+
+.account-actions {
+  margin-top: 18rpx;
+  display: flex;
+  gap: 16rpx;
+}
+
+.account-action {
+  min-height: 64rpx;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  border: none;
+  border-radius: 16rpx;
+  font-size: 25rpx;
+  font-weight: 600;
+  line-height: 64rpx;
+}
+
+.edit-action {
+  background: #eef5ff;
+  color: #0969da;
+}
+
+.delete-action {
+  background: #fff1f0;
+  color: #d92d20;
+}
+
+.empty-state,
+.loading-state {
+  margin-top: 22rpx;
+  padding: 92rpx 30rpx;
+  border: 1rpx solid rgba(214, 222, 235, 0.9);
+  border-radius: 28rpx;
+  background: rgba(255, 255, 255, 0.94);
+  color: #8a94a4;
+  font-size: 27rpx;
+  text-align: center;
+}
+
+.empty-title {
+  color: #667085;
+}
+
+.empty-action {
+  margin-top: 18rpx;
+  color: #147cff;
+  font-weight: 600;
+}
+
+.editor-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  padding: 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  background: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(12rpx);
+}
+
+.editor-card {
+  width: 100%;
+  max-width: 650rpx;
+  padding: 34rpx;
+  box-sizing: border-box;
+  border-radius: 32rpx;
+  background: #ffffff;
+  box-shadow: 0 28rpx 80rpx rgba(15, 23, 42, 0.22);
+}
+
+.editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.editor-title {
+  color: #172033;
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.editor-close {
+  width: 58rpx;
+  height: 58rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #f2f4f7;
+  color: #667085;
+  font-size: 38rpx;
+}
+
+.editor-field {
+  margin-top: 26rpx;
+}
+
+.editor-label {
+  margin-bottom: 12rpx;
+  color: #475467;
+  font-size: 24rpx;
+  font-weight: 500;
+}
+
+.editor-input {
+  width: 100%;
+  height: 84rpx;
+  padding: 0 22rpx;
+  box-sizing: border-box;
+  border: 2rpx solid #dde3ec;
+  border-radius: 18rpx;
+  background: #ffffff;
+  color: #20283a;
+  font-size: 27rpx;
+}
+
+.picker-input {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.picker-value {
+  color: #20283a;
+}
+
+.picker-arrow {
+  color: #98a2b3;
+  font-size: 38rpx;
+}
+
+.editor-actions {
+  margin-top: 34rpx;
+  display: flex;
+  gap: 16rpx;
+}
+
+.editor-button {
+  min-height: 82rpx;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  border: none;
+  border-radius: 999rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 82rpx;
+}
+
+.cancel-button {
+  background: #f2f4f7;
+  color: #475467;
+}
+
+.save-button {
+  background: #147cff;
+  color: #ffffff;
+  box-shadow: 0 12rpx 26rpx rgba(20, 124, 255, 0.2);
+}
+
+.save-button.is-saving {
+  opacity: 0.72;
+}
