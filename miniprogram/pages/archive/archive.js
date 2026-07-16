@@ -26,25 +26,33 @@ Page({
   },
 
   onLoad() {
+    this.pageActive = true
     wx.setNavigationBarTitle({ title: '设备档案' })
-    this.loadEnterpriseInfo().finally(() => {
-      this.hasLoadedOnce = true
+    this.enterpriseUser = wx.getStorageSync('enterpriseUser')
+  },
+
+  onReady() {
+    this.pageReady = true
+    wx.nextTick(() => {
+      if (!this.pageActive) return
+      this.loadEquipments().finally(() => {
+        if (this.pageActive) this.hasLoadedOnce = true
+      })
     })
   },
 
   onShow() {
-    if (!this.hasLoadedOnce) return
+    if (!this.pageReady || !this.hasLoadedOnce) return
 
     wx.setNavigationBarTitle({ title: '设备档案' })
-    if (this.data.enterpriseUser) {
+    if (this.enterpriseUser) {
       this.loadEquipments({ silent: true })
     }
   },
 
-  async loadEnterpriseInfo() {
-    const enterpriseUser = wx.getStorageSync('enterpriseUser')
-    this.setData({ enterpriseUser })
-    await this.loadEquipments()
+  onUnload() {
+    this.pageActive = false
+    clearTimeout(this.searchTimer)
   },
 
   onPullDownRefresh() {
@@ -61,9 +69,9 @@ Page({
   },
 
   async performLoadEquipments(options = {}) {
-    const enterpriseUser = this.data.enterpriseUser || wx.getStorageSync('enterpriseUser')
+    const enterpriseUser = this.enterpriseUser || wx.getStorageSync('enterpriseUser')
     if (!enterpriseUser || !enterpriseUser.companyName) {
-      wx.showToast({ title: TEXT.loginFirst, icon: 'none' })
+      if (this.pageActive) wx.showToast({ title: TEXT.loginFirst, icon: 'none' })
       return
     }
 
@@ -72,11 +80,13 @@ Page({
     }
     try {
       const equipments = await equipmentService.searchEquipments(this.data.searchKeyword, { enterpriseUser })
+      if (!this.pageActive) return
+      this.enterpriseUser = enterpriseUser
       this.setData({ equipments, enterpriseUser, swipeIndex: -1 })
     } catch (error) {
-      wx.showToast({ title: TEXT.loadFailed, icon: 'none' })
+      if (this.pageActive) wx.showToast({ title: TEXT.loadFailed, icon: 'none' })
     } finally {
-      if (!options.silent) {
+      if (!options.silent && this.pageActive) {
         wx.hideLoading()
       }
     }
@@ -100,7 +110,6 @@ Page({
 
     const id = e.currentTarget.dataset.id
     if (!id) return
-    wx.setNavigationBarTitle({ title: '设备档案' })
     wx.navigateTo({ url: `/pages/equipment-detail/equipment-detail?id=${id}` })
   },
 
@@ -191,7 +200,6 @@ Page({
   },
 
   createEquipment() {
-    wx.setNavigationBarTitle({ title: '设备档案' })
     wx.navigateTo({ url: '/pages/equipment-detail/equipment-detail?mode=create' })
   }
 })

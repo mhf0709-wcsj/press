@@ -15,6 +15,7 @@
     "pages/dashboard/dashboard",
     "pages/admin/admin",
     "pages/admin-workbench/admin-workbench",
+    "pages/admin-notices/admin-notices",
     "pages/enterprise-list/enterprise-list",
     "pages/district-list/district-list"
   ],
@@ -51,7 +52,6 @@
     ]
   },
   "style": "v2",
-  "lazyCodeLoading": "requiredComponents",
   "__usePrivacyCheck__": true
 }
 

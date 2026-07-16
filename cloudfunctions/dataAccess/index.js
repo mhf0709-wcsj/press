@@ -10,7 +10,11 @@ const RESOURCES = {
     collection: 'enterprises',
     enterpriseField: 'companyName',
     adminOnly: true,
-    readFields: ['companyName', 'creditCode', 'legalPerson', 'phone', 'district', 'authType', 'createTime', 'updateTime', 'lastLoginTime']
+    readFields: [
+      'companyName', 'creditCode', 'legalPerson', 'phone', 'district', 'authType',
+      'approvalStatus', 'submittedAt', 'reviewedAt', 'reviewedBy', 'reviewReason',
+      'createTime', 'updateTime', 'lastLoginTime'
+    ]
   },
   equipments: {
     collection: 'equipments',
@@ -54,7 +58,8 @@ exports.main = async (event = {}) => {
       update: handleUpdate,
       softDelete: handleSoftDelete,
       logLifecycle: handleLogLifecycle,
-      getEnterpriseDashboard: handleEnterpriseDashboard
+      getEnterpriseDashboard: handleEnterpriseDashboard,
+      getAdminDashboardStats: handleAdminDashboardStats
     }
     const handler = handlers[event.action]
     if (!handler) throw new Error('不支持的数据操作')
@@ -72,6 +77,9 @@ async function resolveActor(event) {
   const res = await db.collection('enterprises').where({ openid }).limit(1).get()
   const enterprise = res.data?.[0]
   if (!enterprise) throw new Error('企业账号尚未绑定')
+  const approvalStatus = normalizeApprovalStatus(enterprise)
+  if (approvalStatus === 'pending') throw new Error('企业账号正在审核中')
+  if (approvalStatus === 'rejected') throw new Error('企业账号审核未通过')
   return {
     type: 'enterprise',
     id: enterprise._id,
@@ -193,6 +201,17 @@ async function handleSoftDelete(event, actor) {
   assertDocumentAccess(current, resource, actor)
   if (current.isDeleted) return { deleted: true }
 
+  if (event.resource === 'equipments') {
+    const linkedRes = await db.collection('devices').where({
+      equipmentId: event.id,
+      isDeleted: false
+    }).count()
+    const linkedCount = Number(linkedRes.total || 0)
+    if (linkedCount > 0) {
+      throw new Error(`该设备仍绑定 ${linkedCount} 块压力表，请先换绑或删除压力表`)
+    }
+  }
+
   const now = new Date()
   const deletedBy = actor.type === 'admin' ? actor.username : actor.companyName
   await db.collection(resource.collection).doc(event.id).update({
@@ -241,29 +260,50 @@ async function handleLogLifecycle(event, actor) {
 async function handleEnterpriseDashboard(event, actor) {
   if (actor.type !== 'enterprise') throw new Error('仅企业账号可访问')
   const base = { enterpriseName: actor.companyName, isDeleted: false }
-  const [equipmentRes, deviceRes, inactiveRes] = await Promise.all([
+  const today = formatYmd(new Date())
+  const [equipmentRes, deviceRes, inactiveRes, expiredRes] = await Promise.all([
     db.collection('equipments').where(base).count(),
     db.collection('devices').where(base).count(),
-    db.collection('devices').where({ ...base, status: _.in(['停用', '报废']) }).count()
+    db.collection('devices').where({ ...base, status: _.in(['停用', '报废']) }).count(),
+    db.collection('devices').where({ ...base, latestExpiryDate: _.lt(today) }).count()
   ])
-  const recordsRes = await db.collection('pressure_records').where(base).limit(100).get()
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const expiredCount = (recordsRes.data || []).filter((item) => {
-    const date = toDate(item.expiryDate)
-    return date && date < today
-  }).length
   return {
     summary: {
       equipmentCount: Number(equipmentRes.total || 0),
       gaugeCount: Number(deviceRes.total || 0),
-      expiredCount,
+      expiredCount: Number(expiredRes.total || 0),
       inactiveCount: Number(inactiveRes.total || 0)
     }
   }
 }
 
+async function handleAdminDashboardStats(event, actor) {
+  if (actor.type !== 'admin') throw new Error('仅管理端可访问')
+
+  const filters = buildFilters(RESOURCES.equipments, actor, { isDeleted: false })
+  const equipments = await fetchAll('equipments', filters, {
+    fields: { district: true },
+    maxRecords: 20000
+  })
+  const districtMap = {}
+
+  equipments.forEach((item) => {
+    const district = clean(item.district) || '未设置'
+    districtMap[district] = (districtMap[district] || 0) + 1
+  })
+
+  const districtStats = Object.entries(districtMap)
+    .map(([district, count]) => ({ district, count }))
+    .sort((a, b) => b.count - a.count || a.district.localeCompare(b.district))
+
+  return {
+    totalEquipments: equipments.length,
+    districtStats
+  }
+}
+
 function buildFilters(resource, actor, input) {
-  const allowed = new Set(['_id', 'isDeleted', 'status', 'gaugeStatus', 'district', 'enterpriseName', 'companyName', 'equipmentId', 'deviceId', 'action', 'certNo', 'factoryNo', 'conclusion', 'expiryDate'])
+  const allowed = new Set(['_id', 'isDeleted', 'status', 'gaugeStatus', 'approvalStatus', 'district', 'enterpriseName', 'companyName', 'equipmentId', 'deviceId', 'action', 'certNo', 'factoryNo', 'conclusion', 'expiryDate'])
   const filters = {}
   Object.keys(input || {}).forEach((key) => {
     if (!allowed.has(key)) return
@@ -418,8 +458,38 @@ function clean(value) {
   return String(value || '').trim()
 }
 
+function normalizeApprovalStatus(enterprise) {
+  const status = clean(enterprise?.approvalStatus)
+  return ['pending', 'approved', 'rejected'].includes(status) ? status : 'approved'
+}
+
 function toDate(value) {
   if (!value) return null
   const date = value instanceof Date ? value : new Date(value)
   return Number.isNaN(date.getTime()) ? null : date
+}
+
+function formatYmd(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+async function fetchAll(collectionName, filters, options = {}) {
+  const batchSize = 1000
+  const maxRecords = Math.max(batchSize, Number(options.maxRecords || 10000))
+  const list = []
+
+  while (list.length < maxRecords) {
+    let query = db.collection(collectionName).where(filters).skip(list.length).limit(batchSize)
+    if (options.fields) query = query.field(options.fields)
+    const res = await query.get()
+    const batch = res.data || []
+    list.push(...batch)
+    if (batch.length < batchSize) break
+  }
+
+  if (list.length >= maxRecords) throw new Error('统计数据量超过安全上限，请联系管理员处理')
+  return list
 }

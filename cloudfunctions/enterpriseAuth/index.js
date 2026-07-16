@@ -18,7 +18,8 @@ exports.main = async (event = {}) => {
       adminLogin,
       validateAdminSession,
       changeAdminPassword,
-      adminLogout
+      adminLogout,
+      reviewEnterprise
     }
     const handler = handlers[event.action]
     if (!handler) throw new Error('不支持的鉴权操作')
@@ -34,10 +35,23 @@ async function wechatLogin() {
   if (!res.data?.length) return { registered: false }
 
   const enterprise = res.data[0]
+  const approvalStatus = normalizeApprovalStatus(enterprise)
+  if (approvalStatus !== 'approved') {
+    return {
+      registered: false,
+      approvalStatus,
+      companyName: enterprise.companyName || '',
+      reviewReason: enterprise.reviewReason || ''
+    }
+  }
   await db.collection('enterprises').doc(enterprise._id).update({
     data: { lastLoginTime: new Date(), authType: 'wechat', updateTime: new Date() }
   })
-  return { registered: true, enterprise: sanitizeEnterprise(enterprise) }
+  return {
+    registered: true,
+    approvalStatus,
+    enterprise: sanitizeEnterprise({ ...enterprise, approvalStatus })
+  }
 }
 
 async function bindEnterprise(event) {
@@ -56,7 +70,33 @@ async function bindEnterprise(event) {
 
   const boundRes = await db.collection('enterprises').where({ openid }).limit(1).get()
   if (boundRes.data?.length) {
-    return { registered: true, enterprise: sanitizeEnterprise(boundRes.data[0]) }
+    const boundEnterprise = boundRes.data[0]
+    const approvalStatus = normalizeApprovalStatus(boundEnterprise)
+    if (approvalStatus === 'approved') {
+      return { registered: true, approvalStatus, enterprise: sanitizeEnterprise(boundEnterprise) }
+    }
+
+    await assertEnterpriseFieldsAvailable({
+      companyName,
+      creditCode,
+      phone,
+      excludeId: boundEnterprise._id
+    })
+    const updateData = {
+      companyName,
+      creditCode,
+      legalPerson,
+      phone,
+      district,
+      approvalStatus: 'pending',
+      submittedAt: new Date(),
+      updateTime: new Date(),
+      reviewReason: _.remove(),
+      reviewedAt: _.remove(),
+      reviewedBy: _.remove()
+    }
+    await db.collection('enterprises').doc(boundEnterprise._id).update({ data: updateData })
+    return { registered: false, pendingReview: true, approvalStatus: 'pending', companyName }
   }
 
   const creditRes = await db.collection('enterprises').where({ creditCode }).limit(2).get()
@@ -68,12 +108,35 @@ async function bindEnterprise(event) {
     if (clean(existing.companyName) !== companyName || clean(existing.phone) !== phone) {
       throw new Error('企业名称、信用代码或法人手机号核验不一致')
     }
+
+    const approvalStatus = normalizeApprovalStatus(existing)
+    const nextStatus = approvalStatus === 'approved' ? 'approved' : 'pending'
     await db.collection('enterprises').doc(existing._id).update({
-      data: { openid, legalPerson, district, authType: 'wechat', bindTime: now, lastLoginTime: now, updateTime: now }
+      data: {
+        openid,
+        legalPerson,
+        district,
+        authType: 'wechat',
+        bindTime: now,
+        approvalStatus: nextStatus,
+        submittedAt: nextStatus === 'pending' ? now : (existing.submittedAt || now),
+        lastLoginTime: nextStatus === 'approved' ? now : (existing.lastLoginTime || null),
+        updateTime: now,
+        ...(nextStatus === 'pending' ? {
+          reviewReason: _.remove(),
+          reviewedAt: _.remove(),
+          reviewedBy: _.remove()
+        } : {})
+      }
     })
+
+    if (nextStatus === 'pending') {
+      return { registered: false, pendingReview: true, approvalStatus: 'pending', companyName }
+    }
     return {
       registered: true,
-      enterprise: sanitizeEnterprise({ ...existing, openid, legalPerson, district })
+      approvalStatus: 'approved',
+      enterprise: sanitizeEnterprise({ ...existing, openid, legalPerson, district, approvalStatus: 'approved' })
     }
   }
 
@@ -93,15 +156,69 @@ async function bindEnterprise(event) {
       openid,
       authType: 'wechat',
       bindTime: now,
+      approvalStatus: 'pending',
+      submittedAt: now,
       createTime: now,
-      updateTime: now,
-      lastLoginTime: now
+      updateTime: now
     }
   })
   return {
-    registered: true,
-    enterprise: sanitizeEnterprise({ _id: addRes._id, companyName, creditCode, legalPerson, phone, district })
+    registered: false,
+    pendingReview: true,
+    approvalStatus: 'pending',
+    companyName,
+    enterpriseId: addRes._id
   }
+}
+
+async function reviewEnterprise(event) {
+  const session = await getAdminSession(event.adminToken)
+  const enterpriseId = clean(event.enterpriseId)
+  const decision = clean(event.decision)
+  const reason = clean(event.reason)
+  if (!enterpriseId) throw new Error('缺少企业ID')
+  if (!['approved', 'rejected'].includes(decision)) throw new Error('不支持的审核结果')
+  if (decision === 'rejected' && !reason) throw new Error('请填写驳回原因')
+
+  const enterpriseRes = await db.collection('enterprises').doc(enterpriseId).get()
+  const enterprise = enterpriseRes.data
+  if (!enterprise) throw new Error('企业不存在')
+  if (session.role === 'district' && session.district && clean(enterprise.district) !== clean(session.district)) {
+    throw new Error('无权审核其他辖区企业')
+  }
+
+  const now = new Date()
+  const updateData = {
+    approvalStatus: decision,
+    reviewReason: decision === 'rejected' ? reason : _.remove(),
+    reviewedAt: now,
+    reviewedBy: session.username || '',
+    updateTime: now
+  }
+  await db.collection('enterprises').doc(enterpriseId).update({ data: updateData })
+  return {
+    approvalStatus: decision,
+    enterprise: sanitizeEnterprise({
+      ...enterprise,
+      approvalStatus: decision,
+      reviewReason: decision === 'rejected' ? reason : '',
+      reviewedAt: now,
+      reviewedBy: session.username || '',
+      updateTime: now
+    })
+  }
+}
+
+async function assertEnterpriseFieldsAvailable({ companyName, creditCode, phone, excludeId }) {
+  const [companyRes, creditRes, phoneRes] = await Promise.all([
+    db.collection('enterprises').where({ companyName }).limit(2).get(),
+    db.collection('enterprises').where({ creditCode }).limit(2).get(),
+    db.collection('enterprises').where({ phone }).limit(2).get()
+  ])
+  const conflicts = [companyRes, creditRes, phoneRes]
+    .flatMap((item) => item.data || [])
+    .filter((item) => item._id !== excludeId)
+  if (conflicts.length) throw new Error('企业名称、信用代码或手机号已存在，请联系管理员核验')
 }
 
 async function adminLogin(event) {
@@ -207,6 +324,8 @@ async function getAdminSession(token) {
   const session = res.data?.[0]
   const expiresAt = toDate(session?.expiresAt)
   if (!session || !expiresAt || expiresAt.getTime() <= Date.now()) throw new Error('管理端登录已失效，请重新登录')
+  const currentOpenid = cloud.getWXContext().OPENID || ''
+  if (session.openid && currentOpenid && session.openid !== currentOpenid) throw new Error('管理端会话与当前微信账号不匹配')
   return session
 }
 
@@ -261,6 +380,11 @@ function toDate(value) {
 
 function clean(value) {
   return String(value || '').trim()
+}
+
+function normalizeApprovalStatus(enterprise) {
+  const status = clean(enterprise?.approvalStatus)
+  return ['pending', 'approved', 'rejected'].includes(status) ? status : 'approved'
 }
 
 function sanitizeEnterprise(item) {

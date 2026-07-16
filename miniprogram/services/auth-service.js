@@ -49,6 +49,16 @@ module.exports = {
     })
   },
 
+  async reviewEnterprise(enterpriseId, decision, reason = '') {
+    const admin = storage.getAdminUser()
+    return callAuth('reviewEnterprise', {
+      adminToken: admin?.token || '',
+      enterpriseId,
+      decision,
+      reason
+    })
+  },
+
   async adminLogout() {
     const admin = storage.getAdminUser()
     try {

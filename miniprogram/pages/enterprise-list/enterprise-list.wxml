@@ -11,6 +11,19 @@
 
       <view class="panel">
         <view class="panel-section">
+          <view class="status-filter" wx:if="{{mode === 'all'}}">
+            <view
+              class="status-filter-item {{statusFilter === 'pending' ? 'active' : ''}}"
+              data-filter="pending"
+              bindtap="changeStatusFilter"
+            >{{text.filterPending}}</view>
+            <view
+              class="status-filter-item {{statusFilter === 'all' ? 'active' : ''}}"
+              data-filter="all"
+              bindtap="changeStatusFilter"
+            >{{text.filterAll}}</view>
+          </view>
+
           <view class="list-block" wx:if="{{enterpriseList.length}}">
             <view
               class="list-cell enterprise-cell"
@@ -18,15 +31,38 @@
               wx:key="_id"
               bindtap="previewEnterprise"
               data-name="{{item.companyName}}"
+              data-status="{{item.approvalStatus}}"
             >
               <view class="cell-main">
                 <text class="cell-title">{{item.companyName}}</text>
+                <text class="cell-subtitle" wx:if="{{mode === 'all'}}">{{text.fields.creditCode}} {{item.creditCode || '-'}}</text>
                 <text class="cell-subtitle">{{text.fields.legalPerson}} {{item.legalPerson || '-'}}</text>
                 <text class="cell-subtitle">{{text.fields.phone}} {{item.phone || '-'}}</text>
                 <text class="cell-subtitle">{{text.fields.createTime}} {{item.createTimeStr || '-'}}</text>
+                <text class="review-reason" wx:if="{{item.approvalStatus === 'rejected' && item.reviewReason}}">{{item.reviewReason}}</text>
+                <view class="review-actions" wx:if="{{mode === 'all' && item.approvalStatus === 'pending'}}">
+                  <view
+                    class="review-button reject"
+                    data-id="{{item._id}}"
+                    catchtap="rejectEnterprise"
+                  >{{text.reject}}</view>
+                  <view
+                    class="review-button approve"
+                    data-id="{{item._id}}"
+                    catchtap="approveEnterprise"
+                  >{{reviewingId === item._id ? '处理中' : text.approve}}</view>
+                </view>
+                <view class="notice-actions" wx:if="{{mode === 'all' && item.approvalStatus === 'approved'}}">
+                  <view
+                    class="notice-send-button"
+                    data-id="{{item._id}}"
+                    catchtap="openNoticeEditor"
+                  >{{text.sendNotice}}</view>
+                </view>
               </view>
               <view class="cell-side">
                 <text class="district-tag">{{item.district || text.noDistrict}}</text>
+                <text class="approval-tag {{item.approvalClass}}" wx:if="{{mode === 'all'}}">{{item.approvalText}}</text>
                 <text class="risk-tag danger" wx:if="{{mode === 'risk' && item.expiredCount > 0}}">{{item.expiredCount}} 逾期</text>
                 <text class="risk-tag warning" wx:if="{{mode === 'risk' && item.expiringCount > 0}}">{{item.expiringCount}} 即将到期</text>
               </view>
@@ -34,11 +70,67 @@
           </view>
 
           <view class="empty-state" wx:if="{{!enterpriseList.length && !loading}}">
-            <text class="empty-text">{{mode === 'risk' ? text.emptyRisk : text.empty}}</text>
+            <text class="empty-text">{{mode === 'risk' ? text.emptyRisk : (statusFilter === 'pending' ? '暂无待审核企业' : text.empty)}}</text>
           </view>
         </view>
       </view>
     </view>
   </scroll-view>
+
+  <view class="notice-overlay" wx:if="{{noticeEditorVisible}}" bindtap="closeNoticeEditor">
+    <view class="notice-dialog" catchtap="stopNoticePropagation">
+      <view class="notice-dialog-header">
+        <view>
+          <text class="notice-dialog-title">{{text.noticeTitle}}</text>
+          <text class="notice-dialog-target">{{text.noticeTarget}}：{{noticeTarget.companyName}}</text>
+        </view>
+        <view class="notice-dialog-close" bindtap="closeNoticeEditor">×</view>
+      </view>
+
+      <text class="notice-field-label">{{text.noticeType}}</text>
+      <view class="notice-chip-row">
+        <view
+          class="notice-chip {{noticeType === item.key ? 'active' : ''}}"
+          wx:for="{{noticeTypes}}"
+          wx:key="key"
+          data-type="{{item.key}}"
+          bindtap="changeNoticeType"
+        >{{item.label}}</view>
+      </view>
+
+      <text class="notice-field-label">{{text.noticePriority}}</text>
+      <view class="notice-chip-row">
+        <view
+          class="notice-chip priority-{{item.key}} {{noticePriority === item.key ? 'active' : ''}}"
+          wx:for="{{noticePriorities}}"
+          wx:key="key"
+          data-priority="{{item.key}}"
+          bindtap="changeNoticePriority"
+        >{{item.label}}</view>
+      </view>
+
+      <text class="notice-field-label">提醒标题</text>
+      <input
+        class="notice-input"
+        value="{{noticeTitle}}"
+        maxlength="30"
+        bindinput="onNoticeTitleInput"
+      />
+
+      <text class="notice-field-label">{{text.noticeContent}}</text>
+      <textarea
+        class="notice-textarea"
+        value="{{noticeContent}}"
+        maxlength="300"
+        auto-height
+        bindinput="onNoticeContentInput"
+      />
+
+      <view class="notice-dialog-actions">
+        <view class="notice-action secondary" bindtap="closeNoticeEditor">{{text.cancel}}</view>
+        <view class="notice-action primary" bindtap="submitEnterpriseNotice">{{sendingNotice ? '发送中...' : text.send}}</view>
+      </view>
+    </view>
+  </view>
 </view>
 

@@ -1,4 +1,5 @@
 const authService = require('../../services/auth-service')
+const dataAccess = require('../../services/data-access-service')
 
 const TEXT = {
   heroTopline: '管理端',
@@ -32,7 +33,8 @@ Page({
     adminInfo: {},
     displayRole: '',
     loginTime: '',
-    entries: []
+    entries: [],
+    pendingEnterpriseCount: 0
   },
 
   onLoad() {
@@ -41,6 +43,7 @@ Page({
 
   onShow() {
     this.loadAdminInfo()
+    this.loadPendingEnterpriseCount()
   },
 
   loadAdminInfo() {
@@ -64,7 +67,7 @@ Page({
     })
   },
 
-  buildEntries() {
+  buildEntries(pendingEnterpriseCount = this.data.pendingEnterpriseCount) {
     return [
       {
         key: 'ledger',
@@ -74,9 +77,28 @@ Page({
       {
         key: 'enterprise',
         title: '企业管理',
+        subtitle: pendingEnterpriseCount
+          ? `${pendingEnterpriseCount} 家待审核`
+          : '',
         action: 'goToEnterpriseList'
+      },
+      {
+        key: 'notices',
+        title: '企业提醒',
+        subtitle: '发送提醒并查看企业反馈',
+        action: 'goToEnterpriseNotices'
       }
     ]
+  },
+
+  async loadPendingEnterpriseCount() {
+    try {
+      const pendingEnterpriseCount = await dataAccess.count('enterprises', { approvalStatus: 'pending' })
+      this.setData({
+        pendingEnterpriseCount,
+        entries: this.buildEntries(pendingEnterpriseCount)
+      })
+    } catch (error) {}
   },
 
   onTapEntry(e) {
@@ -114,6 +136,12 @@ Page({
   goToEnterpriseList() {
     wx.navigateTo({
       url: '/pages/enterprise-list/enterprise-list'
+    })
+  },
+
+  goToEnterpriseNotices() {
+    wx.navigateTo({
+      url: '/pages/admin-notices/admin-notices'
     })
   },
 

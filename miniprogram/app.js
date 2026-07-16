@@ -129,7 +129,7 @@ App({
           storage.setEnterpriseUser(result.enterprise)
           this.globalData.userInfo = result.enterprise
           this.globalData.isLogin = true
-          wx.switchTab({ url: ROUTES.AI_ASSISTANT })
+          this.enterEnterpriseApp()
           return
         }
       } catch (error) {}
@@ -151,6 +151,20 @@ App({
     this.globalData.userInfo = null
     this.globalData.isLogin = false
     wx.reLaunch({ url: ROUTES.LOGIN })
+  },
+
+  enterEnterpriseApp() {
+    const pages = getCurrentPages()
+    const currentRoute = pages.length ? `/${pages[pages.length - 1].route}` : ''
+    const entryRoutes = [
+      ROUTES.LOGIN,
+      ROUTES.REGISTER,
+      ROUTES.ADMIN_LOGIN,
+      '/pages/index/index'
+    ]
+    if (!currentRoute || entryRoutes.includes(currentRoute)) {
+      wx.switchTab({ url: ROUTES.AI_ASSISTANT })
+    }
   },
 
   setUserInfo(userInfo) {

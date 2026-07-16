@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "企业提醒",
+  "navigationBarBackgroundColor": "#ffffff",
+  "navigationBarTextStyle": "black",
+  "backgroundColor": "#f8f9fc",
+  "enablePullDownRefresh": true
+}

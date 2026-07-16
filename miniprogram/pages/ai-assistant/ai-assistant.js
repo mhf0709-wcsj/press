@@ -1,6 +1,7 @@
 ﻿
 const ocrService = require('../../services/ocr-service')
 const aiExtractService = require('../../services/ai-extract-service')
+const batchImportService = require('../../services/batch-import-service')
 const recordService = require('../../services/record-service')
 const deviceService = require('../../services/device-service')
 const equipmentService = require('../../services/equipment-service')
@@ -12,6 +13,8 @@ const { markLedgerChanged } = require('../../utils/data-change')
 
 const DRAFT_STATUS_OPTIONS = ['在用', '备用', '送检', '停用', '报废']
 const DRAFT_DISTRICT_OPTIONS = [...DISTRICTS]
+const VISION_BATCH_CONCURRENCY = 2
+const VISION_BATCH_PROGRESS_KEY = 'aiVisionBatchProgress'
 
 const TEXT = {
   heroTopline: '智能管家',
@@ -26,6 +29,7 @@ const TEXT = {
   uploadCta: '上传照片',
   uploadAgain: '重新上传',
   manualEntry: '手动建档',
+  excelImport: 'Excel登记',
   confirmDraft: '检查并修改',
   confirmExecute: '确认执行',
   cancelExecute: '取消',
@@ -87,6 +91,16 @@ Page({
     inputValue: '',
     isLoading: false,
     isVisionLoading: false,
+    isBatchImporting: false,
+    visionProgressText: '',
+    visionBatchProgress: {
+      visible: false,
+      total: 0,
+      completed: 0,
+      failed: 0,
+      percent: 0,
+      status: 'idle'
+    },
     isCrudExecuting: false,
     isDirectSaving: false,
     scrollToView: '',
@@ -95,6 +109,9 @@ Page({
     userType: 'guest',
     userScope: TEXT.guest,
     visionDraft: null,
+    visionBatchDrafts: [],
+    excelImportDraft: null,
+    excelStatusMessageId: '',
     draftHistory: [],
     pendingDraftFieldKey: '',
     skippedDraftFieldKeys: [],
@@ -102,34 +119,60 @@ Page({
     pendingCrudPlan: null,
     lastCrudContext: null,
     reminderVisible: false,
+    reminderMode: 'expiry',
+    activeNoticeId: '',
     setupRedirecting: false,
     unboundEquipmentCount: 0,
     reminderCard: {
       title: '',
       summary: '',
-      items: []
+      items: [],
+      badgeText: '到期提醒',
+      confirmText: '去处理',
+      cancelText: '稍后处理',
+      priorityDanger: false,
+      priorityLabel: '',
+      priorityNoteText: ''
     }
   },
 
-  async onLoad() {
+  onLoad() {
+    this.pageActive = true
+  },
+
+  onReady() {
+    this.pageReady = true
+    this.initialLoadTimer = setTimeout(() => {
+      if (this.pageActive) this.initializePage()
+    }, 120)
+  },
+
+  async initializePage() {
+    this.restoreVisionBatchProgress()
     const ready = await this.bootstrap()
-    if (!ready) return
+    if (!ready || !this.pageActive) return
     this.ensureGuideConversation()
     this.maybeAppendSelectedEquipmentMessage()
     this.maybeAppendUnboundEquipmentMessage()
     await this.maybeShowEntryReminder()
-    this.hasLoadedOnce = true
+    if (this.pageActive) this.hasLoadedOnce = true
   },
 
   async onShow() {
-    if (!this.hasLoadedOnce) return
+    if (!this.pageReady || !this.hasLoadedOnce) return
+    this.restoreVisionBatchProgress()
 
     const ready = await this.bootstrap()
-    if (!ready) return
+    if (!ready || !this.pageActive) return
     this.ensureGuideConversation()
     this.maybeAppendSelectedEquipmentMessage()
     this.maybeAppendUnboundEquipmentMessage()
     await this.maybeShowEntryReminder()
+  },
+
+  onUnload() {
+    this.pageActive = false
+    if (this.initialLoadTimer) clearTimeout(this.initialLoadTimer)
   },
 
   onPullDownRefresh() {
@@ -211,6 +254,38 @@ Page({
     const token = app?.globalData?.entryReminderToken || 0
 
     if (token && app?.globalData?.entryReminderHandledToken === token) return
+
+    const noticeResult = await expiryReminderService.getEnterpriseNotices()
+    const notice = noticeResult?.success ? noticeResult.data?.notices?.[0] : null
+    if (notice) {
+      if (app?.globalData && token) {
+        app.globalData.entryReminderHandledToken = token
+      }
+      const priorityMap = {
+        urgent: { label: '紧急监管提醒', danger: true },
+        important: { label: '重要监管提醒', danger: true },
+        normal: { label: '企业事项提醒', danger: false }
+      }
+      const priority = priorityMap[notice.priority] || priorityMap.normal
+      this.setData({
+        reminderVisible: true,
+        reminderMode: 'notice',
+        activeNoticeId: notice._id,
+        reminderCard: {
+          title: notice.title || '监管提醒',
+          summary: notice.content || '',
+          items: [],
+          badgeText: '监管通知',
+          confirmText: '我知道了',
+          cancelText: '稍后提醒',
+          priorityDanger: priority.danger,
+          priorityLabel: priority.label,
+          priorityNoteText: notice.createdBy ? `由${notice.createdBy}发送` : '请及时查看并处理'
+        }
+      })
+      return
+    }
+
     if (expiryReminderService.hasDeferredToday(this.data.userInfo)) {
       if (app?.globalData && token) {
         app.globalData.entryReminderHandledToken = token
@@ -232,6 +307,8 @@ Page({
 
     this.setData({
       reminderVisible: true,
+      reminderMode: 'expiry',
+      activeNoticeId: '',
       reminderCard: {
         title: '今日到期提醒',
         summary: `您有 ${expiredCount} 台逾期，${expiringCount} 台将在 30 天内到期。`,
@@ -240,20 +317,34 @@ Page({
           subtitle: item.instrumentName || TEXT.fields.instrumentName,
           expiredCount: item.expiryStatus === 'expired' ? 1 : 0,
           expiringCount: item.expiryStatus === 'expired' ? 0 : 1
-        }))
+        })),
+        badgeText: '到期提醒',
+        confirmText: '去处理',
+        cancelText: '稍后处理',
+        priorityDanger: expiredCount > 0,
+        priorityLabel: '',
+        priorityNoteText: ''
       }
     })
   },
 
-  closeReminderCard() {
-    if (this.data.userInfo?.companyName) {
+  async closeReminderCard() {
+    if (this.data.reminderMode === 'notice' && this.data.activeNoticeId) {
+      await expiryReminderService.updateEnterpriseNoticeStatus(this.data.activeNoticeId, 'deferred')
+    } else if (this.data.userInfo?.companyName) {
       expiryReminderService.deferTodayReminder(this.data.userInfo)
     }
-    this.setData({ reminderVisible: false })
+    this.setData({ reminderVisible: false, activeNoticeId: '' })
   },
 
-  confirmReminderCard() {
-    this.setData({ reminderVisible: false })
+  async confirmReminderCard() {
+    if (this.data.reminderMode === 'notice' && this.data.activeNoticeId) {
+      await expiryReminderService.updateEnterpriseNoticeStatus(this.data.activeNoticeId, 'read')
+      this.setData({ reminderVisible: false, activeNoticeId: '' })
+      wx.showToast({ title: '已确认收到', icon: 'success' })
+      return
+    }
+    this.setData({ reminderVisible: false, activeNoticeId: '' })
     wx.navigateTo({ url: '/pages/archive/archive?filter=expiry' })
   },
 
@@ -337,6 +428,46 @@ Page({
       ...this.createBaseMessage('user', 'image'),
       imagePath,
       content: TEXT.uploadCta
+    }
+  },
+
+  createImageBatchMessage(imagePaths) {
+    return {
+      ...this.createBaseMessage('user', 'image_batch'),
+      imagePaths,
+      content: `已选择 ${imagePaths.length} 张图片`
+    }
+  },
+
+  createVisionBatchMessage(items) {
+    const successCount = items.filter((item) => item.status === 'ready').length
+    const errorCount = items.length - successCount
+    return {
+      ...this.createBaseMessage('assistant', 'vision_batch'),
+      title: '多图识别完成',
+      content: `共分析 ${items.length} 张，成功 ${successCount} 张${errorCount ? `，失败 ${errorCount} 张` : ''}。点击识别结果可逐条检查和保存。`,
+      items
+    }
+  },
+
+  createExcelImportMessage(result) {
+    const rows = (result.rows || []).slice(0, 8).map((row) => ({
+      rowNo: row.rowNo,
+      title: row.factoryNo || row.deviceNo || `第 ${row.rowNo} 行`,
+      subtitle: row.status === 'error'
+        ? (row.errors || []).join('、')
+        : (row.importMode === 'gauge' ? `新建压力表 · ${row.equipmentName || '所属设备待确认'}` : `登记检定记录 · ${row.verificationDate}`),
+      status: row.status,
+      statusText: row.status === 'ready' ? '可导入' : (row.status === 'duplicate' ? '重复' : '需修改')
+    }))
+    return {
+      ...this.createBaseMessage('assistant', 'excel_import'),
+      title: 'Excel 解析结果',
+      content: `共 ${result.total || 0} 行，可导入 ${result.readyCount || 0} 行，重复 ${result.duplicateCount || 0} 行，需修改 ${result.errorCount || 0} 行。`,
+      rows,
+      readyCount: Number(result.readyCount || 0),
+      hiddenCount: Math.max(0, Number(result.total || 0) - rows.length),
+      state: 'pending'
     }
   },
 
@@ -998,8 +1129,16 @@ Page({
     if (this.data.isVisionLoading) return
 
     try {
-      const imagePath = await ocrService.chooseImage()
-      if (!imagePath) return
+      const imagePaths = await ocrService.chooseImages({ count: 9 })
+      if (!imagePaths.length) return
+
+      if (imagePaths.length > 1) {
+        this.appendMessages([this.createImageBatchMessage(imagePaths)])
+        await this.processVisionBatch(imagePaths)
+        return
+      }
+
+      const imagePath = imagePaths[0]
 
       this.appendMessages([
         this.createImageMessage(imagePath),
@@ -1010,6 +1149,265 @@ Page({
     } catch (error) {
       console.error('select image failed:', error)
     }
+  },
+
+  async processVisionBatch(imagePaths) {
+    const selected = wx.getStorageSync('selectedEquipmentForNewGauge')
+    const drafts = []
+    const items = new Array(imagePaths.length)
+    let cursor = 0
+    let completed = 0
+    let failed = 0
+    this.setData({
+      isVisionLoading: true,
+      visionProgressText: '正在后台识别图片...',
+      visionBatchProgress: {
+        visible: true,
+        total: imagePaths.length,
+        completed: 0,
+        failed: 0,
+        percent: 0,
+        status: 'processing'
+      }
+    })
+    this.persistVisionBatchProgress()
+
+    const runWorker = async () => {
+      while (cursor < imagePaths.length) {
+        const index = cursor
+        cursor += 1
+        const imagePath = imagePaths[index]
+        try {
+          const result = await aiExtractService.extractFromImage(imagePath, {
+            userType: this.getCloudUserType(),
+            userInfo: this.data.userInfo
+          })
+          const draft = this.buildVisionDraft({
+            ...result,
+            selectedEquipmentId: result.selectedEquipmentId || selected?.id || '',
+            selectedEquipmentName: result.selectedEquipmentName || selected?.name || ''
+          }, imagePath)
+          const batchIndex = drafts.length
+          drafts.push(draft)
+          const missing = this.getDraftMissingFields(draft)
+          items[index] = {
+            batchIndex,
+            imagePath,
+            status: 'ready',
+            statusText: missing.length ? `待补 ${missing.length} 项` : '可检查',
+            title: draft.extractedData.factoryNo || draft.extractedData.certNo || `第 ${index + 1} 张`,
+            subtitle: draft.extractedData.instrumentName || '已完成识别'
+          }
+        } catch (error) {
+          failed += 1
+          items[index] = {
+            batchIndex: -1,
+            imagePath,
+            status: 'error',
+            statusText: '识别失败',
+            title: `第 ${index + 1} 张`,
+            subtitle: error.message || TEXT.answers.extractFailed
+          }
+        } finally {
+          completed += 1
+          this.updateVisionBatchProgress(completed, imagePaths.length, failed)
+        }
+      }
+    }
+
+    const workerCount = Math.min(VISION_BATCH_CONCURRENCY, imagePaths.length)
+    await Promise.all(Array.from({ length: workerCount }, () => runWorker()))
+
+    if (selected?.id) wx.removeStorageSync('selectedEquipmentForNewGauge')
+    this.setData({
+      isVisionLoading: false,
+      visionProgressText: '识别完成',
+      visionBatchDrafts: drafts,
+      visionBatchProgress: {
+        visible: true,
+        total: imagePaths.length,
+        completed: imagePaths.length,
+        failed,
+        percent: 100,
+        status: 'completed'
+      }
+    })
+    this.persistVisionBatchProgress()
+    this.appendMessages([this.createVisionBatchMessage(items)])
+    setTimeout(() => {
+      this.setData({ 'visionBatchProgress.visible': false })
+      wx.removeStorageSync(VISION_BATCH_PROGRESS_KEY)
+    }, 1200)
+  },
+
+  updateVisionBatchProgress(completed, total, failed) {
+    const progress = {
+      visible: true,
+      total,
+      completed,
+      failed,
+      percent: Math.round((completed / Math.max(1, total)) * 100),
+      status: completed >= total ? 'completed' : 'processing'
+    }
+    this.setData({
+      visionBatchProgress: progress,
+      visionProgressText: completed >= total
+        ? '识别完成'
+        : `后台识别中，已完成 ${completed}/${total} 张`
+    })
+    this.persistVisionBatchProgress(progress)
+  },
+
+  persistVisionBatchProgress(progress = this.data.visionBatchProgress) {
+    wx.setStorageSync(VISION_BATCH_PROGRESS_KEY, {
+      ...progress,
+      updateTime: Date.now()
+    })
+  },
+
+  restoreVisionBatchProgress() {
+    const progress = wx.getStorageSync(VISION_BATCH_PROGRESS_KEY)
+    if (!progress?.visible || Date.now() - Number(progress.updateTime || 0) > 30 * 60 * 1000) {
+      wx.removeStorageSync(VISION_BATCH_PROGRESS_KEY)
+      return
+    }
+    if (progress.status === 'processing' && !this.data.isVisionLoading) {
+      wx.removeStorageSync(VISION_BATCH_PROGRESS_KEY)
+      return
+    }
+    this.setData({ visionBatchProgress: progress })
+  },
+
+  openVisionBatchItem(e) {
+    const index = Number(e.currentTarget.dataset.batchIndex)
+    const draft = this.data.visionBatchDrafts[index]
+    if (!draft) return
+    wx.setStorageSync('aiAssistantRecordDraft', draft)
+    this.setData({
+      visionDraft: draft,
+      draftHistory: [],
+      pendingDraftFieldKey: this.getNextDraftMissingFieldKey(draft, []),
+      skippedDraftFieldKeys: [],
+      pendingEquipmentCandidates: []
+    })
+    this.appendMessages([
+      this.createResultMessage(draft),
+      ...this.buildDraftFollowUpMessages(draft, { includeResultMessage: false })
+    ])
+  },
+
+  async onImportExcel() {
+    if (this.data.isBatchImporting) return
+    if (this.data.userType !== 'enterprise') {
+      this.appendMessages([this.createTextMessage('assistant', 'Excel 批量登记目前仅支持企业账号。')])
+      return
+    }
+
+    let uploadedFileID = ''
+    this.setData({ isBatchImporting: true })
+    try {
+      const file = await batchImportService.chooseExcelFile()
+      if (!file) {
+        this.setData({ isBatchImporting: false })
+        return
+      }
+      this.appendMessages([this.createTextMessage('user', `导入 Excel：${file.name || '压力表台账'}`)])
+      this.upsertExcelStatusMessage('正在读取 Excel，请稍候…')
+      const result = await batchImportService.uploadAndParse(file)
+      uploadedFileID = result.fileID || ''
+      const message = this.createExcelImportMessage(result)
+      this.removeExcelStatusMessage()
+      this.setData({
+        isBatchImporting: false,
+        excelImportDraft: { ...result, messageId: message.id },
+        excelStatusMessageId: ''
+      })
+      this.appendMessages([message])
+    } catch (error) {
+      this.setData({ isBatchImporting: false })
+      const raw = String(error?.errMsg || error?.message || '')
+      if (!/cancel/i.test(raw)) {
+        this.upsertExcelStatusMessage(error.message || raw || 'Excel 解析失败，请稍后重试。')
+      } else {
+        this.removeExcelStatusMessage()
+      }
+    } finally {
+      if (uploadedFileID) await batchImportService.deleteFile(uploadedFileID)
+    }
+  },
+
+  upsertExcelStatusMessage(content) {
+    const messageId = this.data.excelStatusMessageId
+    if (messageId) {
+      this.setData({
+        messages: this.data.messages.map((message) => (
+          message.id === messageId ? { ...message, content, time: this.formatTime(new Date()) } : message
+        ))
+      }, () => this.scrollToBottom())
+      return
+    }
+    const message = this.createTextMessage('assistant', content)
+    this.setData({
+      messages: [...this.data.messages, message],
+      excelStatusMessageId: message.id
+    }, () => this.scrollToBottom())
+  },
+
+  removeExcelStatusMessage() {
+    const messageId = this.data.excelStatusMessageId
+    if (!messageId) return
+    this.setData({
+      messages: this.data.messages.filter((message) => message.id !== messageId),
+      excelStatusMessageId: ''
+    })
+  },
+
+  async confirmExcelImport() {
+    const draft = this.data.excelImportDraft
+    const rows = (draft?.rows || []).filter((row) => row.status === 'ready')
+    if (!rows.length || this.data.isBatchImporting) return
+
+    const confirmed = await new Promise((resolve) => {
+      wx.showModal({
+        title: '确认批量登记',
+        content: `将写入 ${rows.length} 行数据。重复项和错误项不会写入，是否继续？`,
+        confirmText: '确认登记',
+        success: (res) => resolve(Boolean(res.confirm)),
+        fail: () => resolve(false)
+      })
+    })
+    if (!confirmed) return
+
+    this.setData({ isBatchImporting: true }, () => this.scrollToBottom())
+    try {
+      const result = await batchImportService.commit(rows)
+      markLedgerChanged()
+      this.updateExcelImportMessage(draft.messageId, 'committed')
+      this.setData({ isBatchImporting: false, excelImportDraft: null })
+      this.appendMessages([
+        this.createTextMessage(
+          'assistant',
+          `批量登记完成：成功 ${result.successCount || 0} 行，重复跳过 ${result.duplicateCount || 0} 行，失败 ${result.errorCount || 0} 行。`
+        )
+      ])
+    } catch (error) {
+      this.setData({ isBatchImporting: false })
+      this.appendMessages([this.createTextMessage('assistant', error.message || '批量登记失败，请稍后重试。')])
+    }
+  },
+
+  cancelExcelImport() {
+    const messageId = this.data.excelImportDraft?.messageId
+    if (messageId) this.updateExcelImportMessage(messageId, 'cancelled')
+    this.setData({ excelImportDraft: null })
+  },
+
+  updateExcelImportMessage(messageId, state) {
+    this.setData({
+      messages: this.data.messages.map((message) => (
+        message.id === messageId ? { ...message, state } : message
+      ))
+    })
   },
 
   async onUploadInstallPhoto() {

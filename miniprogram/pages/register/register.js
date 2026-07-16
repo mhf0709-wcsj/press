@@ -4,7 +4,7 @@ const { storage } = require('../../utils/index')
 
 const TEXT = {
   brandName: '\u538b\u529b\u8868\u667a\u80fd\u7ba1\u5bb6',
-  title: '\u8865\u5168\u4f01\u4e1a\u4fe1\u606f',
+  title: '\u7533\u8bf7\u4f01\u4e1a\u5f00\u901a',
   desc: '',
   manualTitle: '\u4f01\u4e1a\u6ce8\u518c',
   manualDesc: '',
@@ -18,8 +18,8 @@ const TEXT = {
   phonePlaceholder: '\u8bf7\u8f93\u5165\u6cd5\u4eba\u624b\u673a\u53f7',
   districtLabel: '\u6240\u5728\u8f96\u533a',
   districtPlaceholder: '\u8bf7\u9009\u62e9\u6240\u5728\u8f96\u533a',
-  submit: '\u5b8c\u6210\u7ed1\u5b9a',
-  submitting: '\u4fdd\u5b58\u4e2d...',
+  submit: '\u63d0\u4ea4\u5ba1\u6838',
+  submitting: '\u63d0\u4ea4\u4e2d...',
   manualSubmit: '\u7acb\u5373\u6ce8\u518c',
   manualSubmitting: '\u6ce8\u518c\u4e2d...',
   assistText: '\u5df2\u6709\u4f01\u4e1a\u8d26\u53f7\uff1f',
@@ -36,6 +36,8 @@ const TEXT = {
   existsCompany: '\u8be5\u4f01\u4e1a\u5df2\u6ce8\u518c',
   existsPhone: '\u8be5\u624b\u673a\u53f7\u5df2\u88ab\u6ce8\u518c',
   bindSuccess: '\u7ed1\u5b9a\u6210\u529f',
+  pendingTitle: '\u7533\u8bf7\u5df2\u63d0\u4ea4',
+  pendingContent: '\u8bf7\u7b49\u5f85\u6240\u5c5e\u8f96\u533a\u7ba1\u7406\u5458\u5ba1\u6838\uff0c\u5ba1\u6838\u901a\u8fc7\u540e\u5373\u53ef\u4f7f\u7528\u5fae\u4fe1\u8d26\u53f7\u767b\u5f55\u3002',
   registerSuccess: '\u6ce8\u518c\u6210\u529f',
   registerHint: '\u8bf7\u767b\u5f55',
   registerFailed: '\u4fdd\u5b58\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5',
@@ -145,6 +147,17 @@ Page({
 
     try {
       const result = await authService.bindEnterprise(payload)
+      if (result.pendingReview || result.approvalStatus === 'pending') {
+        wx.removeStorageSync('enterpriseAuthPending')
+        wx.hideLoading()
+        wx.showModal({
+          title: TEXT.pendingTitle,
+          content: TEXT.pendingContent,
+          showCancel: false,
+          success: () => wx.reLaunch({ url: '/pages/login/login' })
+        })
+        return
+      }
       if (!result.enterprise) throw new Error(TEXT.registerFailed)
 
       storage.setEnterpriseUser(result.enterprise)

@@ -1,0 +1,54 @@
+[
+  {
+    "name": "标准压力范围与中文日期",
+    "input": "检定证书\n证书编号：FP2603138\n送检单位：某某企业\n计量器具名称：抗震压力表\n型号/规格：(0-1.6) MPa\n检定日期：2026年3月6日\n有效期至：2026年9月5日",
+    "model": {},
+    "expected": { "modelSpec": "(0-1.6) MPa", "verificationDate": "2026-03-06" }
+  },
+  {
+    "name": "OCR 标签带空格",
+    "input": "型 号 / 规 格 （0 ～ 2.5） M P a\n检 定 日 期 2025 年 12 月 9 日",
+    "model": {},
+    "expected": { "modelSpec": "(0-2.5) MPa", "verificationDate": "2025-12-09" }
+  },
+  {
+    "name": "模型日期错误时回退原文",
+    "input": "检定日期：2026-03-06\n有效期至：2026-09-05\n规格：(0-1.6)MPa",
+    "model": { "modelSpec": "/规格", "verificationDate": "2603-13-08" },
+    "expected": { "modelSpec": "(0-1.6)MPa", "verificationDate": "2026-03-06" }
+  },
+  {
+    "name": "只在正文出现压力范围",
+    "input": "型号规格\n本压力表测量范围为 0—4 MPa\n检定日期 2024/01/31",
+    "model": { "modelSpec": "规格" },
+    "expected": { "modelSpec": "0-4 MPa", "verificationDate": "2024-01-31" }
+  },
+  {
+    "name": "不把有效期识别成检定日期",
+    "input": "有效期至：2026年9月5日\n检定日期：2026年3月6日\n型号规格：0-0.6MPa",
+    "model": {},
+    "expected": { "modelSpec": "0-0.6MPa", "verificationDate": "2026-03-06" }
+  },
+  {
+    "name": "非法日期必须为空",
+    "input": "检定日期：2026年2月30日\n规格：0-1MPa",
+    "model": { "verificationDate": "2026-02-30" },
+    "expected": { "modelSpec": "0-1MPa", "verificationDate": "" }
+  },
+  {
+    "name": "FP2603138真实OCR拆行模板",
+    "input": "文成县计量与质量检测所\n检定证书\n证书编号：FP2603138\n送\n检单位\n浙江交工集团股份有限公司（青文高速）\n计量器具名称\n抗震压力表\n型\n号/规格\n(0-1.6)MPa\n制\n造单\n位\n杭州东亚仪表有限公司\n出\n厂编号\n250587331\nJJG52-2013《弹性元件式一般压力表、压力真空表和真空表》\n检\n定依据\n检定规程\n检定结论\n该压力表合格\n检定日期\n2026年3月6日\n有效期至\n2026年9月5日",
+    "model": {},
+    "expected": {
+      "certNo": "FP2603138",
+      "factoryNo": "250587331",
+      "sendUnit": "浙江交工集团股份有限公司(青文高速)",
+      "instrumentName": "抗震压力表",
+      "modelSpec": "(0-1.6)MPa",
+      "manufacturer": "杭州东亚仪表有限公司",
+      "verificationStd": "JJG52-2013",
+      "conclusion": "合格",
+      "verificationDate": "2026-03-06"
+    }
+  }
+]

@@ -18,8 +18,7 @@ Component({
     openPrivacyContract() {
       wx.openPrivacyContract({
         success: () => {},
-        fail: (err) => {
-          console.error('打开隐私协议失败', err)
+        fail: () => {
           wx.showToast({ title: '打开失败', icon: 'none' })
         }
       })
@@ -41,7 +40,7 @@ Component({
       }
       wx.showModal({
         title: '温馨提示',
-        content: '您拒绝了隐私协议，部分功能可能无法正常使用。您可以稍后在设置中重新授权。',
+        content: '未同意隐私保护指引，暂时无法使用本小程序。',
         showCancel: false,
         success: () => {
           wx.exitMiniProgram()

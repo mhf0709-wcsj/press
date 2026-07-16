@@ -682,7 +682,9 @@ async function extractRecordFieldsWithModel(rawText, ruleData) {
         '你是压力表检定证书字段提取器。',
         '只能依据 OCR 原文提取，不得猜测或补造。',
         '重点区分“检定日期”和“有效期至”：verificationDate 只能取检定日期。',
-        '型号规格优先提取“型号/规格”标签后的完整值；压力范围示例为 (0-1.6) MPa。',
+        '这是固定版式证书，OCR 可能把字段标签逐字拆行，例如“型”+“号/规格”+“(0-1.6) MPa”，必须将相邻标签片段合并后取下一行的值。',
+        '型号规格优先提取“型号/规格”标签后的完整值；本模板中 (0-1.6) MPa 是型号规格，不是检定依据。',
+        '“JJG 52-2013”属于检定依据；“该压力表合格”属于检定结论；不得把二者填入型号规格。',
         '只输出一个 JSON 对象，不要输出 Markdown。',
         '字段固定为 certNo、factoryNo、sendUnit、instrumentName、modelSpec、manufacturer、verificationStd、conclusion、verificationDate。',
         '没有依据的字段填写空字符串，verificationDate 格式为 YYYY-MM-DD，conclusion 只能是合格、不合格或空字符串。'
@@ -868,10 +870,32 @@ function normalizeExtractText(text) {
     .replace(/：/g, ':')
     .replace(/（/g, '(')
     .replace(/）/g, ')')
+    .replace(/(\d),(\d)/g, '$1.$2')
     .replace(/[ \t]+/g, ' ')
 
+  const labels = [
+    [/证\s*书\s*编\s*号/g, '证书编号'],
+    [/送\s*检\s*单\s*位/g, '送检单位'],
+    [/委\s*托\s*单\s*位/g, '委托单位'],
+    [/使\s*用\s*单\s*位/g, '使用单位'],
+    [/计\s*量\s*器\s*具\s*名\s*称/g, '计量器具名称'],
+    [/器\s*具\s*名\s*称/g, '器具名称'],
+    [/仪\s*表\s*名\s*称/g, '仪表名称'],
+    [/型\s*号\s*[\/／]?\s*规\s*格/g, '型号/规格'],
+    [/规\s*格\s*型\s*号/g, '规格型号'],
+    [/制\s*造\s*单\s*位/g, '制造单位'],
+    [/出\s*厂\s*编\s*号/g, '出厂编号'],
+    [/检\s*定\s*依\s*据/g, '检定依据'],
+    [/检\s*定\s*结\s*论/g, '检定结论'],
+    [/检\s*定\s*日\s*期/g, '检定日期'],
+    [/有\s*效\s*期\s*至/g, '有效期至']
+  ]
+  labels.forEach(([pattern, label]) => {
+    normalized = normalized.replace(pattern, label)
+  })
+
   for (let i = 0; i < 4; i += 1) {
-    normalized = normalized.replace(/([\u4e00-\u9fa5])\s+(?=[\u4e00-\u9fa5])/g, '$1')
+    normalized = normalized.replace(/([\u4e00-\u9fa5])[ \t]+(?=[\u4e00-\u9fa5])/g, '$1')
   }
 
   return normalized
@@ -915,7 +939,7 @@ function normalizeModelSpec(value, fullText) {
 }
 
 function getPressureRangePattern() {
-  return /([\(（]?\s*\d+(?:\.\d+)?\s*(?:-|~|－|—|–|一|至|到)\s*\d+(?:\.\d+)?\s*[\)）]?\s*(?:k|M|G)?\s*P\s*a)/i
+  return /([\(（]?\s*\d+(?:\.\d+)?\s*(?:-|~|～|－|—|–|一|至|到)\s*\d+(?:\.\d+)?\s*[\)）]?\s*(?:k|M|G)?\s*P\s*a)/i
 }
 
 function extractPressureRange(text) {
@@ -924,7 +948,7 @@ function extractPressureRange(text) {
   return pressure
     .replace(/（/g, '(')
     .replace(/）/g, ')')
-    .replace(/[－—–一到至~]/g, '-')
+    .replace(/[－—–一到至~～]/g, '-')
     .replace(/\s+/g, ' ')
     .replace(/\s*-\s*/g, '-')
     .replace(/([kMG])\s*P\s*a/i, (match, prefix) => `${prefix.toUpperCase()}Pa`)
@@ -1029,6 +1053,8 @@ async function resolvePermission(event, openid) {
   const enterpriseRes = await db.collection('enterprises').where({ openid }).limit(1).get()
   const enterprise = enterpriseRes.data?.[0]
   if (!enterprise) throw new Error('企业账号尚未绑定')
+  if (enterprise.approvalStatus === 'pending') throw new Error('企业账号正在审核中')
+  if (enterprise.approvalStatus === 'rejected') throw new Error('企业账号审核未通过')
   return {
     type: 'enterprise',
     scope: enterprise.companyName || '本企业',

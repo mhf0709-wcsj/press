@@ -1,0 +1,9 @@
+{
+  "name": "batch-import",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "read-excel-file": "5.8.8",
+    "wx-server-sdk": "~2.6.3"
+  }
+}

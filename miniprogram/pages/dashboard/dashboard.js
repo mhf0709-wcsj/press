@@ -1,5 +1,6 @@
 const { runSingleFlight } = require('../../utils/request-control')
 const dataAccess = require('../../services/data-access-service')
+const expiryReminderService = require('../../services/expiry-reminder-service')
 
 const TEXT = {
   heroTitle: '\u9884\u89c8\u5e73\u53f0',
@@ -134,13 +135,7 @@ Page({
 
   async syncDeletedDeviceRecords() {
     try {
-      await wx.cloud.callFunction({
-        name: 'expiryReminder',
-        data: {
-          action: 'syncDeletedDeviceRecords',
-          district: this.data.adminDistrict || ''
-        }
-      })
+      await expiryReminderService.syncDeletedDeviceRecords(this.data.adminDistrict || '')
     } catch (error) {}
   },
 
@@ -152,26 +147,13 @@ Page({
   },
 
   async loadExpiryData() {
-    const data = {
-      action: 'getExpiringSummary',
-      days: 30
-    }
-
-    if (this.data.adminDistrict) {
-      data.district = this.data.adminDistrict
-    }
-
-    const res = await wx.cloud.callFunction({
-      name: 'expiryReminder',
-      data
-    })
-
-    if (!res.result || !res.result.success) {
+    const result = await expiryReminderService.getExpiringSummary(30, this.data.adminDistrict || '')
+    if (!result || !result.success) {
       throw new Error('Expiry summary failed.')
     }
 
-    const summary = res.result.data?.summary || {}
-    const enterprises = (res.result.data?.enterpriseStats || []).slice(0, 5)
+    const summary = result.data?.summary || {}
+    const enterprises = (result.data?.enterpriseStats || []).slice(0, 5)
 
     this.setData({
       expirySummary: {
@@ -185,25 +167,13 @@ Page({
 
   async loadDistrictStats() {
     try {
-      const equipments = await dataAccess.list('equipments', {
-        filters: { isDeleted: { neq: true } },
-        limit: 100
-      })
-      const total = equipments.length
-      const districtMap = {}
-
-      equipments.forEach((item) => {
-        const district = item.district || '\u672a\u8bbe\u7f6e'
-        districtMap[district] = (districtMap[district] || 0) + 1
-      })
-
-      const districtStats = Object.keys(districtMap)
-        .map((district) => ({
-          district,
-          count: districtMap[district],
-          percent: total > 0 ? Math.round(districtMap[district] / total * 100) : 0
+      const result = await dataAccess.request('getAdminDashboardStats')
+      const total = Number(result.totalEquipments || 0)
+      const districtStats = (result.districtStats || [])
+        .map((item) => ({
+          ...item,
+          percent: total > 0 ? Math.round(Number(item.count || 0) / total * 100) : 0
         }))
-        .sort((a, b) => b.count - a.count)
         .slice(0, 6)
 
       this.setData({

@@ -45,6 +45,7 @@
             >
               <view>
                 <text class="cell-title">{{item.title}}</text>
+                <text class="cell-subtitle" wx:if="{{item.subtitle}}">{{item.subtitle}}</text>
               </view>
               <text class="entry-arrow">></text>
             </view>

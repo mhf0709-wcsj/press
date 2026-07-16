@@ -2,12 +2,12 @@
   <view class="reminder-dialog" catchtap="stopPropagation">
     <view class="reminder-glow"></view>
 
-    <view class="reminder-priority {{hasExpired ? 'danger' : 'warning'}}">
+    <view class="reminder-priority {{priorityDanger || hasExpired ? 'danger' : 'warning'}}" wx:if="{{showPriority}}">
       <view class="reminder-priority-main">
         <text class="reminder-priority-dot"></text>
-        <text class="reminder-priority-text">{{priorityText}}</text>
+        <text class="reminder-priority-text">{{priorityLabel || priorityText}}</text>
       </view>
-      <text class="reminder-priority-note">{{priorityNote}}</text>
+      <text class="reminder-priority-note">{{priorityNoteText || priorityNote}}</text>
     </view>
 
     <view class="reminder-header">

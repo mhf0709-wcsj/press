@@ -79,7 +79,7 @@ class AIExtractService {
   }
 
   async uploadImage(filePath) {
-    const cloudPath = `ai-extract/${Date.now()}.jpg`
+    const cloudPath = `ai-extract/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`
 
     return new Promise((resolve, reject) => {
       wx.cloud.uploadFile({
@@ -148,10 +148,23 @@ class AIExtractService {
       ...(ocrResult.lines || []).map((item) => typeof item === 'string' ? item : (item.words || item.text || ''))
     ].filter(Boolean).join('\n')
 
-    const modelSpec = this.normalizeModelSpec(extractResult.modelSpec, rawText)
-    const verificationDate = this.normalizeDateValue(extractResult.verificationDate) || this.extractDateFromText(rawText)
+    const fallback = rawText ? ocrService.parseOcrText(rawText) : {}
+    const merged = {
+      certNo: extractResult.certNo || fallback.certNo || '',
+      factoryNo: extractResult.factoryNo || fallback.factoryNo || '',
+      sendUnit: extractResult.sendUnit || fallback.sendUnit || '',
+      instrumentName: extractResult.instrumentName || fallback.instrumentName || '',
+      modelSpec: extractResult.modelSpec || fallback.modelSpec || '',
+      manufacturer: extractResult.manufacturer || fallback.manufacturer || '',
+      verificationStd: extractResult.verificationStd || fallback.verificationStd || '',
+      conclusion: extractResult.conclusion || fallback.conclusion || '',
+      verificationDate: extractResult.verificationDate || fallback.verificationDate || ''
+    }
+    const modelSpec = this.normalizeModelSpec(merged.modelSpec, rawText)
+    const verificationDate = this.normalizeDateValue(merged.verificationDate) || this.extractDateFromText(rawText)
     return {
       ...extractResult,
+      ...merged,
       modelSpec,
       verificationDate
     }
@@ -163,6 +176,7 @@ class AIExtractService {
       .replace(/：/g, ':')
       .replace(/（/g, '(')
       .replace(/）/g, ')')
+      .replace(/(\d),(\d)/g, '$1.$2')
       .replace(/[ \t]+/g, ' ')
 
     const labelMatch = normalized.match(/(?:型\s*号\s*[\/／]?\s*规\s*格|型号规格|规格型号|型号|规格)[:：\s]*([^\n]*)/i)
@@ -188,12 +202,12 @@ class AIExtractService {
   }
 
   extractPressureRange(text) {
-    const match = String(text || '').match(/([\(（]?\s*\d+(?:\.\d+)?\s*(?:-|~|－|—|–|一|至|到)\s*\d+(?:\.\d+)?\s*[\)）]?\s*(?:k|M|G)?\s*P\s*a)/i)
+    const match = String(text || '').match(/([\(（]?\s*\d+(?:\.\d+)?\s*(?:-|~|～|－|—|–|一|至|到)\s*\d+(?:\.\d+)?\s*[\)）]?\s*(?:k|M|G)?\s*P\s*a)/i)
     if (!match || !match[1]) return ''
     return match[1]
       .replace(/（/g, '(')
       .replace(/）/g, ')')
-      .replace(/[－—–一到至~]/g, '-')
+      .replace(/[－—–一到至~～]/g, '-')
       .replace(/\s+/g, ' ')
       .replace(/\s*-\s*/g, '-')
       .replace(/([kMG])\s*P\s*a/i, (source, prefix) => `${prefix.toUpperCase()}Pa`)

@@ -16,7 +16,7 @@
 
       <view class="ai-chat panel">
         <view class="panel-section">
-          <view class="message-list" wx:if="{{messages.length > 0 || isLoading || isVisionLoading || isCrudExecuting || isDirectSaving}}">
+          <view class="message-list" wx:if="{{messages.length > 0 || isLoading || isVisionLoading || isBatchImporting || isCrudExecuting || isDirectSaving}}">
             <view
               class="message-item"
               wx:for="{{messages}}"
@@ -68,6 +68,54 @@
                     <view class="result-action" bindtap="goToDraftConfirm">
                       <text class="result-action-text">{{text.confirmDraft}}</text>
                     </view>
+                  </view>
+
+                  <view class="message-bubble assistant-bubble result-bubble" wx:if="{{item.kind === 'vision_batch'}}">
+                    <text class="result-title">{{item.title}}</text>
+                    <text class="result-summary">{{item.content}}</text>
+                    <view class="batch-list">
+                      <view
+                        class="batch-row {{batch.status}}"
+                        wx:for="{{item.items}}"
+                        wx:for-item="batch"
+                        wx:key="imagePath"
+                        data-batch-index="{{batch.batchIndex}}"
+                        bindtap="openVisionBatchItem"
+                      >
+                        <image class="batch-thumb" src="{{batch.imagePath}}" mode="aspectFill" />
+                        <view class="batch-main">
+                          <text class="batch-title">{{batch.title}}</text>
+                          <text class="batch-subtitle">{{batch.subtitle}}</text>
+                        </view>
+                        <text class="batch-status">{{batch.statusText}}</text>
+                      </view>
+                    </view>
+                  </view>
+
+                  <view class="message-bubble assistant-bubble result-bubble" wx:if="{{item.kind === 'excel_import'}}">
+                    <text class="result-title">{{item.title}}</text>
+                    <text class="result-summary">{{item.content}}</text>
+                    <view class="batch-list">
+                      <view class="batch-row excel-row {{row.status}}" wx:for="{{item.rows}}" wx:for-item="row" wx:key="rowNo">
+                        <view class="batch-index">{{row.rowNo}}</view>
+                        <view class="batch-main">
+                          <text class="batch-title">{{row.title}}</text>
+                          <text class="batch-subtitle">{{row.subtitle}}</text>
+                        </view>
+                        <text class="batch-status">{{row.statusText}}</text>
+                      </view>
+                    </view>
+                    <text class="batch-more" wx:if="{{item.hiddenCount > 0}}">另有 {{item.hiddenCount}} 行已完成校验</text>
+                    <view class="crud-actions" wx:if="{{item.state === 'pending' && item.readyCount > 0}}">
+                      <view class="crud-action secondary" bindtap="cancelExcelImport">
+                        <text class="crud-action-text secondary">取消</text>
+                      </view>
+                      <view class="crud-action primary" bindtap="confirmExcelImport">
+                        <text class="crud-action-text">确认导入</text>
+                      </view>
+                    </view>
+                    <view class="batch-complete" wx:if="{{item.state === 'committed'}}">已完成导入</view>
+                    <view class="batch-cancelled" wx:if="{{item.state === 'cancelled'}}">已取消导入</view>
                   </view>
 
                   <view class="message-bubble assistant-bubble result-bubble" wx:if="{{item.kind === 'crud_result'}}">
@@ -202,6 +250,22 @@
                     <text class="image-caption">{{item.content}}</text>
                   </view>
 
+                  <view class="message-bubble user-bubble image-bubble" wx:if="{{item.kind === 'image_batch'}}">
+                    <view class="image-batch-grid">
+                      <image
+                        class="image-batch-thumb"
+                        wx:for="{{item.imagePaths}}"
+                        wx:for-item="imagePath"
+                        wx:key="*this"
+                        src="{{imagePath}}"
+                        mode="aspectFill"
+                        data-image-path="{{imagePath}}"
+                        bindtap="previewChatImage"
+                      />
+                    </view>
+                    <text class="image-caption">{{item.content}}</text>
+                  </view>
+
                   <text class="message-time">{{item.time}}</text>
                 </view>
                 <view class="message-avatar user-avatar">{{text.me}}</view>
@@ -219,7 +283,34 @@
                 </view>
                 <view class="message-content">
                   <view class="message-bubble assistant-bubble loading-bubble">
-                    <text class="loading-text">{{text.uploadReceived}}</text>
+                    <text class="loading-text">{{visionProgressText || text.uploadReceived}}</text>
+                    <view class="vision-progress" wx:if="{{visionBatchProgress.visible && visionBatchProgress.total > 1}}">
+                      <view class="vision-progress-track">
+                        <view class="vision-progress-value" style="width: {{visionBatchProgress.percent}}%;"></view>
+                      </view>
+                      <view class="vision-progress-meta">
+                        <text>{{visionBatchProgress.completed}} / {{visionBatchProgress.total}}</text>
+                        <text>{{visionBatchProgress.percent}}%</text>
+                      </view>
+                      <text class="vision-progress-failed" wx:if="{{visionBatchProgress.failed > 0}}">{{visionBatchProgress.failed}} 张未识别成功，其余图片继续处理中</text>
+                    </view>
+                  </view>
+                </view>
+              </view>
+            </view>
+
+            <view class="message-item" wx:if="{{isBatchImporting}}" id="msg-batch-importing">
+              <view class="message-row">
+                <view class="message-avatar assistant-avatar">
+                  <view class="bot-face">
+                    <view class="bot-eye left"></view>
+                    <view class="bot-eye right"></view>
+                    <view class="bot-mouth"></view>
+                  </view>
+                </view>
+                <view class="message-content">
+                  <view class="message-bubble assistant-bubble loading-bubble">
+                    <text class="loading-text">正在校验并处理批量数据...</text>
                   </view>
                 </view>
               </view>
@@ -296,6 +387,9 @@
       <view class="composer-tool" bindtap="goToManualEntry">
         <text class="composer-upload-text">{{text.manualEntry}}</text>
       </view>
+      <view class="composer-tool" bindtap="onImportExcel">
+        <text class="composer-upload-text">{{text.excelImport}}</text>
+      </view>
     </view>
     <view class="composer-inner">
       <textarea
@@ -325,10 +419,13 @@
     title="{{reminderCard.title}}"
     summary="{{reminderCard.summary}}"
     items="{{reminderCard.items}}"
-    badge-text="到期提醒"
+    badge-text="{{reminderCard.badgeText}}"
     fallback-subtitle="请尽快处理"
-    confirm-text="去处理"
-    cancel-text="稍后处理"
+    confirm-text="{{reminderCard.confirmText}}"
+    cancel-text="{{reminderCard.cancelText}}"
+    priority-danger="{{reminderCard.priorityDanger}}"
+    priority-label="{{reminderCard.priorityLabel}}"
+    priority-note-text="{{reminderCard.priorityNoteText}}"
     bind:confirm="confirmReminderCard"
     bind:cancel="closeReminderCard"
   />

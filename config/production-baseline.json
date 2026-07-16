@@ -1,0 +1,36 @@
+{
+  "cloudEnvironment": "cloud1-d4ghc7ovse8cd61b8",
+  "requiredCloudFunctions": [
+    "aiAssistant",
+    "baiduOcr",
+    "batchImport",
+    "dataAccess",
+    "enterpriseAuth",
+    "expiryReminder",
+    "initAdmin"
+  ],
+  "denyClientReadWriteCollections": [
+    "admins",
+    "auth_sessions",
+    "enterprises",
+    "equipments",
+    "devices",
+    "pressure_records",
+    "deletion_logs",
+    "lifecycle_logs",
+    "enterprise_alert_settings",
+    "expiry_alert_logs",
+    "kb_docs",
+    "kb_chunks"
+  ],
+  "requiredEnvironmentVariables": {
+    "aiAssistant": ["DASHSCOPE_API_KEY", "DASHSCOPE_MODEL"],
+    "baiduOcr": ["BAIDU_API_KEY", "BAIDU_SECRET_KEY"],
+    "expiryReminder": ["REMINDER_TASK_SECRET"],
+    "initAdmin": ["INITIAL_ADMIN_USERNAME", "INITIAL_ADMIN_PASSWORD", "ADMIN_BOOTSTRAP_SECRET"],
+    "dataMaintenance": ["MAINTENANCE_SECRET"]
+  },
+  "disabledByDefault": {
+    "webAdmin": "WEB_ADMIN_ENABLED must not be true"
+  }
+}

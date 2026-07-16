@@ -3,6 +3,7 @@ const deletionLogService = require('../../services/deletion-log-service')
 const { DISTRICTS: DISTRICT_NAMES } = require('../../constants/index')
 const { runSingleFlight } = require('../../utils/request-control')
 const dataAccess = require('../../services/data-access-service')
+const expiryReminderService = require('../../services/expiry-reminder-service')
 
 const TEXT = {
   heroTopline: '台账',
@@ -166,13 +167,7 @@ Page({
 
   async syncDeletedDeviceRecords() {
     try {
-      await wx.cloud.callFunction({
-        name: 'expiryReminder',
-        data: {
-          action: 'syncDeletedDeviceRecords',
-          district: this.data.adminDistrict || ''
-        }
-      })
+      await expiryReminderService.syncDeletedDeviceRecords(this.data.adminDistrict || '')
     } catch (error) {}
   },
 

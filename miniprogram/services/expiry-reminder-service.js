@@ -1,6 +1,7 @@
 const { formatDate } = require('../utils/helpers/date')
 const { STORAGE_KEYS } = require('../constants/index')
 const { getLedgerVersion } = require('../utils/data-change')
+const { storage } = require('../utils/index')
 const debugLog = () => {}
 const dashboardCache = new Map()
 const dashboardRequests = new Map()
@@ -102,16 +103,13 @@ class ExpiryReminderService {
 
     const request = (async () => {
       try {
-        const res = await wx.cloud.callFunction({
-          name: 'expiryReminder',
-          data: {
+        const res = await callExpiryFunction({
             action: 'getEnterpriseExpiryDashboard',
             payload: {
               enterpriseId: enterpriseUser._id || '',
               enterpriseName: enterpriseUser.companyName || '',
               days
             }
-          }
         })
 
         const result = res.result || null
@@ -146,13 +144,10 @@ class ExpiryReminderService {
     }
 
     try {
-      const res = await wx.cloud.callFunction({
-        name: 'expiryReminder',
-        data: {
+      const res = await callExpiryFunction({
           action: 'getEnterpriseExpiring',
           enterpriseName,
           days
-        }
       })
 
       if (res.result.success) {
@@ -183,13 +178,10 @@ class ExpiryReminderService {
 
   async getAllExpiring(days = 30, district = null) {
     try {
-      const res = await wx.cloud.callFunction({
-        name: 'expiryReminder',
-        data: {
+      const res = await callExpiryFunction({
           action: 'getAllExpiring',
           days,
           district
-        }
       })
 
       return res.result
@@ -201,13 +193,10 @@ class ExpiryReminderService {
 
   async getExpiringSummary(days = 30, district = null) {
     try {
-      const res = await wx.cloud.callFunction({
-        name: 'expiryReminder',
-        data: {
+      const res = await callExpiryFunction({
           action: 'getExpiringSummary',
           days,
           district
-        }
       })
 
       return res.result
@@ -217,19 +206,24 @@ class ExpiryReminderService {
     }
   }
 
+  async syncDeletedDeviceRecords(district = '') {
+    const res = await callExpiryFunction({
+      action: 'syncDeletedDeviceRecords',
+      district
+    })
+    return res.result || { success: false, error: '同步删除记录失败' }
+  }
+
   async sendWxSubscribeMessage(options) {
     const { touser, templateId, page, data } = options
 
     try {
-      const res = await wx.cloud.callFunction({
-        name: 'expiryReminder',
-        data: {
+      const res = await callExpiryFunction({
           action: 'sendWxSubscribeMessage',
           touser,
           templateId,
           page,
           data
-        }
       })
 
       return res.result
@@ -241,14 +235,11 @@ class ExpiryReminderService {
 
   async batchSendReminder(users, templateId, message) {
     try {
-      const res = await wx.cloud.callFunction({
-        name: 'expiryReminder',
-        data: {
+      const res = await callExpiryFunction({
           action: 'batchSendReminder',
           users,
           templateId,
           message
-        }
       })
 
       return res.result
@@ -258,22 +249,66 @@ class ExpiryReminderService {
     }
   }
 
+  async sendEnterpriseNotice(payload = {}) {
+    try {
+      const res = await callExpiryFunction({
+        action: 'sendEnterpriseNotice',
+        payload
+      })
+      return res.result || { success: false, error: '发送提醒失败' }
+    } catch (error) {
+      return { success: false, error: error.message || '发送提醒失败' }
+    }
+  }
+
+  async getEnterpriseNotices() {
+    try {
+      const res = await callExpiryFunction({
+        action: 'getEnterpriseNotices'
+      })
+      return res.result || { success: false, error: '获取企业提醒失败' }
+    } catch (error) {
+      return { success: false, error: error.message || '获取企业提醒失败' }
+    }
+  }
+
+  async updateEnterpriseNoticeStatus(noticeId, status) {
+    try {
+      const res = await callExpiryFunction({
+        action: 'updateEnterpriseNoticeStatus',
+        payload: { noticeId, status }
+      })
+      return res.result || { success: false, error: '更新提醒状态失败' }
+    } catch (error) {
+      return { success: false, error: error.message || '更新提醒状态失败' }
+    }
+  }
+
+  async listAdminNotices(status = '', limit = 100) {
+    try {
+      const res = await callExpiryFunction({
+        action: 'listAdminNotices',
+        payload: { status, limit }
+      })
+      return res.result || { success: false, error: '获取提醒记录失败' }
+    } catch (error) {
+      return { success: false, error: error.message || '获取提醒记录失败' }
+    }
+  }
+
   async saveAlertSettings(enterpriseUser, settings = {}) {
     if (!enterpriseUser || (!enterpriseUser._id && !enterpriseUser.companyName)) {
       return { success: false, error: '缺少企业信息' }
     }
 
     try {
-      const res = await wx.cloud.callFunction({
-        name: 'expiryReminder',
-        data: {
+      const res = await callExpiryFunction({
           action: 'saveAlertSettings',
           payload: {
             enterpriseId: enterpriseUser._id || '',
             enterpriseName: enterpriseUser.companyName || '',
             ...settings
           }
-        }
       })
 
       return res.result || { success: false, error: '保存提醒设置失败' }
@@ -289,16 +324,13 @@ class ExpiryReminderService {
     }
 
     try {
-      const res = await wx.cloud.callFunction({
-        name: 'expiryReminder',
-        data: {
+      const res = await callExpiryFunction({
           action: 'confirmWxSubscription',
           payload: {
             enterpriseId: enterpriseUser._id || '',
             enterpriseName: enterpriseUser.companyName || '',
             templateId
           }
-        }
       })
 
       return res.result || { success: false, error: '保存订阅状态失败' }
@@ -331,6 +363,17 @@ class ExpiryReminderService {
       console.error('保存订阅状态失败:', err)
     }
   }
+}
+
+function callExpiryFunction(data) {
+  const admin = storage.getAdminUser()
+  return wx.cloud.callFunction({
+    name: 'expiryReminder',
+    data: {
+      ...data,
+      adminToken: admin?.token || ''
+    }
+  })
 }
 
 module.exports = new ExpiryReminderService()

@@ -97,7 +97,10 @@ async function assertAuthorized(event = {}) {
   const openid = cloud.getWXContext().OPENID
   if (!openid) throw new Error('请先登录')
   const result = await db.collection('enterprises').where({ openid }).limit(1).get()
-  if (!result.data?.length) throw new Error('企业账号尚未绑定')
+  const enterprise = result.data?.[0]
+  if (!enterprise) throw new Error('企业账号尚未绑定')
+  if (enterprise.approvalStatus === 'pending') throw new Error('企业账号正在审核中')
+  if (enterprise.approvalStatus === 'rejected') throw new Error('企业账号审核未通过')
 }
 
 async function getAccessToken() {

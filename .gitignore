@@ -23,3 +23,5 @@ release/
 exports/
 tmp/
 temp/
+.codex-preview.json
+.codex-preview.png

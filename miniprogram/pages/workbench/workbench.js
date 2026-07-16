@@ -53,17 +53,28 @@ Page({
   },
 
   onLoad() {
-    wx.setNavigationBarTitle({ title: '设备中心' })
-    this.bootstrap().finally(() => {
-      this.hasLoadedOnce = true
-    })
+    this.pageActive = true
+  },
+
+  onReady() {
+    this.pageReady = true
+    this.initialLoadTimer = setTimeout(() => {
+      if (!this.pageActive) return
+      this.bootstrap().finally(() => {
+        if (this.pageActive) this.hasLoadedOnce = true
+      })
+    }, 120)
   },
 
   onShow() {
-    if (!this.hasLoadedOnce) return
+    if (!this.pageReady || !this.hasLoadedOnce) return
 
-    wx.setNavigationBarTitle({ title: '设备中心' })
     this.bootstrap()
+  },
+
+  onUnload() {
+    this.pageActive = false
+    if (this.initialLoadTimer) clearTimeout(this.initialLoadTimer)
   },
 
   onPullDownRefresh() {
@@ -95,31 +106,35 @@ Page({
       return
     }
 
-    this.setData({
-      enterpriseUser,
-      loading: true
-    })
-
     try {
-      await Promise.all([
+      const [summaryCards, bindingReminder, inactiveDevices] = await Promise.all([
         this.loadDashboard(enterpriseUser, options),
         this.loadBindingReminder(enterpriseUser),
         this.loadInactiveDevices(enterpriseUser)
       ])
-    } catch (error) {
+      if (!this.pageActive) return
       this.setData({
-        summaryCards: buildSummaryCards(),
-        bindingReminder: {
-          count: 0,
-          summary: TEXT.bindingEmpty,
-          items: []
-        },
-        inactiveDevices: []
+        summaryCards,
+        bindingReminder,
+        inactiveDevices,
+        loading: false
       })
+    } catch (error) {
+      if (this.pageActive) {
+        this.setData({
+          summaryCards: buildSummaryCards(),
+          bindingReminder: {
+            count: 0,
+            summary: TEXT.bindingEmpty,
+            items: []
+          },
+          inactiveDevices: [],
+          loading: false
+        })
+      }
     } finally {
       this.lastBootstrapAt = Date.now()
       this.loadedLedgerVersion = ledgerVersion
-      this.setData({ loading: false })
     }
   },
 
@@ -136,16 +151,14 @@ Page({
         })
       ])
 
-      this.setData({
-        summaryCards: buildSummaryCards({
-          equipment: equipmentCount,
-          gauge: gaugeCount,
-          expired: Number(expiryDashboard?.data?.expiredCount || 0),
-          inactiveScrap: inactiveScrapCount
-        })
+      return buildSummaryCards({
+        equipment: equipmentCount,
+        gauge: gaugeCount,
+        expired: Number(expiryDashboard?.data?.expiredCount || 0),
+        inactiveScrap: inactiveScrapCount
       })
     } catch (error) {
-      this.setData({ summaryCards: buildSummaryCards() })
+      return buildSummaryCards()
     }
   },
 
@@ -154,27 +167,23 @@ Page({
       const list = await equipmentService.loadUnboundEquipments({ enterpriseUser })
       const count = list.length
 
-      this.setData({
-        bindingReminder: {
-          count,
-          summary: count
-            ? TEXT.bindingSummary.replace('{count}', String(count))
-            : TEXT.bindingEmpty,
-          items: list.map((item) => ({
-            _id: item._id,
-            title: item.equipmentName || TEXT.fallbackEquipmentTitle,
-            subtitle: item.location || item.equipmentNo || TEXT.fallbackEquipmentSubtitle
-          }))
-        }
-      })
+      return {
+        count,
+        summary: count
+          ? TEXT.bindingSummary.replace('{count}', String(count))
+          : TEXT.bindingEmpty,
+        items: list.map((item) => ({
+          _id: item._id,
+          title: item.equipmentName || TEXT.fallbackEquipmentTitle,
+          subtitle: item.location || item.equipmentNo || TEXT.fallbackEquipmentSubtitle
+        }))
+      }
     } catch (error) {
-      this.setData({
-        bindingReminder: {
-          count: 0,
-          summary: TEXT.bindingEmpty,
-          items: []
-        }
-      })
+      return {
+        count: 0,
+        summary: TEXT.bindingEmpty,
+        items: []
+      }
     }
   },
 
@@ -186,16 +195,14 @@ Page({
         limit: 5
       })
 
-      this.setData({
-        inactiveDevices: devices.map((item) => ({
-          _id: item._id,
-          title: item.deviceName || item.factoryNo || TEXT.fallbackGaugeTitle,
-          subtitle: item.equipmentName || item.factoryNo || TEXT.fallbackGaugeSubtitle,
-          status: this.normalizeStatus(item.status || '-')
-        }))
-      })
+      return devices.map((item) => ({
+        _id: item._id,
+        title: item.deviceName || item.factoryNo || TEXT.fallbackGaugeTitle,
+        subtitle: item.equipmentName || item.factoryNo || TEXT.fallbackGaugeSubtitle,
+        status: this.normalizeStatus(item.status || '-')
+      }))
     } catch (error) {
-      this.setData({ inactiveDevices: [] })
+      return []
     }
   },
 
@@ -223,7 +230,6 @@ Page({
   handleBindingReminder() {
     const first = this.data.bindingReminder?.items?.[0]
     if (first?._id) {
-      wx.setNavigationBarTitle({ title: '设备中心' })
       wx.navigateTo({ url: `/pages/equipment-detail/equipment-detail?id=${first._id}` })
       return
     }
@@ -233,7 +239,6 @@ Page({
   openUnboundEquipment(e) {
     const { id } = e.currentTarget.dataset
     if (!id) return
-    wx.setNavigationBarTitle({ title: '设备中心' })
     wx.navigateTo({ url: `/pages/equipment-detail/equipment-detail?id=${id}` })
   },
 

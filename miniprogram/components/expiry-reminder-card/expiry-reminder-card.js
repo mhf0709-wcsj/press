@@ -35,6 +35,22 @@ Component({
       type: String,
       value: '\u8bf7\u4f18\u5148\u8ddf\u8fdb'
     },
+    showPriority: {
+      type: Boolean,
+      value: true
+    },
+    priorityDanger: {
+      type: Boolean,
+      value: false
+    },
+    priorityLabel: {
+      type: String,
+      value: ''
+    },
+    priorityNoteText: {
+      type: String,
+      value: ''
+    },
     expiredSuffix: {
       type: String,
       value: '\u8fc7\u671f'

@@ -1,19 +1,19 @@
 <view class="privacy-mask" wx:if="{{showPrivacy}}">
   <view class="privacy-container">
     <view class="privacy-header">
+      <view class="privacy-mark">P</view>
       <text class="privacy-title">用户隐私保护提示</text>
+      <text class="privacy-subtitle">压力表智能管家</text>
     </view>
     <view class="privacy-content">
-      <text class="privacy-text">感谢您使用压力表检定智能体。我们非常重视您的个人信息和隐私保护。</text>
-      <text class="privacy-text">在使用本小程序服务前，请您仔细阅读并充分理解</text>
+      <text class="privacy-text">使用服务前，请阅读并同意</text>
       <text class="privacy-link" bindtap="openPrivacyContract">《用户隐私保护指引》</text>
-      <text class="privacy-text">。</text>
-      <text class="privacy-text">您可通过上述链接了解我们如何收集、使用、存储和保护您的个人信息。</text>
-      <text class="privacy-text">如您同意以上内容，请点击"同意"开始使用我们的服务。</text>
+      <text class="privacy-text">，了解我们如何收集、使用和保护企业及个人信息。</text>
+      <text class="privacy-note">拒绝授权将无法使用登录、图片识别和企业台账等功能。</text>
     </view>
     <view class="privacy-footer">
       <button class="btn-reject" bindtap="handleDisagree">拒绝</button>
-      <button class="btn-agree" id="agree-btn" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="handleAgree">同意</button>
+      <button class="btn-agree" id="agree-btn" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="handleAgree">同意并继续</button>
     </view>
   </view>
 </view>

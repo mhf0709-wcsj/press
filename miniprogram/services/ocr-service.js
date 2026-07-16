@@ -46,6 +46,28 @@ class OCRService {
     })
   }
 
+  async chooseImages(options = {}) {
+    const { count = 9, sourceType = ['album', 'camera'] } = options
+    await this.ensurePrivacyAuthorized()
+
+    return new Promise((resolve, reject) => {
+      wx.chooseMedia({
+        count: Math.min(9, Math.max(1, Number(count || 9))),
+        mediaType: ['image'],
+        sourceType,
+        success: (res) => {
+          const paths = (res?.tempFiles || []).map((item) => item.tempFilePath).filter(Boolean)
+          if (paths.length) {
+            resolve(paths)
+            return
+          }
+          reject(new Error('\u672a\u83b7\u53d6\u5230\u56fe\u7247'))
+        },
+        fail: reject
+      })
+    })
+  }
+
   async compressImage(imagePath, options = {}) {
     const { quality = 80, compressedWidth = 2000 } = options
 
@@ -129,11 +151,7 @@ class OCRService {
   }
 
   parseOcrText(text) {
-    const raw = String(text || '')
-    const normalized = raw
-      .replace(/\r/g, '\n')
-      .replace(/[：]/g, ':')
-      .replace(/[ \t]+/g, ' ')
+    const normalized = this.normalizeOcrText(text)
 
     debugLog('parse ocr text', normalized)
 
@@ -167,7 +185,7 @@ class OCRService {
     ]))
     result.modelSpec = this.normalizeModelSpec(result.modelSpec, normalized)
     result.factoryNo = this.firstMatch(normalized, [
-      /(?:\u51fa\u5382\u7f16\u53f7|\u7f16\u53f7|\u8868\u53f7)[:\s]*([A-Za-z0-9\-\/]{3,})/i
+      /(?:\u51fa\u5382\u7f16\u53f7|\u51fa\u5382\u53f7|\u5668\u53f7|\u8868\u53f7)[:\s]*([A-Za-z0-9\-\/]{3,})/i
     ])
     result.manufacturer = this.cleanupLineValue(this.firstMatch(normalized, [
       /(?:\u5236\u9020\u5355\u4f4d|\u751f\u4ea7\u5382\u5bb6|\u5236\u9020\u5382|\u5382\u5bb6)[:\s]*([^\n]+)/i
@@ -191,7 +209,52 @@ class OCRService {
 
   cleanupLineValue(value) {
     if (!value) return ''
-    return String(value).split('\n')[0].trim()
+    const cleaned = String(value)
+      .split(/\n/)[0]
+      .split(/(?:证书编号|出厂编号|型号规格|规格型号|制造单位|检定依据|检定结论|检定日期|有效期至)/)[0]
+      .trim()
+    return this.isOnlyFieldLabel(cleaned) ? '' : cleaned
+  }
+
+  normalizeOcrText(text) {
+    let normalized = String(text || '')
+      .replace(/\r/g, '\n')
+      .replace(/：/g, ':')
+      .replace(/（/g, '(')
+      .replace(/）/g, ')')
+      .replace(/(\d),(\d)/g, '$1.$2')
+      .replace(/[ \t]+/g, ' ')
+
+    const labels = [
+      [/证\s*书\s*编\s*号/g, '证书编号'],
+      [/送\s*检\s*单\s*位/g, '送检单位'],
+      [/委\s*托\s*单\s*位/g, '委托单位'],
+      [/使\s*用\s*单\s*位/g, '使用单位'],
+      [/计\s*量\s*器\s*具\s*名\s*称/g, '计量器具名称'],
+      [/器\s*具\s*名\s*称/g, '器具名称'],
+      [/仪\s*表\s*名\s*称/g, '仪表名称'],
+      [/型\s*号\s*[\/／]?\s*规\s*格/g, '型号/规格'],
+      [/规\s*格\s*型\s*号/g, '规格型号'],
+      [/制\s*造\s*单\s*位/g, '制造单位'],
+      [/出\s*厂\s*编\s*号/g, '出厂编号'],
+      [/检\s*定\s*依\s*据/g, '检定依据'],
+      [/检\s*定\s*结\s*论/g, '检定结论'],
+      [/检\s*定\s*日\s*期/g, '检定日期'],
+      [/有\s*效\s*期\s*至/g, '有效期至']
+    ]
+    labels.forEach(([pattern, label]) => {
+      normalized = normalized.replace(pattern, label)
+    })
+
+    for (let i = 0; i < 4; i += 1) {
+      normalized = normalized.replace(/([\u4e00-\u9fa5])[ \t]+(?=[\u4e00-\u9fa5])/g, '$1')
+    }
+
+    return normalized
+      .replace(/([\u4e00-\u9fa5])\s*\/\s*([\u4e00-\u9fa5])/g, '$1/$2')
+      .replace(/([\u4e00-\u9fa5])\s*:\s*/g, '$1:')
+      .replace(/\(\s*/g, '(')
+      .replace(/\s*\)/g, ')')
   }
 
   normalizeModelSpec(value, fullText) {

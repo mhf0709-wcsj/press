@@ -25,13 +25,13 @@ Page({
     gauges: []
   },
 
-  onLoad(options) {
+  onLoad(options = {}) {
+    this.pageActive = true
     wx.setNavigationBarTitle({ title: '设备详情' })
 
     const enterpriseUser = wx.getStorageSync('enterpriseUser')
     const adminUser = wx.getStorageSync('adminUser')
     const isAdminView = options.adminView === '1' || (!enterpriseUser && !!adminUser)
-    this.setData({ isAdminView })
 
     if (!enterpriseUser && !adminUser) {
       wx.reLaunch({ url: '/pages/login/login' })
@@ -43,117 +43,140 @@ Page({
         wx.showToast({ title: '管理端不能新建设备', icon: 'none' })
         return
       }
-      this.setData({
+      this.initialPageData = {
+        isAdminView,
         mode: 'create',
         returnTo: options.returnTo || '',
         isInitSetup: options.init === '1'
-      })
+      }
       wx.setNavigationBarTitle({ title: '新建设备' })
       return
     }
 
     const id = options.id ? options.id : (options.scene ? decodeURIComponent(options.scene) : '')
     if (id) {
-      this.setData({ equipmentId: id, mode: 'view' })
-      if (options.highlightGaugeId) {
-        this.setData({ highlightGaugeId: options.highlightGaugeId })
+      this.pendingInitialLoad = true
+      this.initialPageData = {
+        isAdminView,
+        equipmentId: id,
+        mode: 'view',
+        highlightGaugeId: options.highlightGaugeId || ''
       }
-      Promise.all([
-        this.loadEquipment(id),
-        this.loadGauges(id)
-      ]).finally(() => {
-        this.hasLoadedOnce = true
-      })
+      return
     }
+
+    this.initialPageData = { isAdminView }
+    this.invalidEquipmentId = true
+  },
+
+  onReady() {
+    this.pageReady = true
+    const initialPageData = this.initialPageData || {}
+    wx.nextTick(() => {
+      if (!this.pageActive) return
+      this.setData(initialPageData, () => {
+        if (this.invalidEquipmentId) {
+          wx.showToast({ title: '设备参数无效', icon: 'none' })
+          return
+        }
+        if (!this.pendingInitialLoad) return
+        this.pendingInitialLoad = false
+        this.refreshPage({ showLoading: true }).finally(() => {
+          if (this.pageActive) this.hasLoadedOnce = true
+        })
+      })
+    })
   },
 
   onShow() {
-    if (!this.hasLoadedOnce) return
+    if (!this.pageReady || !this.hasLoadedOnce) return
 
     const { equipmentId, mode } = this.data
     if (!equipmentId || mode === 'create') return
 
-    this.loadEquipment(equipmentId)
-    this.loadGauges(equipmentId)
+    this.refreshPage()
   },
 
-  async loadEquipment(id) {
-    wx.showLoading({ title: '加载中' })
+  onUnload() {
+    this.pageActive = false
+    this.loadVersion = Number(this.loadVersion || 0) + 1
+    clearTimeout(this.highlightTimer)
+  },
+
+  async refreshPage(options = {}) {
+    const equipmentId = this.data.equipmentId
+    if (!equipmentId || !this.pageActive) return
+
+    const version = Number(this.loadVersion || 0) + 1
+    this.loadVersion = version
+    if (options.showLoading) wx.showLoading({ title: '加载中' })
+
     try {
-      const equipment = await equipmentService.getEquipmentById(id)
-      this.setData({ equipment })
+      const enterpriseUser = wx.getStorageSync('enterpriseUser')
+      const [equipment, allGauges, allRecords] = await Promise.all([
+        equipmentService.getEquipmentById(equipmentId),
+        deviceService.loadDevices({ enterpriseUser, fromAdmin: this.data.isAdminView }),
+        recordService.getRecords({ limit: 100 })
+      ])
+      if (!this.pageActive || version !== this.loadVersion) return
+
+      const gauges = allGauges.filter((item) => item.equipmentId === equipmentId)
+      const records = allRecords.filter((item) => item.equipmentId === equipmentId)
+      const gaugeView = this.buildGaugeView(gauges, records)
+      this.setData({
+        equipment: equipment || this.data.equipment,
+        gauges: gaugeView.gauges,
+        dashboard: gaugeView.dashboard
+      }, () => {
+        if (this.pageActive && version === this.loadVersion) this.scrollToHighlight()
+      })
     } catch (error) {
-      wx.showToast({ title: '加载失败', icon: 'none' })
+      if (this.pageActive && version === this.loadVersion) {
+        wx.showToast({ title: error.message || '加载失败', icon: 'none' })
+      }
     } finally {
-      wx.hideLoading()
+      if (options.showLoading && this.pageActive && version === this.loadVersion) wx.hideLoading()
     }
   },
 
-  async loadGauges(equipmentId) {
-    try {
-      const gauges = (await deviceService.loadDevices({
-        enterpriseUser: wx.getStorageSync('enterpriseUser'),
-        fromAdmin: this.data.isAdminView
-      })).filter((item) => item.equipmentId === equipmentId)
-      this.setData({ gauges })
-      await this.loadGaugeLatestRecords(equipmentId, gauges)
-      this.scrollToHighlight()
-    } catch (error) {}
-  },
-
-  async loadGaugeLatestRecords(equipmentId, gauges) {
-    try {
-      const records = (await recordService.getRecords({ limit: 100 })).filter((item) => item.equipmentId === equipmentId)
-      const latestByDevice = {}
-      for (const record of records) {
-        const deviceId = record.deviceId
-        if (!deviceId) continue
-        const current = latestByDevice[deviceId]
-        if (!current || compareYmd(record.verificationDate, current.verificationDate) > 0) {
-          latestByDevice[deviceId] = record
-        }
+  buildGaugeView(gauges, records) {
+    const latestByDevice = {}
+    records.forEach((record) => {
+      const deviceId = record.deviceId
+      if (!deviceId) return
+      const current = latestByDevice[deviceId]
+      if (!current || compareYmd(record.verificationDate, current.verificationDate) > 0) {
+        latestByDevice[deviceId] = record
       }
+    })
 
-      const today = formatYmd(new Date())
-      let expired = 0
-      let expiring = 0
-      let normal = 0
+    const today = formatYmd(new Date())
+    let expired = 0
+    let expiring = 0
+    let normal = 0
+    const enriched = gauges.map((gauge) => {
+      const lastRecord = latestByDevice[gauge._id] || null
+      const expiry = computeExpiryStatus(today, lastRecord?.expiryDate || '')
+      if (expiry.status === 'expired') expired += 1
+      else if (expiry.status === 'expiring') expiring += 1
+      else if (expiry.status === 'normal') normal += 1
+      return {
+        ...gauge,
+        lastRecord,
+        expiryStatus: expiry.status,
+        expiryStatusText: expiry.statusText,
+        daysToExpiry: expiry.daysToExpiry
+      }
+    })
 
-      const enriched = gauges.map((gauge) => {
-        const lastRecord = latestByDevice[gauge._id] || null
-        const { status, statusText, daysToExpiry } = computeExpiryStatus(today, lastRecord?.expiryDate || '')
-
-        if (status === 'expired') expired += 1
-        else if (status === 'expiring') expiring += 1
-        else if (status === 'normal') normal += 1
-
-        return {
-          ...gauge,
-          lastRecord,
-          expiryStatus: status,
-          expiryStatusText: statusText,
-          daysToExpiry
-        }
-      })
-
-      this.setData({
-        gauges: enriched,
-        dashboard: {
-          totalGauges: gauges.length,
-          expired,
-          expiring,
-          normal
-        }
-      })
-    } catch (error) {
-      this.setData({
-        dashboard: {
-          totalGauges: gauges.length,
-          expired: 0,
-          expiring: 0,
-          normal: 0
-        }
-      })
+    return {
+      gauges: enriched,
+      dashboard: {
+        totalGauges: gauges.length,
+        expired,
+        expiring,
+        normal
+      }
     }
   },
 
@@ -171,8 +194,9 @@ Page({
         scrollTop: Math.max(0, viewport.scrollTop + rect.top - 120),
         duration: 260
       })
-      setTimeout(() => {
-        if (this.data.highlightGaugeId === id) this.setData({ highlightGaugeId: '' })
+      clearTimeout(this.highlightTimer)
+      this.highlightTimer = setTimeout(() => {
+        if (this.pageActive && this.data.highlightGaugeId === id) this.setData({ highlightGaugeId: '' })
       }, 3500)
     })
   },
