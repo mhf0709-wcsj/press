@@ -1,0 +1,37 @@
+const assert = require('assert')
+const fs = require('fs')
+const path = require('path')
+
+const root = path.resolve(__dirname, '../..')
+const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
+
+const dataAccess = read('cloudfunctions/dataAccess/index.js')
+const expiryReminder = read('cloudfunctions/expiryReminder/index.js')
+const workbench = read('miniprogram/pages/workbench/workbench.js')
+const dashboard = read('miniprogram/pages/dashboard/dashboard.js')
+const deviceList = read('miniprogram/pages/device-list/device-list.js')
+const assistant = read('miniprogram/pages/ai-assistant/ai-assistant.js')
+const assistantView = read('miniprogram/pages/ai-assistant/ai-assistant.wxml')
+const appConfig = JSON.parse(read('miniprogram/app.json'))
+
+assert(dataAccess.includes('getDataVersion: handleGetDataVersion'))
+assert(dataAccess.includes('bindingReminder:'))
+assert(dataAccess.includes('inactiveDevices:'))
+assert(workbench.includes("dataAccess.request('getEnterpriseDashboard')"))
+assert(workbench.includes("dataAccess.request('getDataVersion')"))
+assert(!workbench.includes("require('../../services/expiry-reminder-service')"))
+assert(!workbench.includes("require('../../services/equipment-service')"))
+
+assert(expiryReminder.includes('totalRecords: records.length'))
+assert(expiryReminder.includes('version: await getLatestOperationVersion(actor)'))
+assert(!dashboard.includes('syncDeletedDeviceRecords()'))
+assert(!dashboard.includes('loadOverviewData()'))
+assert(dashboard.includes('expiryReminderService.getAdminWorkspaceSummary'))
+assert(deviceList.includes("dataAccess.request('getDataVersion')"))
+
+assert(assistant.includes('const MAX_RENDERED_MESSAGES = 60'))
+assert(assistant.includes('this.limitMessages([...this.data.messages'))
+assert(assistantView.includes('scroll-with-animation="{{false}}"'))
+assert.strictEqual(appConfig.lazyCodeLoading, 'requiredComponents')
+
+console.log('Data freshness and performance regression passed: 17/17')

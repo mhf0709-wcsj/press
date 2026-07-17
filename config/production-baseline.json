@@ -7,7 +7,8 @@
     "dataAccess",
     "enterpriseAuth",
     "expiryReminder",
-    "initAdmin"
+    "initAdmin",
+    "dataMaintenance"
   ],
   "denyClientReadWriteCollections": [
     "admins",
@@ -19,7 +20,9 @@
     "deletion_logs",
     "lifecycle_logs",
     "enterprise_alert_settings",
+    "enterprise_notifications",
     "expiry_alert_logs",
+    "operation_logs",
     "kb_docs",
     "kb_chunks"
   ],

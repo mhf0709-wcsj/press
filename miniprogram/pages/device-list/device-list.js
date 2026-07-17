@@ -1,5 +1,6 @@
 const deviceService = require('../../services/device-service')
 const recordService = require('../../services/record-service')
+const dataAccess = require('../../services/data-access-service')
 const { runSingleFlight } = require('../../utils/request-control')
 
 const TEXT = {
@@ -84,14 +85,18 @@ Page({
 
     const app = getApp()
     const ledgerVersion = Number(app.globalData.ledgerVersion || 0)
-    const now = Date.now()
-    if (
-      !options.force &&
-      this.lastLoadAt &&
-      this.loadedLedgerVersion === ledgerVersion &&
-      now - this.lastLoadAt < 10000
-    ) {
-      return
+    let serverVersion = this.loadedServerVersion
+    if (!options.force && this.lastLoadAt) {
+      try {
+        const versionResult = await dataAccess.request('getDataVersion')
+        serverVersion = Number(versionResult.version || 0)
+        if (
+          this.loadedLedgerVersion === ledgerVersion &&
+          this.loadedServerVersion === serverVersion
+        ) return
+      } catch (error) {
+        serverVersion = this.loadedServerVersion
+      }
     }
 
     this.setData({ isLoading: true, swipeOpenId: '' })
@@ -100,9 +105,17 @@ Page({
       if (!options.silent) {
         wx.showLoading({ title: TEXT.loading })
       }
-      let devices = await deviceService.searchDevices(this.data.searchKeyword, {
-        enterpriseUser: this.data.enterpriseUser
-      })
+      const shouldLoadVersion = options.force || serverVersion === undefined
+      const [deviceList, versionResult] = await Promise.all([
+        deviceService.searchDevices(this.data.searchKeyword, {
+          enterpriseUser: this.data.enterpriseUser
+        }),
+        shouldLoadVersion
+          ? dataAccess.request('getDataVersion').catch(() => ({ version: serverVersion || 0 }))
+          : Promise.resolve({ version: serverVersion })
+      ])
+      let devices = deviceList
+      serverVersion = Number(versionResult.version || 0)
 
       if (this.data.statuses.length) {
         devices = devices.filter((item) => this.data.statuses.includes(item.status))
@@ -121,6 +134,7 @@ Page({
       }
       this.lastLoadAt = Date.now()
       this.loadedLedgerVersion = ledgerVersion
+      this.loadedServerVersion = Number(serverVersion || 0)
       this.setData({ isLoading: false })
     }
   },

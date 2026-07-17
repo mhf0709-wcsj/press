@@ -164,9 +164,7 @@ Page({
       wx.removeStorageSync('enterpriseAuthPending')
       wx.hideLoading()
       wx.showToast({ title: TEXT.bindSuccess, icon: 'success' })
-      setTimeout(() => {
-        wx.redirectTo({ url: '/pages/equipment-detail/equipment-detail?mode=create&init=1' })
-      }, 1200)
+      wx.redirectTo({ url: '/pages/equipment-detail/equipment-detail?mode=create&init=1' })
     } catch (error) {
       wx.hideLoading()
       console.error('Bind enterprise failed:', error)

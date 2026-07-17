@@ -14,17 +14,17 @@
       </view>
 
       <view class="summary-grid">
-        <view class="summary-card danger">
-          <text class="summary-value">{{summary.unread}}</text>
-          <text class="summary-label">未读</text>
+        <view class="summary-card danger" bindtap="selectSummaryFilter" data-status="pending">
+          <text class="summary-value">{{summary.pending}}</text>
+          <text class="summary-label">待处理</text>
         </view>
-        <view class="summary-card warning">
-          <text class="summary-value">{{summary.deferred}}</text>
-          <text class="summary-label">稍后处理</text>
+        <view class="summary-card warning" bindtap="selectSummaryFilter" data-status="pending_review">
+          <text class="summary-value">{{summary.pending_review}}</text>
+          <text class="summary-label">待复核</text>
         </view>
-        <view class="summary-card success">
-          <text class="summary-value">{{summary.read}}</text>
-          <text class="summary-label">已读</text>
+        <view class="summary-card danger" bindtap="selectSummaryFilter" data-status="overdue">
+          <text class="summary-value">{{summary.overdue}}</text>
+          <text class="summary-label">逾期整改</text>
         </view>
       </view>
 
@@ -45,8 +45,8 @@
               class="notice-cell"
               wx:for="{{notices}}"
               wx:key="_id"
-              data-enterprise="{{item.enterpriseName}}"
-              bindtap="openEnterprise"
+              data-id="{{item._id}}"
+              bindtap="openTask"
             >
               <view class="notice-cell-head">
                 <view>
@@ -57,6 +57,8 @@
               </view>
               <text class="notice-title">{{item.title}}</text>
               <text class="notice-content">{{item.content}}</text>
+              <text class="notice-read-time">整改期限：{{item.dueDateText}}</text>
+              <text class="notice-read-time" wx:if="{{item.rectificationResponse}}">企业反馈：{{item.rectificationResponse}}</text>
               <view class="notice-meta">
                 <text>{{item.priorityText}}</text>
                 <text>{{item.createdBy || '管理员'}}</text>

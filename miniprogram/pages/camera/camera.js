@@ -1,4 +1,4 @@
-﻿
+
 
 const ocrService = require('../../services/ocr-service')
 const aiExtractService = require('../../services/ai-extract-service')
@@ -722,8 +722,7 @@ Page({
         return
       }
 
-      wx.setNavigationBarTitle({ title: '确认并保存' })
-      wx.navigateTo({
+      wx.redirectTo({
         url: `/pages/equipment-detail/equipment-detail?id=${equipmentId}&highlightGaugeId=${gauge._id}`
       })
     } catch (err) {

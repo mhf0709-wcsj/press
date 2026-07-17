@@ -68,6 +68,26 @@
 
       <view class="panel">
         <view class="panel-section">
+          <text class="section-title">{{text.taskTitle}}</text>
+          <view class="task-grid">
+            <view class="task-card" bindtap="onTapTask" data-type="enterprise">
+              <text class="task-value">{{taskSummary.pendingEnterpriseCount}}</text>
+              <text class="task-label">{{text.pendingEnterprise}}</text>
+            </view>
+            <view class="task-card warning" bindtap="onTapTask" data-type="pendingReview">
+              <text class="task-value">{{taskSummary.pendingReviewCount}}</text>
+              <text class="task-label">{{text.pendingReview}}</text>
+            </view>
+            <view class="task-card danger" bindtap="onTapTask" data-type="overdue">
+              <text class="task-value">{{taskSummary.overdueCount}}</text>
+              <text class="task-label">{{text.overdueTask}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="panel">
+        <view class="panel-section">
           <text class="section-title">{{text.riskTitle}}</text>
 
           <view class="enterprise-focus" wx:if="{{expiryEnterprises.length}}">

@@ -1,0 +1,15 @@
+.rectification-page { min-height: 100vh; background: #f5f6f8; }
+.rectification-scroll { height: 100vh; }
+.rectification-wrapper { padding-bottom: 48rpx; }
+.task-filters { display: flex; gap: 12rpx; padding: 8rpx 0 24rpx; overflow-x: auto; }
+.filter-item { flex: none; padding: 14rpx 24rpx; border-radius: 999rpx; background: #fff; color: #667085; font-size: 24rpx; }
+.filter-item.active { background: #087ff5; color: #fff; }
+.task-list { display: flex; flex-direction: column; gap: 20rpx; }
+.task-head { display: flex; justify-content: space-between; gap: 24rpx; align-items: flex-start; }
+.task-title { color: #172033; font-size: 30rpx; font-weight: 700; }
+.task-status { flex: none; padding: 8rpx 16rpx; border-radius: 999rpx; background: #fff3d6; color: #9a6200; font-size: 22rpx; }
+.task-status.review { background: #e8f2ff; color: #0068d9; }
+.task-status.returned { background: #fff0f0; color: #cf2f2f; }
+.task-status.closed { background: #e9f8ee; color: #168447; }
+.task-content { display: block; margin-top: 18rpx; color: #667085; line-height: 1.55; }
+.task-meta { display: flex; justify-content: space-between; margin-top: 22rpx; color: #98a2b3; font-size: 23rpx; }

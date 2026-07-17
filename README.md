@@ -24,16 +24,19 @@
 - `pages/dashboard/dashboard`：预览平台
 - `pages/admin-workbench/admin-workbench`：管理工作台
 - `pages/admin/admin`：台账中心
-- `pages/account-settings/account-settings`：账号信息设置
+- `pages/admin-accounts/admin-accounts`：辖区账号管理
+- `pages/admin-notices/admin-notices`：企业提醒与整改复核
 
 ## 云函数
 
 - `aiAssistant`：AI 管家、对话式查询和修改
 - `baiduOcr`：OCR 识别
 - `enterpriseAuth`：企业注册、登录、账号信息
+- `dataAccess`：企业端和管理端统一台账数据接口
 - `expiryReminder`：提醒相关接口
+- `batchImport`：Excel 批量登记
+- `dataMaintenance`：数据清洗与维护
 - `initAdmin`：初始化管理账号
-- `webAdmin`：PC 网页监管端接口
 
 ## PC 监管端
 

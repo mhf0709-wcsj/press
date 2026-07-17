@@ -1,4 +1,4 @@
-﻿const { CLOUD_CONFIG } = require('../../constants/index')
+const { CLOUD_CONFIG } = require('../../constants/index')
 const deletionLogService = require('../../services/deletion-log-service')
 const { DISTRICTS: DISTRICT_NAMES } = require('../../constants/index')
 const { runSingleFlight } = require('../../utils/request-control')

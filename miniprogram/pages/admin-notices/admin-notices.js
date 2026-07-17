@@ -1,9 +1,12 @@
 const expiryReminderService = require('../../services/expiry-reminder-service')
 
 const STATUS_META = {
-  unread: { text: '未读', className: 'unread' },
-  deferred: { text: '稍后处理', className: 'deferred' },
-  read: { text: '已读', className: 'read' }
+  pending: { text: '待处理', className: 'unread' },
+  rectifying: { text: '整改中', className: 'deferred' },
+  pending_review: { text: '待复核', className: 'unread' },
+  returned: { text: '已退回', className: 'deferred' },
+  closed: { text: '已关闭', className: 'read' },
+  acknowledged: { text: '已确认', className: 'read' }
 }
 
 Page({
@@ -11,17 +14,21 @@ Page({
     loading: true,
     statusFilter: '',
     notices: [],
-    summary: { total: 0, unread: 0, deferred: 0, read: 0 },
+    summary: { total: 0, pending: 0, pending_review: 0, returned: 0, closed: 0, overdue: 0 },
     filters: [
       { key: '', label: '全部' },
-      { key: 'unread', label: '未读' },
-      { key: 'deferred', label: '稍后处理' },
-      { key: 'read', label: '已读' }
+      { key: 'pending', label: '待处理' },
+      { key: 'pending_review', label: '待复核' },
+      { key: 'overdue', label: '逾期整改' },
+      { key: 'returned', label: '已退回' },
+      { key: 'closed', label: '已关闭' }
     ]
   },
 
-  onLoad() {
-    this.loadNotices()
+  onLoad(options = {}) {
+    const allowed = this.data.filters.map((item) => item.key)
+    const statusFilter = allowed.includes(options.status) ? options.status : ''
+    this.setData({ statusFilter }, () => this.loadNotices())
   },
 
   onPullDownRefresh() {
@@ -34,25 +41,32 @@ Page({
     this.setData({ statusFilter }, () => this.loadNotices())
   },
 
+  selectSummaryFilter(e) {
+    const statusFilter = e.currentTarget.dataset.status
+    if (statusFilter === this.data.statusFilter) return
+    this.setData({ statusFilter }, () => this.loadNotices())
+  },
+
   async loadNotices() {
     this.setData({ loading: true })
     try {
       const result = await expiryReminderService.listAdminNotices(this.data.statusFilter, 100)
       if (!result?.success) throw new Error(result?.error || '获取提醒记录失败')
       const notices = (result.data?.notices || []).map((item) => {
-        const status = STATUS_META[item.status] || STATUS_META.unread
+        const status = STATUS_META[item.taskStatus] || STATUS_META.pending
         return {
           ...item,
           statusText: status.text,
           statusClass: status.className,
           createdAtText: this.formatDateTime(item.createdAt),
           readAtText: this.formatDateTime(item.readAt),
+          dueDateText: item.dueDate || '未设置',
           priorityText: item.priority === 'urgent' ? '紧急' : item.priority === 'important' ? '重要' : '普通'
         }
       })
       this.setData({
         notices,
-        summary: result.data?.summary || { total: 0, unread: 0, deferred: 0, read: 0 }
+        summary: result.data?.summary || { total: 0, pending: 0, pending_review: 0, returned: 0, closed: 0, overdue: 0 }
       })
     } catch (error) {
       wx.showToast({ title: error.message || '加载失败', icon: 'none' })
@@ -61,11 +75,11 @@ Page({
     }
   },
 
-  openEnterprise(e) {
-    const enterpriseName = e.currentTarget.dataset.enterprise
-    if (!enterpriseName) return
+  openTask(e) {
+    const noticeId = e.currentTarget.dataset.id
+    if (!noticeId) return
     wx.navigateTo({
-      url: `/pages/admin/admin?view=equipments&enterprise=${encodeURIComponent(enterpriseName)}&from=notices`
+      url: `/pages/rectification-detail/rectification-detail?id=${noticeId}&role=admin`
     })
   },
 

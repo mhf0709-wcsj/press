@@ -1,4 +1,4 @@
-﻿<view class="page-shell admin-page">
+<view class="page-shell admin-page">
   <scroll-view scroll-y class="admin-scroll">
     <view class="content-wrapper admin-wrapper">
       <view class="panel hero-panel">

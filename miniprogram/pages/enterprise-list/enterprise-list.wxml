@@ -1,4 +1,4 @@
-﻿<view class="page-shell enterprise-page">
+<view class="page-shell enterprise-page">
   <scroll-view scroll-y class="enterprise-scroll">
     <view class="content-wrapper enterprise-wrapper">
       <view class="panel hero-panel">
@@ -35,6 +35,7 @@
             >
               <view class="cell-main">
                 <text class="cell-title">{{item.companyName}}</text>
+                <text class="cell-subtitle" wx:if="{{mode === 'all' && item.approvalStatus === 'pending'}}">申请类型 {{item.bindingRequestText}}</text>
                 <text class="cell-subtitle" wx:if="{{mode === 'all'}}">{{text.fields.creditCode}} {{item.creditCode || '-'}}</text>
                 <text class="cell-subtitle">{{text.fields.legalPerson}} {{item.legalPerson || '-'}}</text>
                 <text class="cell-subtitle">{{text.fields.phone}} {{item.phone || '-'}}</text>
@@ -125,6 +126,11 @@
         auto-height
         bindinput="onNoticeContentInput"
       />
+
+      <text class="notice-field-label">整改期限</text>
+      <picker mode="date" value="{{noticeDeadline}}" start="{{today}}" bindchange="changeNoticeDeadline">
+        <view class="notice-input">{{noticeDeadline}}</view>
+      </picker>
 
       <view class="notice-dialog-actions">
         <view class="notice-action secondary" bindtap="closeNoticeEditor">{{text.cancel}}</view>

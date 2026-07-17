@@ -1,4 +1,4 @@
-﻿
+
 const ocrService = require('../../services/ocr-service')
 const aiExtractService = require('../../services/ai-extract-service')
 const batchImportService = require('../../services/batch-import-service')
@@ -6,6 +6,7 @@ const recordService = require('../../services/record-service')
 const deviceService = require('../../services/device-service')
 const equipmentService = require('../../services/equipment-service')
 const expiryReminderService = require('../../services/expiry-reminder-service')
+const dataAccess = require('../../services/data-access-service')
 const formValidator = require('../../utils/form-validator')
 const { calculateExpiryDate } = require('../../utils/helpers/date')
 const { DISTRICTS } = require('../../constants/index')
@@ -15,6 +16,7 @@ const DRAFT_STATUS_OPTIONS = ['在用', '备用', '送检', '停用', '报废']
 const DRAFT_DISTRICT_OPTIONS = [...DISTRICTS]
 const VISION_BATCH_CONCURRENCY = 2
 const VISION_BATCH_PROGRESS_KEY = 'aiVisionBatchProgress'
+const MAX_RENDERED_MESSAGES = 60
 
 const TEXT = {
   heroTopline: '智能管家',
@@ -142,9 +144,11 @@ Page({
 
   onReady() {
     this.pageReady = true
-    this.initialLoadTimer = setTimeout(() => {
+    const start = () => {
       if (this.pageActive) this.initializePage()
-    }, 120)
+    }
+    if (typeof wx.nextTick === 'function') wx.nextTick(start)
+    else this.initialLoadTimer = setTimeout(start, 0)
   },
 
   async initializePage() {
@@ -189,22 +193,33 @@ Page({
 
     const app = getApp()
     const ledgerVersion = Number(app.globalData.ledgerVersion || 0)
-    const now = Date.now()
-    if (
-      profile.userType === 'enterprise' &&
-      this.lastBootstrapAt &&
-      this.loadedLedgerVersion === ledgerVersion &&
-      now - this.lastBootstrapAt < 15000
-    ) {
-      return true
-    }
-
     if (profile.userType === 'enterprise') {
-      const ready = await this.ensureEnterpriseEquipmentSetup(profile.userInfo)
-      if (ready) {
-        await this.loadUnboundEquipmentCount(profile.userInfo)
+      if (this.hasLoadedOnce) {
+        try {
+          const versionResult = await dataAccess.request('getDataVersion')
+          const serverVersion = Number(versionResult.version || 0)
+          if (
+            this.loadedLedgerVersion === ledgerVersion &&
+            this.loadedServerVersion === serverVersion
+          ) return true
+        } catch (error) {
+          // 版本检查失败时继续刷新企业状态。
+        }
       }
-      this.lastBootstrapAt = Date.now()
+
+      let dashboard = null
+      try {
+        dashboard = await dataAccess.request('getEnterpriseDashboard')
+      } catch (error) {}
+      const equipmentCount = dashboard
+        ? Number(dashboard.summary?.equipmentCount || 0)
+        : undefined
+      const ready = await this.ensureEnterpriseEquipmentSetup(profile.userInfo, equipmentCount)
+      if (ready) {
+        if (dashboard) this.setData({ unboundEquipmentCount: Number(dashboard.bindingReminder?.count || 0) })
+        else await this.loadUnboundEquipmentCount(profile.userInfo)
+      }
+      this.loadedServerVersion = Number(dashboard?.version || this.loadedServerVersion || 0)
       this.loadedLedgerVersion = ledgerVersion
       return ready
     }
@@ -221,11 +236,13 @@ Page({
     }
   },
 
-  async ensureEnterpriseEquipmentSetup(enterpriseUser) {
+  async ensureEnterpriseEquipmentSetup(enterpriseUser, knownEquipmentCount) {
     if (!enterpriseUser?.companyName) return false
 
     try {
-      const total = await equipmentService.countEquipments({ enterpriseUser })
+      const total = Number.isFinite(knownEquipmentCount)
+        ? knownEquipmentCount
+        : await equipmentService.countEquipments({ enterpriseUser })
       if (total > 0) {
         if (this.data.setupRedirecting) {
           this.setData({ setupRedirecting: false })
@@ -237,9 +254,7 @@ Page({
 
       this.setData({ setupRedirecting: true })
       wx.showToast({ title: '请先创建至少一台设备', icon: 'none', duration: 1800 })
-      setTimeout(() => {
-        wx.navigateTo({ url: '/pages/equipment-detail/equipment-detail?mode=create&init=1' })
-      }, 250)
+      wx.navigateTo({ url: '/pages/equipment-detail/equipment-detail?mode=create&init=1' })
       return false
     } catch (error) {
       console.error('ensure equipment setup failed:', error)
@@ -276,7 +291,7 @@ Page({
           summary: notice.content || '',
           items: [],
           badgeText: '监管通知',
-          confirmText: '我知道了',
+          confirmText: '去处理',
           cancelText: '稍后提醒',
           priorityDanger: priority.danger,
           priorityLabel: priority.label,
@@ -340,8 +355,9 @@ Page({
   async confirmReminderCard() {
     if (this.data.reminderMode === 'notice' && this.data.activeNoticeId) {
       await expiryReminderService.updateEnterpriseNoticeStatus(this.data.activeNoticeId, 'read')
+      const noticeId = this.data.activeNoticeId
       this.setData({ reminderVisible: false, activeNoticeId: '' })
-      wx.showToast({ title: '已确认收到', icon: 'success' })
+      wx.navigateTo({ url: `/pages/rectification-detail/rectification-detail?id=${noticeId}` })
       return
     }
     this.setData({ reminderVisible: false, activeNoticeId: '' })
@@ -474,14 +490,28 @@ Page({
   createResultMessage(result) {
     const confidence = Number(result.confidence || 0)
     const confidencePercent = Math.round(confidence * 100)
-    const lowConfidenceLabels = (result.recognitionMeta?.lowConfidenceFields || [])
+    const lowConfidenceFields = result.recognitionMeta?.lowConfidenceFields || []
+    const conflictFields = result.recognitionMeta?.conflictFields || []
+    const lowConfidenceSet = new Set(lowConfidenceFields)
+    const conflictSet = new Set(conflictFields)
+    const lowConfidenceLabels = lowConfidenceFields
       .map((key) => TEXT.fields[key] || '')
       .filter(Boolean)
+    const fields = (result.fields || []).map((field) => ({
+      ...field,
+      reviewText: conflictSet.has(field.key)
+        ? '结果冲突'
+        : (lowConfidenceSet.has(field.key) ? '请核对' : ''),
+      reviewTone: conflictSet.has(field.key) ? 'risk' : 'warning'
+    }))
     const diagnostics = (result.fields || [])
       .map((field) => ({
         key: field.key,
         label: field.label,
-        source: result.recognitionMeta?.fieldSources?.[field.key] || ''
+        source: [
+          result.recognitionMeta?.fieldSources?.[field.key] || '',
+          result.recognitionMeta?.fieldIssues?.[field.key] || ''
+        ].filter(Boolean).join('；')
       }))
       .filter((field) => field.source)
 
@@ -489,7 +519,7 @@ Page({
       ...this.createBaseMessage('assistant', 'result'),
       title: TEXT.extractionTitle,
       summary: result.summary,
-      fields: result.fields,
+      fields,
       imagePath: result.imagePath,
       confidenceText: confidencePercent ? `识别可信度 ${confidencePercent}%` : '',
       confidenceTone: confidence >= 0.85 ? 'good' : (confidence >= 0.7 ? 'warning' : 'risk'),
@@ -562,8 +592,14 @@ Page({
 
   appendMessages(newMessages) {
     this.setData({
-      messages: [...this.data.messages, ...newMessages]
+      messages: this.limitMessages([...this.data.messages, ...newMessages])
     }, () => this.scrollToBottom())
+  },
+
+  limitMessages(messages = []) {
+    return messages.length > MAX_RENDERED_MESSAGES
+      ? messages.slice(-MAX_RENDERED_MESSAGES)
+      : messages
   },
 
   onInput(e) {
@@ -758,7 +794,7 @@ Page({
     if (!question || this.data.isLoading || this.data.isVisionLoading || this.data.isCrudExecuting || this.data.isDirectSaving) return
 
     this.setData({
-      messages: [...this.data.messages, this.createTextMessage('user', question)],
+      messages: this.limitMessages([...this.data.messages, this.createTextMessage('user', question)]),
       inputValue: '',
       isLoading: true
     }, () => this.scrollToBottom())
@@ -845,7 +881,7 @@ Page({
         if (crudMessage) {
           const nextContext = this.extractCrudContext(crudPlan)
           this.setData({
-            messages: [...this.data.messages, crudMessage],
+            messages: this.limitMessages([...this.data.messages, crudMessage]),
             isLoading: false,
             pendingCrudPlan: crudPlan.mode === 'confirm'
               ? {
@@ -873,14 +909,14 @@ Page({
       })
 
       this.setData({
-        messages: [...this.data.messages, this.createTextMessage('assistant', res.result.answer || TEXT.answers.fallback)],
+        messages: this.limitMessages([...this.data.messages, this.createTextMessage('assistant', res.result.answer || TEXT.answers.fallback)]),
         isLoading: false,
         pendingCrudPlan: null
       }, () => this.scrollToBottom())
     } catch (error) {
       console.error('AI request failed:', error)
       this.setData({
-        messages: [...this.data.messages, this.createTextMessage('assistant', TEXT.answers.network)],
+        messages: this.limitMessages([...this.data.messages, this.createTextMessage('assistant', TEXT.answers.network)]),
         isLoading: false
       }, () => this.scrollToBottom())
     }
@@ -924,7 +960,7 @@ Page({
       const result = await this.requestCrudExecute(payload)
       markLedgerChanged()
       this.setData({
-        messages: [...this.data.messages, this.createTextMessage('assistant', result.answer || TEXT.answers.fallback)],
+        messages: this.limitMessages([...this.data.messages, this.createTextMessage('assistant', result.answer || TEXT.answers.fallback)]),
         isCrudExecuting: false,
         pendingCrudPlan: null,
         lastCrudContext: {
@@ -937,7 +973,7 @@ Page({
     } catch (error) {
       console.error('CRUD execute failed:', error)
       this.setData({
-        messages: [...this.data.messages, this.createTextMessage('assistant', error.message || TEXT.answers.executeFailed)],
+        messages: this.limitMessages([...this.data.messages, this.createTextMessage('assistant', error.message || TEXT.answers.executeFailed)]),
         isCrudExecuting: false
       }, () => this.scrollToBottom())
     }
@@ -1348,7 +1384,7 @@ Page({
     }
     const message = this.createTextMessage('assistant', content)
     this.setData({
-      messages: [...this.data.messages, message],
+      messages: this.limitMessages([...this.data.messages, message]),
       excelStatusMessageId: message.id
     }, () => this.scrollToBottom())
   },

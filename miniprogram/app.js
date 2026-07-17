@@ -1,6 +1,5 @@
-﻿const { CLOUD_CONFIG, ROUTES } = require('./constants/index.js')
+const { CLOUD_CONFIG, ROUTES } = require('./constants/index.js')
 const { storage } = require('./utils/index.js')
-const { DISTRICTS } = require('./constants/index.js')
 const { cache } = require('./utils/cache.js')
 const { ErrorHandler } = require('./utils/error-handler.js')
 const authService = require('./services/auth-service.js')
@@ -11,7 +10,6 @@ App({
   globalData: {
     userInfo: null,
     isLogin: false,
-    systemInfo: null,
     isConnected: true,
     entryReminderToken: 0,
     entryReminderHandledToken: 0,
@@ -21,9 +19,7 @@ App({
   onLaunch() {
     debugLog('[App] launch')
     this.initCloud()
-    this.getSystemInfo()
     this.watchNetworkStatus()
-    this.preloadCriticalData()
     this.checkAuth()
   },
 
@@ -61,20 +57,6 @@ App({
     debugLog('[Cloud] init success')
   },
 
-  getSystemInfo() {
-    try {
-      const deviceInfo = wx.getDeviceInfo ? wx.getDeviceInfo() : {}
-      const windowInfo = wx.getWindowInfo ? wx.getWindowInfo() : {}
-      const appBaseInfo = wx.getAppBaseInfo ? wx.getAppBaseInfo() : {}
-      const res = { ...deviceInfo, ...windowInfo, ...appBaseInfo }
-      this.globalData.systemInfo = res
-      debugLog('[App] system:', res.model, res.system)
-      cache.set('systemInfo', res, 24 * 60 * 60 * 1000)
-    } catch (error) {
-      console.error('[App] getSystemInfo failed:', error)
-    }
-  },
-
   watchNetworkStatus() {
     wx.onNetworkStatusChange((res) => {
       this.globalData.isConnected = res.isConnected
@@ -94,27 +76,6 @@ App({
       success: (res) => {
         this.globalData.isConnected = res.networkType !== 'none'
       }
-    })
-  },
-
-  async preloadCriticalData() {
-    debugLog('[App] preload config')
-
-    try {
-      const config = await this.fetchConfig()
-      cache.set('appConfig', config, 10 * 60 * 1000)
-    } catch (error) {
-      console.warn('[App] preload config failed:', error)
-    }
-  },
-
-  async fetchConfig() {
-    return new Promise((resolve) => {
-      resolve({
-        version: '1.0.0',
-        districts: [...DISTRICTS],
-        maxImageSize: 10 * 1024 * 1024
-      })
     })
   },
 
@@ -159,8 +120,7 @@ App({
     const entryRoutes = [
       ROUTES.LOGIN,
       ROUTES.REGISTER,
-      ROUTES.ADMIN_LOGIN,
-      '/pages/index/index'
+      ROUTES.ADMIN_LOGIN
     ]
     if (!currentRoute || entryRoutes.includes(currentRoute)) {
       wx.switchTab({ url: ROUTES.AI_ASSISTANT })

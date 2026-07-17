@@ -235,7 +235,7 @@ Page({
       if (mode === 'create') {
         await deviceService.createDevice(device, { enterpriseUser })
         wx.showToast({ title: TEXT.createSuccess, icon: 'success' })
-        setTimeout(() => wx.navigateBack(), 1200)
+        wx.navigateBack()
         return
       }
 

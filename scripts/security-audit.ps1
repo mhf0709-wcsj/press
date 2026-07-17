@@ -12,13 +12,28 @@ function Add-Pass([string]$message) {
   Write-Host "[PASS] $message" -ForegroundColor Green
 }
 
-$requiredFunctions = @('aiAssistant', 'baiduOcr', 'dataAccess', 'enterpriseAuth', 'expiryReminder', 'initAdmin')
+$baselinePath = Join-Path $root 'config/production-baseline.json'
+if (-not (Test-Path $baselinePath)) {
+  Add-Failure 'config/production-baseline.json is missing'
+  exit 1
+}
+$baseline = Get-Content $baselinePath -Raw -Encoding UTF8 | ConvertFrom-Json
+$requiredFunctions = @($baseline.requiredCloudFunctions)
 foreach ($name in $requiredFunctions) {
   $path = Join-Path $root "cloudfunctions/$name/index.js"
   if (Test-Path $path) {
     Add-Pass "Cloud function exists: $name"
   } else {
     Add-Failure "Missing cloud function: $name"
+  }
+}
+
+$requiredCollections = @($baseline.denyClientReadWriteCollections)
+foreach ($name in @('enterprise_notifications', 'operation_logs')) {
+  if ($requiredCollections -contains $name) {
+    Add-Pass "Protected collection is in production baseline: $name"
+  } else {
+    Add-Failure "Protected collection missing from production baseline: $name"
   }
 }
 

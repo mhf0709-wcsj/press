@@ -1,6 +1,4 @@
 const dataAccess = require('../../services/data-access-service')
-const equipmentService = require('../../services/equipment-service')
-const expiryReminderService = require('../../services/expiry-reminder-service')
 const { runSingleFlight } = require('../../utils/request-control')
 
 const TEXT = {
@@ -8,7 +6,11 @@ const TEXT = {
   title: '设备中心',
   dashboardTitle: '仪表盘',
   dashboardNote: '',
+  quickTitle: '常用操作',
   createEquipment: '新建设备',
+  createEquipmentNote: '先建立设备档案',
+  createGauge: '录入压力表',
+  createGaugeNote: 'AI 识别或手动建档',
   bindingTitle: '待绑定设备',
   bindingManage: '处理',
   bindingSummary: '{count} 台未绑定',
@@ -58,12 +60,14 @@ Page({
 
   onReady() {
     this.pageReady = true
-    this.initialLoadTimer = setTimeout(() => {
+    const start = () => {
       if (!this.pageActive) return
       this.bootstrap().finally(() => {
         if (this.pageActive) this.hasLoadedOnce = true
       })
-    }, 120)
+    }
+    if (typeof wx.nextTick === 'function') wx.nextTick(start)
+    else this.initialLoadTimer = setTimeout(start, 0)
   },
 
   onShow() {
@@ -96,22 +100,49 @@ Page({
 
     const app = getApp()
     const ledgerVersion = Number(app.globalData.ledgerVersion || 0)
-    const now = Date.now()
-    if (
-      !options.force &&
-      this.lastBootstrapAt &&
-      this.loadedLedgerVersion === ledgerVersion &&
-      now - this.lastBootstrapAt < 15000
-    ) {
-      return
+    if (!options.force && this.hasLoadedOnce) {
+      try {
+        const versionResult = await dataAccess.request('getDataVersion')
+        const serverVersion = Number(versionResult.version || 0)
+        if (
+          this.loadedLedgerVersion === ledgerVersion &&
+          this.loadedServerVersion === serverVersion
+        ) return
+      } catch (error) {
+        // 版本检查失败时继续加载，避免页面长期停留在旧数据。
+      }
     }
 
+    if (this.pageActive) this.setData({ loading: true, enterpriseUser })
     try {
-      const [summaryCards, bindingReminder, inactiveDevices] = await Promise.all([
-        this.loadDashboard(enterpriseUser, options),
-        this.loadBindingReminder(enterpriseUser),
-        this.loadInactiveDevices(enterpriseUser)
-      ])
+      const dashboard = await dataAccess.request('getEnterpriseDashboard')
+      const summary = dashboard.summary || {}
+      const bindingData = dashboard.bindingReminder || {}
+      const bindingItems = Array.isArray(bindingData.items) ? bindingData.items : []
+      const inactiveItems = Array.isArray(dashboard.inactiveDevices) ? dashboard.inactiveDevices : []
+      const summaryCards = buildSummaryCards({
+        equipment: summary.equipmentCount,
+        gauge: summary.gaugeCount,
+        expired: summary.expiredCount,
+        inactiveScrap: summary.inactiveCount
+      })
+      const bindingReminder = {
+        count: Number(bindingData.count || 0),
+        summary: Number(bindingData.count || 0)
+          ? TEXT.bindingSummary.replace('{count}', String(bindingData.count))
+          : TEXT.bindingEmpty,
+        items: bindingItems.map((item) => ({
+          _id: item._id,
+          title: item.equipmentName || TEXT.fallbackEquipmentTitle,
+          subtitle: item.location || item.equipmentNo || TEXT.fallbackEquipmentSubtitle
+        }))
+      }
+      const inactiveDevices = inactiveItems.map((item) => ({
+        _id: item._id,
+        title: item.deviceName || item.factoryNo || TEXT.fallbackGaugeTitle,
+        subtitle: item.equipmentName || item.factoryNo || TEXT.fallbackGaugeSubtitle,
+        status: this.normalizeStatus(item.status || '-')
+      }))
       if (!this.pageActive) return
       this.setData({
         summaryCards,
@@ -119,6 +150,7 @@ Page({
         inactiveDevices,
         loading: false
       })
+      this.loadedServerVersion = Number(dashboard.version || 0)
     } catch (error) {
       if (this.pageActive) {
         this.setData({
@@ -133,76 +165,7 @@ Page({
         })
       }
     } finally {
-      this.lastBootstrapAt = Date.now()
       this.loadedLedgerVersion = ledgerVersion
-    }
-  },
-
-  async loadDashboard(enterpriseUser, options = {}) {
-    const companyName = enterpriseUser.companyName
-
-    try {
-      const [equipmentCount, gaugeCount, inactiveScrapCount, expiryDashboard] = await Promise.all([
-        dataAccess.count('equipments', { isDeleted: false }),
-        dataAccess.count('devices', { isDeleted: false }),
-        dataAccess.count('devices', { status: { in: ['停用', '报废'] }, isDeleted: false }),
-        expiryReminderService.getEnterpriseExpiryDashboard(enterpriseUser, 30, {
-          force: !!options.force
-        })
-      ])
-
-      return buildSummaryCards({
-        equipment: equipmentCount,
-        gauge: gaugeCount,
-        expired: Number(expiryDashboard?.data?.expiredCount || 0),
-        inactiveScrap: inactiveScrapCount
-      })
-    } catch (error) {
-      return buildSummaryCards()
-    }
-  },
-
-  async loadBindingReminder(enterpriseUser) {
-    try {
-      const list = await equipmentService.loadUnboundEquipments({ enterpriseUser })
-      const count = list.length
-
-      return {
-        count,
-        summary: count
-          ? TEXT.bindingSummary.replace('{count}', String(count))
-          : TEXT.bindingEmpty,
-        items: list.map((item) => ({
-          _id: item._id,
-          title: item.equipmentName || TEXT.fallbackEquipmentTitle,
-          subtitle: item.location || item.equipmentNo || TEXT.fallbackEquipmentSubtitle
-        }))
-      }
-    } catch (error) {
-      return {
-        count: 0,
-        summary: TEXT.bindingEmpty,
-        items: []
-      }
-    }
-  },
-
-  async loadInactiveDevices(enterpriseUser) {
-    try {
-      const devices = await dataAccess.list('devices', {
-        filters: { status: { in: ['停用', '报废'] }, isDeleted: false },
-        orderBy: { field: 'updateTime', direction: 'desc' },
-        limit: 5
-      })
-
-      return devices.map((item) => ({
-        _id: item._id,
-        title: item.deviceName || item.factoryNo || TEXT.fallbackGaugeTitle,
-        subtitle: item.equipmentName || item.factoryNo || TEXT.fallbackGaugeSubtitle,
-        status: this.normalizeStatus(item.status || '-')
-      }))
-    } catch (error) {
-      return []
     }
   },
 
@@ -227,13 +190,15 @@ Page({
     wx.navigateTo({ url: '/pages/equipment-detail/equipment-detail?mode=create' })
   },
 
+  goToGaugeEntry() {
+    wx.switchTab({ url: '/pages/ai-assistant/ai-assistant' })
+  },
+
   handleBindingReminder() {
     const first = this.data.bindingReminder?.items?.[0]
     if (first?._id) {
       wx.navigateTo({ url: `/pages/equipment-detail/equipment-detail?id=${first._id}` })
-      return
     }
-    this.goToCreateEquipment()
   },
 
   openUnboundEquipment(e) {

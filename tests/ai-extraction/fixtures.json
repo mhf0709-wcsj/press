@@ -50,5 +50,23 @@
       "conclusion": "合格",
       "verificationDate": "2026-03-06"
     }
+  },
+  {
+    "name": "AI误把有效期当检定日期时采用标签日期",
+    "input": "检定日期：2026年3月6日\n有效期至：2026年9月5日\n型号规格：(0-1.6)MPa",
+    "model": { "verificationDate": "2026-09-05" },
+    "expected": { "verificationDate": "2026-03-06" }
+  },
+  {
+    "name": "AI混淆证书编号和出厂编号时采用标签结果",
+    "input": "证书编号：FP2603138\n出厂编号：250587331\n检定日期：2026-03-06",
+    "model": { "certNo": "250587331", "factoryNo": "FP2603138" },
+    "expected": { "certNo": "FP2603138", "factoryNo": "250587331" }
+  },
+  {
+    "name": "OCR字母O与数字0混淆",
+    "input": "型号规格：(O-1.6) M P a\n检定日期：2O26年O3月O6日",
+    "model": {},
+    "expected": { "modelSpec": "(0-1.6) MPa", "verificationDate": "2026-03-06" }
   }
 ]

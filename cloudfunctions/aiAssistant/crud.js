@@ -493,9 +493,10 @@ function createCrudHandlers({ db, _, formatDateTime }) {
     }
 
     assertPermission(current, permission)
+    await ensureOperationLogCollection()
 
     if (operation === 'delete') {
-      await softDeleteRecord(collectionName, entity, targetId, current, permission)
+      await softDeleteRecord(collectionName, entity, targetId, current, permission, payload.requestId)
       return {
         success: true,
         answer: `已删除${getEntityLabel(entity)}“${summarizeItem(entity, current).title}”，管理端已保留删除留痕。`
@@ -520,6 +521,16 @@ function createCrudHandlers({ db, _, formatDateTime }) {
         })
       })
 
+      await writeOperationLog({
+        requestId: payload.requestId,
+        operation: 'update',
+        entity,
+        entityId: targetId,
+        permission,
+        before: current,
+        after: Object.assign({}, current, updateData)
+      })
+
       if (entity === 'device' && updateData.equipmentId && updateData.equipmentId !== current.equipmentId) {
         await Promise.all([
           current.equipmentId ? updateEquipmentGaugeCount(current.equipmentId) : Promise.resolve(),
@@ -536,7 +547,7 @@ function createCrudHandlers({ db, _, formatDateTime }) {
     throw new Error(`暂不支持该操作：${operation}`)
   }
 
-  async function softDeleteRecord(collectionName, entity, targetId, current, permission) {
+  async function softDeleteRecord(collectionName, entity, targetId, current, permission, requestId) {
     const deleteTime = formatDateTime(new Date())
     const operatorName = current.enterpriseName || (permission && permission.scope) || 'AI管家'
     let relatedRecordCount = 0
@@ -598,6 +609,22 @@ function createCrudHandlers({ db, _, formatDateTime }) {
         }
       })
     } catch (error) {}
+
+    await writeOperationLog({
+      requestId,
+      operation: 'delete',
+      entity,
+      entityId: targetId,
+      permission,
+      before: current,
+      after: Object.assign({}, current, {
+        isDeleted: true,
+        deletedAt: deleteTime,
+        deletedBy: operatorName,
+        updateTime: deleteTime
+      }),
+      metadata: { relatedRecordCount }
+    })
   }
 
   function assertPermission(current, permission) {
@@ -645,6 +672,59 @@ function createCrudHandlers({ db, _, formatDateTime }) {
         updateTime: formatDateTime(new Date())
       }
     })
+  }
+
+  async function ensureOperationLogCollection() {
+    try {
+      await db.collection('operation_logs').limit(1).get()
+    } catch (error) {
+      const missing = /collection.*not exist|COLLECTION_NOT_EXIST|集合不存在|DATABASE_COLLECTION_NOT_EXIST/i.test(error.message || '')
+      if (!missing || typeof db.createCollection !== 'function') throw error
+      try {
+        await db.createCollection('operation_logs')
+      } catch (createError) {
+        if (!/already exist|已存在/i.test(createError.message || '')) throw createError
+      }
+    }
+  }
+
+  async function writeOperationLog({ requestId, operation, entity, entityId, permission, before, after, metadata = {} }) {
+    const now = new Date()
+    const reference = after || before || {}
+    await db.collection('operation_logs').add({
+      data: {
+        requestId: String(requestId || `${now.getTime()}-${Math.random().toString(16).slice(2)}`).slice(0, 80),
+        source: 'ai',
+        operation,
+        entityType: entity,
+        entityId,
+        enterpriseName: reference.enterpriseName || (permission.type === 'enterprise' ? permission.scope : ''),
+        district: reference.district || (permission.type === 'district_admin' ? permission.scope : ''),
+        operatorType: permission.type || 'enterprise',
+        operatorId: permission.id || '',
+        operatorName: permission.username || permission.scope || 'AI管家',
+        before: auditSnapshot(before),
+        after: auditSnapshot(after),
+        metadata: auditSnapshot(metadata),
+        createdAt: now,
+        timestamp: now.getTime()
+      }
+    })
+  }
+
+  function auditSnapshot(input) {
+    if (!input || typeof input !== 'object') return input || null
+    const blocked = new Set(['_openid', 'openid', 'fileID', 'installPhotoFileID', 'rawText', 'imagePath'])
+    const output = {}
+    Object.keys(input).slice(0, 80).forEach((key) => {
+      if (blocked.has(key)) return
+      const value = input[key]
+      if (Array.isArray(value)) output[key] = value.slice(0, 20)
+      else if (value && typeof value === 'object' && !(value instanceof Date)) output[key] = auditSnapshot(value)
+      else if (typeof value === 'string') output[key] = value.slice(0, 500)
+      else output[key] = value
+    })
+    return output
   }
 
   return {

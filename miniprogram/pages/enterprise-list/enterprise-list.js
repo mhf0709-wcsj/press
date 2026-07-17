@@ -24,6 +24,9 @@ const TEXT = {
   rejectTitle: '驳回企业申请',
   rejectPlaceholder: '请填写需要企业修改的内容',
   reviewSuccess: '审核已完成',
+  bindingClaim: '历史企业微信绑定申请',
+  bindingResubmit: '企业资料重新提交',
+  newRegistration: '新企业开通申请',
   sendNotice: '发送提醒',
   noticeTitle: '企业提醒',
   noticeTarget: '提醒企业',
@@ -55,6 +58,8 @@ Page({
     noticePriority: 'important',
     noticeTitle: '',
     noticeContent: '',
+    noticeDeadline: '',
+    today: '',
     sendingNotice: false,
     noticeTypes: [
       { key: 'expiry', label: '到期整改' },
@@ -72,7 +77,7 @@ Page({
   onLoad(options) {
     const mode = options.mode === 'risk' ? 'risk' : 'all'
     const statusFilter = options.status === 'all' ? 'all' : 'pending'
-    this.setData({ mode, statusFilter }, () => {
+    this.setData({ mode, statusFilter, today: this.formatDate(new Date()) }, () => {
       this.loadEnterpriseList().finally(() => {
         this.hasLoadedOnce = true
       })
@@ -121,6 +126,7 @@ Page({
       const enterpriseList = enterprises.map((item) => ({
         ...item,
         ...this.getApprovalMeta(item),
+        bindingRequestText: this.getBindingRequestText(item.bindingRequestType),
         createTimeStr: this.formatDateTime(item.createTime)
       }))
 
@@ -151,6 +157,16 @@ Page({
     return map[status]
   },
 
+  getBindingRequestText(requestType) {
+    const map = {
+      claim_existing_enterprise: TEXT.bindingClaim,
+      resubmit_existing_enterprise: TEXT.bindingResubmit,
+      resubmit_enterprise_registration: TEXT.bindingResubmit,
+      new_enterprise_registration: TEXT.newRegistration
+    }
+    return map[requestType] || TEXT.newRegistration
+  },
+
   filterEnterprises(list = this.data.allEnterpriseList) {
     if (this.data.statusFilter === 'pending') {
       return list.filter((item) => item.approvalStatus === 'pending')
@@ -169,9 +185,13 @@ Page({
   approveEnterprise(e) {
     const enterpriseId = e.currentTarget.dataset.id
     if (!enterpriseId || this.data.reviewingId) return
+    const enterprise = this.data.allEnterpriseList.find((item) => item._id === enterpriseId)
+    const isExistingClaim = enterprise?.bindingRequestType === 'claim_existing_enterprise'
     wx.showModal({
       title: TEXT.approveTitle,
-      content: TEXT.approveContent,
+      content: isExistingClaim
+        ? '该微信账号正在申请绑定历史已审核企业。请核对企业身份和申请人信息后再通过。'
+        : TEXT.approveContent,
       success: (res) => {
         if (res.confirm) this.performReview(enterpriseId, 'approved')
       }
@@ -220,7 +240,8 @@ Page({
       noticeType: 'expiry',
       noticePriority: 'important',
       noticeTitle: template.title,
-      noticeContent: template.content
+      noticeContent: template.content,
+      noticeDeadline: this.getDefaultDeadline('important')
     })
   },
 
@@ -242,7 +263,15 @@ Page({
   },
 
   changeNoticePriority(e) {
-    this.setData({ noticePriority: e.currentTarget.dataset.priority })
+    const noticePriority = e.currentTarget.dataset.priority
+    this.setData({
+      noticePriority,
+      noticeDeadline: this.getDefaultDeadline(noticePriority)
+    })
+  },
+
+  changeNoticeDeadline(e) {
+    this.setData({ noticeDeadline: e.detail.value })
   },
 
   onNoticeTitleInput(e) {
@@ -290,7 +319,8 @@ Page({
         type: this.data.noticeType,
         priority: this.data.noticePriority,
         title,
-        content
+        content,
+        dueDate: this.data.noticeDeadline
       })
       if (!result?.success) throw new Error(result?.error || '发送提醒失败')
       this.setData({ noticeEditorVisible: false, noticeTarget: null })
@@ -340,6 +370,16 @@ Page({
     const hour = String(date.getHours()).padStart(2, '0')
     const minute = String(date.getMinutes()).padStart(2, '0')
     return `${year}-${month}-${day} ${hour}:${minute}`
+  },
+
+  formatDate(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  },
+
+  getDefaultDeadline(priority) {
+    const date = new Date()
+    date.setDate(date.getDate() + (priority === 'urgent' ? 3 : priority === 'important' ? 7 : 14))
+    return this.formatDate(date)
   },
 
   previewEnterprise(e) {

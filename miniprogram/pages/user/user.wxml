@@ -70,6 +70,10 @@
       <view class="panel-section">
         <view class="section-title" wx:if="{{enterpriseUser}}">{{text.assets}}</view>
         <view class="profile-menu-list">
+          <view class="list-cell" bindtap="goToRectificationTasks" wx:if="{{enterpriseUser}}">
+            <view class="cell-title">{{text.rectificationTasks}}</view>
+            <view class="cell-meta">></view>
+          </view>
           <view class="list-cell" bindtap="goToEnterpriseProfile" wx:if="{{enterpriseUser}}">
             <view class="cell-title">{{text.enterpriseProfile}}</view>
             <view class="cell-meta">></view>

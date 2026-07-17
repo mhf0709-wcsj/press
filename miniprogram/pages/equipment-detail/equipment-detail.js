@@ -1,6 +1,5 @@
 const equipmentService = require('../../services/equipment-service')
-const deviceService = require('../../services/device-service')
-const recordService = require('../../services/record-service')
+const dataAccess = require('../../services/data-access-service')
 
 Page({
   data: {
@@ -112,16 +111,12 @@ Page({
     if (options.showLoading) wx.showLoading({ title: '加载中' })
 
     try {
-      const enterpriseUser = wx.getStorageSync('enterpriseUser')
-      const [equipment, allGauges, allRecords] = await Promise.all([
-        equipmentService.getEquipmentById(equipmentId),
-        deviceService.loadDevices({ enterpriseUser, fromAdmin: this.data.isAdminView }),
-        recordService.getRecords({ limit: 100 })
-      ])
+      const bundle = await dataAccess.request('getEquipmentBundle', { id: equipmentId })
       if (!this.pageActive || version !== this.loadVersion) return
 
-      const gauges = allGauges.filter((item) => item.equipmentId === equipmentId)
-      const records = allRecords.filter((item) => item.equipmentId === equipmentId)
+      const equipment = bundle.equipment || null
+      const gauges = Array.isArray(bundle.devices) ? bundle.devices : []
+      const records = Array.isArray(bundle.records) ? bundle.records : []
       const gaugeView = this.buildGaugeView(gauges, records)
       this.setData({
         equipment: equipment || this.data.equipment,
@@ -237,25 +232,23 @@ Page({
       if (mode === 'create') {
         const res = await equipmentService.createEquipment(equipment, { enterpriseUser })
         wx.showToast({ title: '创建成功', icon: 'success' })
-        setTimeout(() => {
-          if (this.data.returnTo === 'camera') {
-            wx.setStorageSync('selectedEquipmentForNewGauge', {
-              id: res._id,
-              name: res.equipmentName || ''
-            })
-            wx.navigateBack()
-            return
-          }
-          if (this.data.isInitSetup) {
-            wx.setStorageSync('selectedEquipmentForNewGauge', {
-              id: res._id,
-              name: res.equipmentName || ''
-            })
-            wx.switchTab({ url: '/pages/ai-assistant/ai-assistant' })
-            return
-          }
-          wx.redirectTo({ url: `/pages/equipment-detail/equipment-detail?id=${res._id}` })
-        }, 800)
+        if (this.data.returnTo === 'camera') {
+          wx.setStorageSync('selectedEquipmentForNewGauge', {
+            id: res._id,
+            name: res.equipmentName || ''
+          })
+          wx.navigateBack()
+          return
+        }
+        if (this.data.isInitSetup) {
+          wx.setStorageSync('selectedEquipmentForNewGauge', {
+            id: res._id,
+            name: res.equipmentName || ''
+          })
+          wx.switchTab({ url: '/pages/ai-assistant/ai-assistant' })
+          return
+        }
+        wx.redirectTo({ url: `/pages/equipment-detail/equipment-detail?id=${res._id}` })
       } else {
         await equipmentService.updateEquipment(equipmentId, equipment)
         wx.showToast({ title: '保存成功', icon: 'success' })

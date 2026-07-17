@@ -26,6 +26,7 @@ const TEXT = {
   entryReminderFallbackSubtitle: '',
   assets: '\u8d26\u6237\u4e0e\u5de5\u5177',
   enterpriseProfile: '\u4fee\u6539\u4f01\u4e1a\u8d44\u6599',
+  rectificationTasks: '\u6574\u6539\u4efb\u52a1',
   clearCache: '\u6e05\u7406\u7f13\u5b58',
   logout: '\u9000\u51fa\u767b\u5f55',
   version: '\u538b\u529b\u8868\u68c0\u5b9a\u667a\u80fd\u4f53 v1.2.0'
@@ -146,6 +147,10 @@ Page({
     wx.navigateTo({ url: '/pages/enterprise-profile/enterprise-profile' })
   },
 
+  goToRectificationTasks() {
+    wx.navigateTo({ url: '/pages/rectification-list/rectification-list' })
+  },
+
   goToLogin() {
     wx.reLaunch({ url: '/pages/login/login' })
   },
@@ -220,9 +225,7 @@ Page({
         this.setData({ enterpriseUser: null, alertSettings: null })
         wx.clearStorageSync()
         wx.showToast({ title: '\u5df2\u9000\u51fa', icon: 'success' })
-        setTimeout(() => {
-          wx.reLaunch({ url: '/pages/login/login' })
-        }, 1200)
+        wx.reLaunch({ url: '/pages/login/login' })
       }
     })
   }

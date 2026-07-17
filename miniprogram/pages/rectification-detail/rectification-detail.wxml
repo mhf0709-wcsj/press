@@ -1,0 +1,57 @@
+<view class="page-shell task-page">
+  <scroll-view scroll-y class="task-scroll">
+    <view class="content-wrapper task-wrapper" wx:if="{{task}}">
+      <view class="panel">
+        <view class="panel-section task-header">
+          <view>
+            <view class="eyebrow">监管整改</view>
+            <view class="page-title">{{task.title}}</view>
+          </view>
+          <text class="task-status status-{{task.taskStatus}}">{{statusText}}</text>
+        </view>
+      </view>
+
+      <view class="panel">
+        <view class="panel-section">
+          <view class="task-row"><text>企业</text><text>{{task.enterpriseName}}</text></view>
+          <view class="task-row"><text>辖区</text><text>{{task.district || '-'}}</text></view>
+          <view class="task-row"><text>整改期限</text><text>{{task.dueDate || '未设置'}}</text></view>
+          <view class="task-content">{{task.content}}</view>
+        </view>
+      </view>
+
+      <view class="panel" wx:if="{{!adminMode}}">
+        <view class="panel-section">
+          <view class="section-title">整改反馈</view>
+          <textarea class="task-textarea" value="{{response}}" maxlength="500" placeholder="说明已采取的整改措施" bindinput="onResponseInput" disabled="{{task.taskStatus === 'pending_review' || task.taskStatus === 'closed'}}" />
+          <view class="evidence-grid">
+            <view class="evidence-item" wx:for="{{evidenceFileIds}}" wx:key="*this">
+              <image src="{{item}}" mode="aspectFill" data-file="{{item}}" bindtap="previewEvidence" />
+              <text wx:if="{{task.taskStatus !== 'pending_review' && task.taskStatus !== 'closed'}}" data-index="{{index}}" catchtap="removeEvidence">删除</text>
+            </view>
+            <view class="evidence-add" wx:if="{{task.taskStatus !== 'pending_review' && task.taskStatus !== 'closed' && evidenceFileIds.length < 6}}" bindtap="chooseEvidence">+ 上传图片</view>
+          </view>
+          <button class="btn-primary-solid" wx:if="{{task.taskStatus === 'pending' || task.taskStatus === 'rectifying' || task.taskStatus === 'returned'}}" bindtap="submitRectification" loading="{{submitting}}">提交监管复核</button>
+        </view>
+      </view>
+
+      <view class="panel" wx:if="{{adminMode}}">
+        <view class="panel-section">
+          <view class="section-title">企业整改材料</view>
+          <view class="task-content">{{task.rectificationResponse || '企业尚未提交整改说明'}}</view>
+          <view class="evidence-grid" wx:if="{{evidenceFileIds.length}}">
+            <image class="evidence-preview" wx:for="{{evidenceFileIds}}" wx:key="*this" src="{{item}}" mode="aspectFill" data-file="{{item}}" bindtap="previewEvidence" />
+          </view>
+          <textarea class="task-textarea" wx:if="{{task.taskStatus === 'pending_review'}}" value="{{reviewComment}}" maxlength="300" placeholder="填写复核意见；退回时必填" bindinput="onReviewCommentInput" />
+          <view class="review-actions" wx:if="{{task.taskStatus === 'pending_review'}}">
+            <button class="task-button secondary" bindtap="returnTask" loading="{{submitting}}">退回整改</button>
+            <button class="task-button primary" bindtap="approveTask" loading="{{submitting}}">复核通过</button>
+          </view>
+          <view class="review-result" wx:if="{{task.reviewedAt}}">{{task.reviewedBy}}：{{task.reviewComment || (task.reviewDecision === 'approved' ? '复核通过' : '已退回')}}</view>
+        </view>
+      </view>
+    </view>
+    <view class="empty-state" wx:if="{{loading}}">加载中...</view>
+  </scroll-view>
+  <privacy />
+</view>

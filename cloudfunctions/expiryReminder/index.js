@@ -1,6 +1,11 @@
 ﻿
 const cloud = require('wx-server-sdk')
 const crypto = require('crypto')
+const {
+  normalizeTaskStatus,
+  canSubmitRectification,
+  resolveReviewDecision
+} = require('./rectification-policy')
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
 })
@@ -40,7 +45,11 @@ exports.main = async (event, context) => {
     
       case 'getExpiringSummary':
         assertAdmin(actor)
-        return await getExpiringSummary(days, scopedDistrict)
+        return await getExpiringSummary(days, scopedDistrict, actor)
+
+      case 'getAdminWorkspaceSummary':
+        assertAdmin(actor)
+        return await getAdminWorkspaceSummary(days, scopedDistrict, actor)
     
       case 'sendWxSubscribeMessage':
       case 'sendSmsReminder':
@@ -60,11 +69,22 @@ exports.main = async (event, context) => {
 
       case 'getEnterpriseNotices':
         if (actor.type !== 'enterprise') throw new Error('仅企业账号可查看企业提醒')
-        return await getEnterpriseNotices(actor)
+        return await getEnterpriseNotices(actor, event.payload || {})
 
       case 'updateEnterpriseNoticeStatus':
         if (actor.type !== 'enterprise') throw new Error('仅企业账号可处理企业提醒')
         return await updateEnterpriseNoticeStatus(event.payload || {}, actor)
+
+      case 'getRectificationTask':
+        return await getRectificationTask(event.payload || {}, actor)
+
+      case 'submitRectification':
+        if (actor.type !== 'enterprise') throw new Error('仅企业账号可提交整改材料')
+        return await submitRectification(event.payload || {}, actor)
+
+      case 'reviewRectification':
+        assertAdmin(actor)
+        return await reviewRectification(event.payload || {}, actor)
     
       case 'saveAlertSettings':
         if (actor.type !== 'enterprise') throw new Error('仅企业账号可修改提醒设置')
@@ -314,7 +334,7 @@ async function getAllExpiring(days, district) {
       baseCondition.district = district
     }
     
-    const records = await fetchAllPressureRecords({ ...baseCondition, isDeleted: false })
+    const records = await fetchAllPressureRecords({ ...baseCondition, isDeleted: _.neq(true) })
     const latestRecords = pickLatestGaugeRecords(records)
     const { expired, expiring } = classifyExpiryRecords(latestRecords, nowStr, thresholdStr)
     
@@ -348,6 +368,7 @@ async function getAllExpiring(days, district) {
         },
         enterpriseStats: Object.values(enterpriseStats),
         summary: {
+          totalRecords: records.length,
           expiredCount: expired.length,
           expiringCount: expiring.length,
           enterpriseCount: Object.keys(enterpriseStats).length
@@ -360,7 +381,7 @@ async function getAllExpiring(days, district) {
   }
 }
 
-async function getExpiringSummary(days, district) {
+async function getExpiringSummary(days, district, actor) {
   try {
     const result = await getAllExpiring(days, district)
     if (!result.success) return result
@@ -395,7 +416,10 @@ async function getExpiringSummary(days, district) {
     return {
       success: true,
       data: {
-        summary,
+        summary: {
+          ...summary,
+          version: await getLatestOperationVersion(actor)
+        },
         enterpriseStats: enrichedStats.sort((a, b) => 
           (b.expiredCount + b.expiringCount) - (a.expiredCount + a.expiringCount)
         )
@@ -570,8 +594,8 @@ async function autoScanAndAlert() {
         companyName: record.enterpriseName
       }).get()
 
-      if (entRes.data.length > 0 && entRes.data[0]._openid) {
-        const adminOpenId = entRes.data[0]._openid
+      if (entRes.data.length > 0 && (entRes.data[0].openid || entRes.data[0]._openid)) {
+        const adminOpenId = entRes.data[0].openid || entRes.data[0]._openid
         
         if (!DEVICE_EXPIRY_TEMPLATE_ID) {
           continue
@@ -790,6 +814,88 @@ async function getEnterpriseAlertSettings({ enterpriseId = '', enterpriseName = 
   return result || null
 }
 
+async function getAdminWorkspaceSummary(days, district, actor) {
+  const scopedDistrict = actor.type === 'district_admin' ? actor.district : district || ''
+  await ensureCollection('enterprise_notifications')
+
+  const enterpriseWhere = { approvalStatus: 'pending' }
+  const noticeWhere = {}
+  if (scopedDistrict) {
+    enterpriseWhere.district = scopedDistrict
+    noticeWhere.district = scopedDistrict
+  }
+
+  const equipmentTask = actor.type === 'super_admin'
+    ? fetchAllCollection('equipments', { isDeleted: false }, {
+      fields: { district: true },
+      maxRecords: 20000
+    })
+    : Promise.resolve([])
+
+  const [riskResult, pendingEnterpriseResult, notices, equipments] = await Promise.all([
+    getExpiringSummary(days, scopedDistrict, actor),
+    db.collection('enterprises').where(enterpriseWhere).count(),
+    fetchAllCollection('enterprise_notifications', noticeWhere, {
+      fields: { taskStatus: true, status: true, dueDate: true },
+      maxRecords: 10000
+    }),
+    equipmentTask
+  ])
+
+  if (!riskResult?.success) return riskResult
+
+  const today = formatDate(new Date())
+  const activeStatuses = new Set(['pending', 'rectifying', 'pending_review', 'returned'])
+  const taskSummary = notices.reduce((result, item) => {
+    const status = normalizeTaskStatus(item.taskStatus, item.status)
+    if (activeStatuses.has(status)) result.openCount += 1
+    if (status === 'pending_review') result.pendingReviewCount += 1
+    if (status === 'returned') result.returnedCount += 1
+    if (activeStatuses.has(status) && item.dueDate && String(item.dueDate) < today) {
+      result.overdueCount += 1
+    }
+    return result
+  }, { openCount: 0, pendingReviewCount: 0, returnedCount: 0, overdueCount: 0 })
+
+  const districtMap = equipments.reduce((result, item) => {
+    const name = cleanText(item.district, 30) || '未设置'
+    result[name] = (result[name] || 0) + 1
+    return result
+  }, {})
+  const districtStats = Object.entries(districtMap)
+    .map(([name, count]) => ({ district: name, count }))
+    .sort((a, b) => b.count - a.count || a.district.localeCompare(b.district))
+
+  const riskData = riskResult.data || {}
+  return {
+    success: true,
+    data: {
+      summary: riskData.summary || {},
+      enterpriseStats: riskData.enterpriseStats || [],
+      pendingEnterpriseCount: Number(pendingEnterpriseResult.total || 0),
+      taskSummary,
+      districtStats,
+      totalDistrictEquipments: equipments.length,
+      version: Number(riskData.summary?.version || 0)
+    }
+  }
+}
+
+async function getLatestOperationVersion(actor = {}) {
+  try {
+    let query = db.collection('operation_logs')
+    if (actor.type === 'enterprise') {
+      query = query.where({ enterpriseName: actor.companyName || '' })
+    } else if (actor.type === 'district_admin' && actor.district) {
+      query = query.where({ district: actor.district })
+    }
+    const result = await query.orderBy('timestamp', 'desc').limit(1).field({ timestamp: true }).get()
+    return Number(result.data?.[0]?.timestamp || 0)
+  } catch (error) {
+    return 0
+  }
+}
+
 function sanitizeNotice(item = {}) {
   return {
     _id: item._id || '',
@@ -801,6 +907,15 @@ function sanitizeNotice(item = {}) {
     title: item.title || '监管提醒',
     content: item.content || '',
     status: item.status || 'unread',
+    taskStatus: normalizeTaskStatus(item.taskStatus, item.status),
+    dueDate: item.dueDate || '',
+    rectificationResponse: item.rectificationResponse || '',
+    evidenceFileIds: Array.isArray(item.evidenceFileIds) ? item.evidenceFileIds.slice(0, 6) : [],
+    submittedAt: item.submittedAt || '',
+    reviewDecision: item.reviewDecision || '',
+    reviewComment: item.reviewComment || '',
+    reviewedAt: item.reviewedAt || '',
+    reviewedBy: item.reviewedBy || '',
     createdBy: item.createdBy || '',
     createdAt: item.createdAt || '',
     updatedAt: item.updatedAt || '',
@@ -850,6 +965,7 @@ async function sendEnterpriseNotice(payload, actor) {
   const priority = ['normal', 'important', 'urgent'].includes(payload.priority)
     ? payload.priority
     : 'normal'
+  const dueDate = normalizeDueDate(payload.dueDate) || defaultDueDate(priority)
 
   if (!enterpriseId) throw new Error('请选择提醒企业')
   if (!title) throw new Error('请输入提醒标题')
@@ -866,6 +982,7 @@ async function sendEnterpriseNotice(payload, actor) {
   }
 
   await ensureCollection('enterprise_notifications')
+  await ensureCollection('operation_logs')
   const now = new Date().toISOString()
   const result = await db.collection('enterprise_notifications').add({
     data: {
@@ -877,14 +994,41 @@ async function sendEnterpriseNotice(payload, actor) {
       title,
       content,
       status: 'unread',
+      taskStatus: 'pending',
+      dueDate,
       createdById: actor.adminId || '',
       createdBy: actor.username || (actor.type === 'district_admin' ? `${actor.district}管理员` : '总管理员'),
       createdAt: now,
       updatedAt: now,
       readAt: '',
       deferredAt: '',
-      deferredUntil: ''
+      deferredUntil: '',
+      rectificationResponse: '',
+      evidenceFileIds: [],
+      submittedAt: '',
+      reviewDecision: '',
+      reviewComment: '',
+      reviewedAt: '',
+      reviewedBy: ''
     }
+  })
+  await writeReminderOperationLog({
+    operation: 'create_task',
+    actor,
+    notice: {
+      _id: result._id,
+      enterpriseId: enterprise._id,
+      enterpriseName: enterprise.companyName,
+      district: enterprise.district,
+      type,
+      priority,
+      title,
+      content,
+      taskStatus: 'pending',
+      dueDate
+    },
+    before: null,
+    after: { taskStatus: 'pending', dueDate, title, content }
   })
 
   return {
@@ -892,12 +1036,14 @@ async function sendEnterpriseNotice(payload, actor) {
     data: {
       noticeId: result._id,
       enterpriseName: enterprise.companyName || '',
-      status: 'unread'
+      status: 'unread',
+      taskStatus: 'pending',
+      dueDate
     }
   }
 }
 
-async function getEnterpriseNotices(actor) {
+async function getEnterpriseNotices(actor, payload = {}) {
   await ensureCollection('enterprise_notifications')
   const where = actor.enterpriseId
     ? { enterpriseId: actor.enterpriseId }
@@ -907,7 +1053,17 @@ async function getEnterpriseNotices(actor) {
     .limit(100)
     .get()
   const now = Date.now()
-  const notices = (res.data || [])
+  const allNotices = (res.data || [])
+    .map(sanitizeNotice)
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+
+  if (payload.includeAll) {
+    const status = cleanText(payload.status, 30)
+    const notices = status ? allNotices.filter((item) => item.taskStatus === status) : allNotices
+    return { success: true, data: { notices, total: notices.length } }
+  }
+
+  const notices = allNotices
     .filter((item) => ['unread', 'deferred'].includes(item.status))
     .filter((item) => item.status !== 'deferred' || !item.deferredUntil || new Date(item.deferredUntil).getTime() <= now)
     .sort((a, b) => {
@@ -916,7 +1072,6 @@ async function getEnterpriseNotices(actor) {
       return String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
     })
     .slice(0, 10)
-    .map(sanitizeNotice)
 
   return { success: true, data: { notices, unreadCount: notices.length } }
 }
@@ -943,6 +1098,7 @@ async function updateEnterpriseNoticeStatus(payload, actor) {
   if (status === 'read') {
     data.readAt = now.toISOString()
     data.deferredUntil = ''
+    if (!notice.taskStatus || notice.taskStatus === 'pending') data.taskStatus = 'rectifying'
   } else {
     const tomorrow = new Date(now)
     tomorrow.setDate(tomorrow.getDate() + 1)
@@ -961,23 +1117,177 @@ async function listAdminNotices(payload, actor) {
   if (actor.type === 'district_admin') where.district = actor.district
 
   const limit = Math.min(Math.max(Number(payload.limit) || 100, 1), 200)
-  const res = await db.collection('enterprise_notifications')
-    .where(where)
-    .limit(limit)
-    .get()
-  const allNotices = (res.data || [])
+  const rawNotices = await fetchAllCollection('enterprise_notifications', where, { maxRecords: 10000 })
+  const allNotices = rawNotices
     .map(sanitizeNotice)
     .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+  const today = formatDate(new Date())
+  const activeStatuses = new Set(['pending', 'rectifying', 'pending_review', 'returned'])
+  const isOverdue = (item) => activeStatuses.has(item.taskStatus) && item.dueDate && String(item.dueDate) < today
   const summary = allNotices.reduce((result, item) => {
     result.total += 1
-    result[item.status] = (result[item.status] || 0) + 1
+    result[item.taskStatus] = (result[item.taskStatus] || 0) + 1
+    if (isOverdue(item)) result.overdue += 1
     return result
-  }, { total: 0, unread: 0, deferred: 0, read: 0 })
-  const notices = ['unread', 'deferred', 'read'].includes(payload.status)
-    ? allNotices.filter((item) => item.status === payload.status)
-    : allNotices
+  }, { total: 0, pending: 0, rectifying: 0, pending_review: 0, returned: 0, closed: 0, acknowledged: 0, overdue: 0 })
+  let notices = allNotices
+  if (payload.status === 'overdue') notices = allNotices.filter(isOverdue)
+  else if (['pending', 'rectifying', 'pending_review', 'returned', 'closed', 'acknowledged'].includes(payload.status)) {
+    notices = allNotices.filter((item) => item.taskStatus === payload.status)
+  }
+  notices = notices.slice(0, limit)
 
   return { success: true, data: { notices, summary } }
+}
+
+async function getRectificationTask(payload, actor) {
+  const notice = await requireScopedNotice(payload.noticeId, actor)
+  return { success: true, data: { task: sanitizeNotice(notice) } }
+}
+
+async function submitRectification(payload, actor) {
+  const notice = await requireScopedNotice(payload.noticeId, actor)
+  const taskStatus = normalizeTaskStatus(notice.taskStatus, notice.status)
+  if (!canSubmitRectification(notice.taskStatus, notice.status)) {
+    throw new Error(taskStatus === 'pending_review' ? '整改材料已提交，请等待复核' : '该任务当前不可提交')
+  }
+
+  const response = cleanText(payload.response, 500)
+  const evidenceFileIds = Array.isArray(payload.evidenceFileIds)
+    ? payload.evidenceFileIds.map((item) => cleanText(item, 500)).filter(Boolean).slice(0, 6)
+    : []
+  if (!response) throw new Error('请填写整改说明')
+
+  const now = new Date().toISOString()
+  const data = {
+    taskStatus: 'pending_review',
+    status: 'read',
+    readAt: notice.readAt || now,
+    rectificationResponse: response,
+    evidenceFileIds,
+    submittedAt: now,
+    reviewDecision: '',
+    reviewComment: '',
+    reviewedAt: '',
+    reviewedBy: '',
+    updatedAt: now
+  }
+  await ensureCollection('operation_logs')
+  await db.collection('enterprise_notifications').doc(notice._id).update({ data })
+  await writeReminderOperationLog({
+    operation: 'submit_rectification',
+    actor,
+    notice,
+    before: notice,
+    after: { ...notice, ...data },
+    metadata: { evidenceCount: evidenceFileIds.length }
+  })
+  return { success: true, data: { task: sanitizeNotice({ ...notice, ...data }) } }
+}
+
+async function reviewRectification(payload, actor) {
+  const notice = await requireScopedNotice(payload.noticeId, actor)
+  if ((notice.taskStatus || 'pending') !== 'pending_review') throw new Error('该任务不在待复核状态')
+
+  const review = resolveReviewDecision(payload.decision)
+  const decision = review.decision
+  const comment = cleanText(payload.comment, 300)
+  if (decision === 'returned' && !comment) throw new Error('退回时请填写复核意见')
+
+  const now = new Date().toISOString()
+  const data = {
+    taskStatus: review.nextStatus,
+    status: review.noticeStatus,
+    reviewDecision: decision,
+    reviewComment: comment,
+    reviewedAt: now,
+    reviewedBy: actor.username || (actor.type === 'district_admin' ? `${actor.district}管理员` : '总管理员'),
+    deferredUntil: '',
+    updatedAt: now
+  }
+  await ensureCollection('operation_logs')
+  await db.collection('enterprise_notifications').doc(notice._id).update({ data })
+  await writeReminderOperationLog({
+    operation: decision === 'approved' ? 'close_task' : 'return_task',
+    actor,
+    notice,
+    before: notice,
+    after: { ...notice, ...data },
+    metadata: { comment }
+  })
+  return { success: true, data: { task: sanitizeNotice({ ...notice, ...data }) } }
+}
+
+async function requireScopedNotice(noticeId, actor) {
+  const id = cleanText(noticeId, 64)
+  if (!id) throw new Error('缺少整改任务编号')
+  await ensureCollection('enterprise_notifications')
+  const res = await db.collection('enterprise_notifications').doc(id).get().catch(() => null)
+  const notice = res?.data
+  if (!notice) throw new Error('整改任务不存在')
+
+  if (actor.type === 'enterprise') {
+    const matched = actor.enterpriseId
+      ? notice.enterpriseId === actor.enterpriseId
+      : notice.enterpriseName === actor.companyName
+    if (!matched) throw new Error('无权查看该整改任务')
+  } else {
+    assertAdmin(actor)
+    if (actor.type === 'district_admin' && notice.district !== actor.district) {
+      throw new Error('无权处理其他辖区整改任务')
+    }
+  }
+  return notice
+}
+
+function defaultDueDate(priority) {
+  const date = new Date()
+  date.setDate(date.getDate() + (priority === 'urgent' ? 3 : priority === 'important' ? 7 : 14))
+  return formatDate(date)
+}
+
+function normalizeDueDate(value) {
+  const text = cleanText(value, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return ''
+  const date = new Date(`${text}T00:00:00`)
+  return Number.isNaN(date.getTime()) ? '' : text
+}
+
+async function writeReminderOperationLog({ operation, actor, notice, before, after, metadata = {} }) {
+  const now = new Date()
+  await db.collection('operation_logs').add({
+    data: {
+      requestId: crypto.randomBytes(12).toString('hex'),
+      source: 'reminder',
+      operation,
+      entityType: 'rectification_task',
+      entityId: notice._id || '',
+      enterpriseName: notice.enterpriseName || actor.companyName || '',
+      district: notice.district || actor.district || '',
+      operatorType: actor.type,
+      operatorId: actor.adminId || actor.enterpriseId || '',
+      operatorName: actor.username || actor.companyName || '',
+      before: sanitizeReminderAudit(before),
+      after: sanitizeReminderAudit(after),
+      metadata: sanitizeReminderAudit(metadata),
+      createdAt: now,
+      timestamp: now.getTime()
+    }
+  })
+}
+
+function sanitizeReminderAudit(input) {
+  if (!input || typeof input !== 'object') return input || null
+  const blocked = new Set(['_openid', 'openid', 'evidenceFileIds'])
+  const output = {}
+  Object.keys(input).slice(0, 60).forEach((key) => {
+    if (blocked.has(key)) return
+    const value = input[key]
+    if (value && typeof value === 'object' && !(value instanceof Date)) output[key] = sanitizeReminderAudit(value)
+    else if (typeof value === 'string') output[key] = value.slice(0, 500)
+    else output[key] = value
+  })
+  return output
 }
 
 function pickLatestGaugeRecords(records = []) {
@@ -1032,6 +1342,26 @@ async function fetchAllPressureRecords(condition, maxRecords = 20000) {
   }
 
   if (records.length >= maxRecords) throw new Error('到期统计数据量超过安全上限，请联系管理员处理')
+  return records
+}
+
+async function fetchAllCollection(collectionName, condition = {}, options = {}) {
+  const batchSize = 1000
+  const maxRecords = Math.max(batchSize, Number(options.maxRecords || 10000))
+  const records = []
+
+  while (records.length < maxRecords) {
+    let query = db.collection(collectionName)
+    if (Object.keys(condition).length) query = query.where(condition)
+    query = query.skip(records.length).limit(batchSize)
+    if (options.fields) query = query.field(options.fields)
+    const res = await query.get()
+    const batch = res.data || []
+    records.push(...batch)
+    if (batch.length < batchSize) break
+  }
+
+  if (records.length >= maxRecords) throw new Error('监管统计数据量超过安全上限，请联系管理员处理')
   return records
 }
 

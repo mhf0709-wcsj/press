@@ -13,6 +13,8 @@ const RESOURCES = {
     readFields: [
       'companyName', 'creditCode', 'legalPerson', 'phone', 'district', 'authType',
       'approvalStatus', 'submittedAt', 'reviewedAt', 'reviewedBy', 'reviewReason',
+      'bindingReviewRequired', 'bindingRequestType', 'bindingRequestedAt',
+      'bindingPreviousApprovalStatus', 'bindingReviewDecision', 'bindingReviewedAt', 'bindingReviewedBy',
       'createTime', 'updateTime', 'lastLoginTime'
     ]
   },
@@ -36,6 +38,11 @@ const RESOURCES = {
     enterpriseField: 'enterpriseName',
     adminOnly: true
   },
+  operation_logs: {
+    collection: 'operation_logs',
+    enterpriseField: 'enterpriseName',
+    adminOnly: true
+  },
   lifecycle_logs: {
     collection: 'lifecycle_logs',
     enterpriseField: 'enterpriseName'
@@ -54,10 +61,12 @@ exports.main = async (event = {}) => {
       list: handleList,
       count: handleCount,
       get: handleGet,
+      getEquipmentBundle: handleGetEquipmentBundle,
       create: handleCreate,
       update: handleUpdate,
       softDelete: handleSoftDelete,
       logLifecycle: handleLogLifecycle,
+      getDataVersion: handleGetDataVersion,
       getEnterpriseDashboard: handleEnterpriseDashboard,
       getAdminDashboardStats: handleAdminDashboardStats
     }
@@ -150,6 +159,30 @@ async function handleGet(event, actor) {
   return { data: sanitizeRead(item, resource, actor) }
 }
 
+async function handleGetEquipmentBundle(event, actor) {
+  const equipmentResource = getResource('equipments', actor)
+  const equipment = await getDocument(equipmentResource, event.id)
+  assertDocumentAccess(equipment, equipmentResource, actor)
+  if (equipment.isDeleted) throw new Error('设备已删除')
+
+  const [devices, records] = await Promise.all([
+    fetchAll('devices', buildFilters(RESOURCES.devices, actor, {
+      equipmentId: event.id,
+      isDeleted: false
+    }), { maxRecords: 20000 }),
+    fetchAll('pressure_records', buildFilters(RESOURCES.pressure_records, actor, {
+      equipmentId: event.id,
+      isDeleted: false
+    }), { maxRecords: 20000 })
+  ])
+
+  return {
+    equipment: sanitizeRead(equipment, equipmentResource, actor),
+    devices: devices.map((item) => sanitizeRead(item, RESOURCES.devices, actor)),
+    records: records.map((item) => sanitizeRead(item, RESOURCES.pressure_records, actor))
+  }
+}
+
 async function handleCreate(event, actor) {
   const resource = getResource(event.resource, actor)
   if (!resource.fields) throw new Error('该数据不允许新建')
@@ -163,10 +196,13 @@ async function handleCreate(event, actor) {
   if (event.resource === 'devices') await validateEquipmentBinding(data, actor)
   if (event.resource === 'pressure_records') await validateRecordBinding(data, actor)
 
+  await ensureCollection('operation_logs')
   const res = await db.collection(resource.collection).add({ data })
   if (event.resource === 'devices' && data.equipmentId) await syncGaugeCount(data.equipmentId)
   if (event.resource === 'pressure_records' && data.deviceId) await syncDeviceSnapshot(data.deviceId)
-  return { data: { _id: res._id, ...data } }
+  const created = { _id: res._id, ...data }
+  await writeOperationLog({ event, actor, operation: 'create', entityId: res._id, before: null, after: created })
+  return { data: created }
 }
 
 async function handleUpdate(event, actor) {
@@ -184,6 +220,7 @@ async function handleUpdate(event, actor) {
   if (event.resource === 'devices' && data.equipmentId && data.equipmentId !== current.equipmentId) {
     await validateEquipmentBinding({ ...current, ...data }, actor)
   }
+  await ensureCollection('operation_logs')
   await db.collection(resource.collection).doc(event.id).update({ data })
 
   if (event.resource === 'devices' && data.equipmentId !== undefined && data.equipmentId !== current.equipmentId) {
@@ -191,6 +228,14 @@ async function handleUpdate(event, actor) {
     if (data.equipmentId) await syncGaugeCount(data.equipmentId)
   }
   if (event.resource === 'pressure_records' && current.deviceId) await syncDeviceSnapshot(current.deviceId)
+  await writeOperationLog({
+    event,
+    actor,
+    operation: 'update',
+    entityId: event.id,
+    before: current,
+    after: { ...current, ...data }
+  })
   return { updated: true }
 }
 
@@ -214,6 +259,7 @@ async function handleSoftDelete(event, actor) {
 
   const now = new Date()
   const deletedBy = actor.type === 'admin' ? actor.username : actor.companyName
+  await ensureCollection('operation_logs')
   await db.collection(resource.collection).doc(event.id).update({
     data: { isDeleted: true, deletedAt: now, deletedBy, deletedById: actor.id, updateTime: now }
   })
@@ -230,6 +276,15 @@ async function handleSoftDelete(event, actor) {
   }
 
   await writeDeletionLog(event.resource, current, actor, now, relatedRecordCount)
+  await writeOperationLog({
+    event,
+    actor,
+    operation: 'delete',
+    entityId: event.id,
+    before: current,
+    after: { ...current, isDeleted: true, deletedAt: now, deletedBy, deletedById: actor.id, updateTime: now },
+    metadata: { relatedRecordCount }
+  })
   if (event.resource === 'devices' && current.equipmentId) await syncGaugeCount(current.equipmentId)
   if (event.resource === 'pressure_records' && current.deviceId) await syncDeviceSnapshot(current.deviceId)
   return { deleted: true, relatedRecordCount }
@@ -261,20 +316,41 @@ async function handleEnterpriseDashboard(event, actor) {
   if (actor.type !== 'enterprise') throw new Error('仅企业账号可访问')
   const base = { enterpriseName: actor.companyName, isDeleted: false }
   const today = formatYmd(new Date())
-  const [equipmentRes, deviceRes, inactiveRes, expiredRes] = await Promise.all([
-    db.collection('equipments').where(base).count(),
+  const [equipments, deviceRes, inactiveRes, expiredRes, inactiveListRes, version] = await Promise.all([
+    fetchAll('equipments', base, {
+      fields: { _id: true, equipmentName: true, equipmentNo: true, location: true, gaugeCount: true },
+      maxRecords: 20000
+    }),
     db.collection('devices').where(base).count(),
     db.collection('devices').where({ ...base, status: _.in(['停用', '报废']) }).count(),
-    db.collection('devices').where({ ...base, latestExpiryDate: _.lt(today) }).count()
+    db.collection('devices').where({ ...base, latestExpiryDate: _.lt(today) }).count(),
+    db.collection('devices')
+      .where({ ...base, status: _.in(['停用', '报废']) })
+      .orderBy('updateTime', 'desc')
+      .limit(5)
+      .field({ _id: true, deviceName: true, factoryNo: true, equipmentName: true, status: true })
+      .get(),
+    getLatestOperationVersion(actor)
   ])
+  const unboundEquipments = equipments.filter((item) => Number(item.gaugeCount || 0) === 0)
   return {
     summary: {
-      equipmentCount: Number(equipmentRes.total || 0),
+      equipmentCount: equipments.length,
       gaugeCount: Number(deviceRes.total || 0),
       expiredCount: Number(expiredRes.total || 0),
       inactiveCount: Number(inactiveRes.total || 0)
-    }
+    },
+    bindingReminder: {
+      count: unboundEquipments.length,
+      items: unboundEquipments.slice(0, 5)
+    },
+    inactiveDevices: inactiveListRes.data || [],
+    version
   }
+}
+
+async function handleGetDataVersion(event, actor) {
+  return { version: await getLatestOperationVersion(actor) }
 }
 
 async function handleAdminDashboardStats(event, actor) {
@@ -298,7 +374,24 @@ async function handleAdminDashboardStats(event, actor) {
 
   return {
     totalEquipments: equipments.length,
-    districtStats
+    districtStats,
+    version: await getLatestOperationVersion(actor)
+  }
+}
+
+async function getLatestOperationVersion(actor) {
+  try {
+    await ensureCollection('operation_logs')
+    let query = db.collection('operation_logs')
+    if (actor.type === 'enterprise') {
+      query = query.where({ enterpriseName: actor.companyName })
+    } else if (actor.role === 'district' && actor.district) {
+      query = query.where({ district: actor.district })
+    }
+    const result = await query.orderBy('timestamp', 'desc').limit(1).field({ timestamp: true }).get()
+    return Number(result.data?.[0]?.timestamp || 0)
+  } catch (error) {
+    return Date.now()
   }
 }
 
@@ -426,6 +519,66 @@ async function writeDeletionLog(resourceName, item, actor, deletedAt, relatedRec
       createTime: deletedAt
     }
   })
+}
+
+async function writeOperationLog({ event, actor, operation, entityId, before, after, metadata = {} }) {
+  const source = ['manual', 'admin', 'ai', 'excel', 'system'].includes(event.source)
+    ? event.source
+    : actor.type === 'admin' ? 'admin' : 'manual'
+  const reference = after || before || {}
+  const now = new Date()
+  await db.collection('operation_logs').add({
+    data: {
+      requestId: clean(event.requestId) || crypto.randomBytes(12).toString('hex'),
+      source,
+      operation,
+      entityType: event.resource,
+      entityId,
+      enterpriseName: clean(reference.enterpriseName || reference.companyName || actor.companyName),
+      district: clean(reference.district || actor.district),
+      operatorType: actor.type,
+      operatorId: actor.id || '',
+      operatorName: actor.type === 'admin' ? actor.username : actor.companyName,
+      before: sanitizeAuditSnapshot(before),
+      after: sanitizeAuditSnapshot(after),
+      metadata: sanitizeAuditSnapshot(metadata),
+      createdAt: now,
+      timestamp: now.getTime()
+    }
+  })
+}
+
+function sanitizeAuditSnapshot(input) {
+  if (!input || typeof input !== 'object') return input || null
+  const blocked = new Set([
+    '_openid', 'openid', 'password', 'passwordHash', 'passwordSalt',
+    'fileID', 'installPhotoFileID', 'rawText', 'imagePath', 'images'
+  ])
+  const output = {}
+  Object.keys(input).slice(0, 80).forEach((key) => {
+    if (blocked.has(key)) return
+    const value = input[key]
+    if (value instanceof Date) output[key] = value
+    else if (Array.isArray(value)) output[key] = value.slice(0, 20).map((item) => typeof item === 'string' ? item.slice(0, 200) : item)
+    else if (value && typeof value === 'object') output[key] = sanitizeAuditSnapshot(value)
+    else if (typeof value === 'string') output[key] = value.slice(0, 500)
+    else output[key] = value
+  })
+  return output
+}
+
+async function ensureCollection(name) {
+  try {
+    await db.collection(name).limit(1).get()
+  } catch (error) {
+    const missing = /collection.*not exist|COLLECTION_NOT_EXIST|集合不存在|DATABASE_COLLECTION_NOT_EXIST/i.test(error.message || '')
+    if (!missing || typeof db.createCollection !== 'function') throw error
+    try {
+      await db.createCollection(name)
+    } catch (createError) {
+      if (!/already exist|已存在/i.test(createError.message || '')) throw createError
+    }
+  }
 }
 
 function normalizeOrderBy(input) {

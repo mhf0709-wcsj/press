@@ -45,7 +45,7 @@ Page({
     const recordId = options.id || ''
     if (!recordId) {
       wx.showToast({ title: '\u7f3a\u5c11\u8bb0\u5f55\u7f16\u53f7', icon: 'none' })
-      setTimeout(() => wx.navigateBack(), 1000)
+      wx.navigateBack()
       return
     }
 
@@ -297,7 +297,7 @@ Page({
             deletedById: enterpriseUser._id || ''
           })
           wx.showToast({ title: '\u5df2\u5220\u9664', icon: 'success' })
-          setTimeout(() => wx.navigateBack(), 1200)
+          wx.navigateBack()
         } catch (error) {
           wx.showToast({ title: '\u5220\u9664\u5931\u8d25', icon: 'none' })
         } finally {

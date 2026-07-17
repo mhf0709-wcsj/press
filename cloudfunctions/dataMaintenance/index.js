@@ -22,7 +22,9 @@ const TARGET_COLLECTIONS = [
   'equipments',
   'devices',
   'pressure_records',
-  'deletion_logs'
+  'deletion_logs',
+  'enterprise_notifications',
+  'operation_logs'
 ]
 
 exports.main = async (event = {}) => {

@@ -668,7 +668,9 @@ async function handleImageExtraction(event) {
         mode: modelData ? 'ai_enhanced' : 'rule_fallback',
         fieldSources: merged.fieldSources,
         fieldConfidence: merged.fieldConfidence,
-        lowConfidenceFields: merged.lowConfidenceFields
+        lowConfidenceFields: merged.lowConfidenceFields,
+        conflictFields: merged.conflictFields,
+        fieldIssues: merged.fieldIssues
       }
     }
   }
@@ -746,26 +748,36 @@ function mergeExtractedRecordFields(ruleData, modelData, rawText) {
   const selected = {}
   const fieldSources = {}
   const fieldConfidence = {}
+  const conflictFields = []
+  const fieldIssues = {}
 
   fields.forEach((field) => {
     const ruleValue = String(ruleData[field] || '').trim()
     const modelValue = String(model[field] || '').trim()
-    const modelSupported = modelValue && isValueSupportedByOcr(field, modelValue, rawText)
-    const value = modelSupported ? modelValue : ruleValue
+    const modelSupported = modelValue && isValueSupportedByOcr(field, modelValue, rawText, ruleValue)
+    const conflict = modelValue && ruleValue && normalizeEvidence(modelValue) !== normalizeEvidence(ruleValue)
+    const preferRule = conflict && isCriticalExtractionField(field) && isValueSupportedByOcr(field, ruleValue, rawText, ruleValue)
+    const value = modelSupported && !preferRule ? modelValue : ruleValue
     selected[field] = value
 
     if (!value) {
       fieldSources[field] = '未识别'
       fieldConfidence[field] = 0
+      fieldIssues[field] = '未识别到有效内容'
     } else if (modelSupported && ruleValue && normalizeEvidence(modelValue) === normalizeEvidence(ruleValue)) {
       fieldSources[field] = '规则与 AI 一致'
       fieldConfidence[field] = 0.98
+    } else if (preferRule) {
+      fieldSources[field] = '规则优先（与 AI 结果冲突）'
+      fieldConfidence[field] = 0.82
+      conflictFields.push(field)
+      fieldIssues[field] = 'AI 与证书标签结果不一致，已采用标签附近内容'
     } else if (modelSupported) {
       fieldSources[field] = 'AI 校正'
       fieldConfidence[field] = 0.86
     } else {
       fieldSources[field] = '规则提取'
-      fieldConfidence[field] = 0.78
+      fieldConfidence[field] = getRuleFieldConfidence(field, ruleValue, rawText)
     }
   })
 
@@ -784,23 +796,68 @@ function mergeExtractedRecordFields(ruleData, modelData, rawText) {
     verificationDate: normalizeDateValue(selected.verificationDate) || ruleData.verificationDate || ''
   }
 
-  const lowConfidenceFields = fields.filter((field) => !data[field] || fieldConfidence[field] < 0.8)
-  return { data, fieldSources, fieldConfidence, lowConfidenceFields }
+  fields.forEach((field) => {
+    if (data[field] && !isExtractedFieldValid(field, data[field], rawText)) {
+      fieldConfidence[field] = Math.min(Number(fieldConfidence[field] || 0.7), 0.55)
+      fieldIssues[field] = fieldIssues[field] || '字段格式异常'
+    }
+  })
+  const lowConfidenceFields = fields.filter((field) => (
+    !data[field] || fieldConfidence[field] < 0.8 || conflictFields.includes(field)
+  ))
+  return { data, fieldSources, fieldConfidence, lowConfidenceFields, conflictFields, fieldIssues }
 }
 
-function isValueSupportedByOcr(field, value, rawText) {
+function isValueSupportedByOcr(field, value, rawText, ruleValue = '') {
   const source = String(rawText || '')
   if (!value || !source) return false
 
   if (field === 'verificationDate') {
     const normalized = normalizeDateValue(value)
     if (!normalized) return false
-    const [year, month, day] = normalized.split('-').map(Number)
-    const pattern = new RegExp(`${year}\\s*(?:年|[.\\-/])\\s*0?${month}\\s*(?:月|[.\\-/])\\s*0?${day}`)
-    return pattern.test(source)
+    const anchored = normalizeDateValue(ruleValue) || extractDate(source)
+    return !!anchored && normalized === anchored
+  }
+
+  if (field === 'modelSpec') {
+    const normalized = normalizeModelSpec(value, source)
+    const anchored = normalizeModelSpec(ruleValue, source)
+    return !!normalized && (!anchored || normalizeEvidence(normalized) === normalizeEvidence(anchored))
+  }
+
+  if (['certNo', 'factoryNo', 'verificationStd', 'conclusion'].includes(field) && ruleValue) {
+    return normalizeEvidence(value) === normalizeEvidence(ruleValue)
   }
 
   return normalizeEvidence(source).includes(normalizeEvidence(value))
+}
+
+function isCriticalExtractionField(field) {
+  return ['certNo', 'factoryNo', 'modelSpec', 'verificationStd', 'conclusion', 'verificationDate'].includes(field)
+}
+
+function getRuleFieldConfidence(field, value, rawText) {
+  if (!value) return 0
+  if (field === 'verificationDate') return normalizeDateValue(value) === extractDate(rawText) ? 0.96 : 0.6
+  if (field === 'modelSpec') return extractPressureRange(value) ? 0.92 : 0.82
+  if (field === 'verificationStd') return /^JJG\s*\d/i.test(value) ? 0.95 : 0.65
+  if (field === 'conclusion') return ['合格', '不合格'].includes(value) ? 0.95 : 0.55
+  if (field === 'certNo') return /^[A-Za-z0-9][A-Za-z0-9\-/]{4,}$/.test(value) ? 0.93 : 0.6
+  if (field === 'factoryNo') return /^[A-Za-z0-9][A-Za-z0-9\-/]{2,}$/.test(value) ? 0.9 : 0.6
+  return normalizeEvidence(rawText).includes(normalizeEvidence(value)) ? 0.84 : 0.7
+}
+
+function isExtractedFieldValid(field, value, rawText) {
+  if (field === 'verificationDate') return !!normalizeDateValue(value)
+  if (field === 'modelSpec') {
+    const compact = String(value).replace(/\s+/g, '').replace(/[/:：/／]+/g, '')
+    return !!compact && !['型号', '规格', '型号规格', '规格型号'].includes(compact) && !/^JJG/i.test(compact)
+  }
+  if (field === 'verificationStd') return /^JJG\s*\d/i.test(value)
+  if (field === 'conclusion') return ['合格', '不合格'].includes(value)
+  if (field === 'certNo') return /^[A-Za-z0-9][A-Za-z0-9\-/]{4,}$/.test(value)
+  if (field === 'factoryNo') return /^[A-Za-z0-9][A-Za-z0-9\-/]{2,}$/.test(value)
+  return normalizeEvidence(rawText).includes(normalizeEvidence(value))
 }
 
 function normalizeEvidence(value) {
@@ -939,7 +996,7 @@ function normalizeModelSpec(value, fullText) {
 }
 
 function getPressureRangePattern() {
-  return /([\(（]?\s*\d+(?:\.\d+)?\s*(?:-|~|～|－|—|–|一|至|到)\s*\d+(?:\.\d+)?\s*[\)）]?\s*(?:k|M|G)?\s*P\s*a)/i
+  return /([\(（]?\s*(?:\d+(?:\.\d+)?|[Oo])\s*(?:-|~|～|－|—|–|一|至|到)\s*(?:\d+(?:\.\d+)?|[Oo])\s*[\)）]?\s*(?:k|M|G)?\s*P\s*a)/i
 }
 
 function extractPressureRange(text) {
@@ -949,6 +1006,7 @@ function extractPressureRange(text) {
     .replace(/（/g, '(')
     .replace(/）/g, ')')
     .replace(/[－—–一到至~～]/g, '-')
+    .replace(/[Oo]/g, '0')
     .replace(/\s+/g, ' ')
     .replace(/\s*-\s*/g, '-')
     .replace(/([kMG])\s*P\s*a/i, (match, prefix) => `${prefix.toUpperCase()}Pa`)
@@ -969,7 +1027,7 @@ function extractConclusion(text) {
 }
 
 function extractDate(text) {
-  const normalized = String(text || '').replace(/\r/g, '\n')
+  const normalized = normalizeOcrDateText(text).replace(/\r/g, '\n')
   const labelMatch = normalized.match(/(?:检定日期|检定日|校准日期)[:：\s]*([^\n]{0,40})/)
   if (labelMatch) {
     const fromLabel = normalizeDateValue(labelMatch[1])
@@ -988,7 +1046,7 @@ function extractDate(text) {
 }
 
 function normalizeDateValue(value) {
-  const text = String(value || '')
+  const text = normalizeOcrDateText(value)
   const match = text.match(/(\d{4})\s*(?:年|[.\-/])\s*(\d{1,2})\s*(?:月|[.\-/])\s*(\d{1,2})\s*(?:日)?/)
   if (!match) return ''
   return buildValidDate(match[1], match[2], match[3])
@@ -1002,6 +1060,10 @@ function buildValidDate(year, month, day) {
   const date = new Date(y, m - 1, d)
   if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) return ''
   return `${year}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+
+function normalizeOcrDateText(value) {
+  return String(value || '').replace(/[Oo](?=\s*(?:\d|年|月|日|[.\/-]))/g, '0')
 }
 
 function formatYmd(date) {
@@ -1041,12 +1103,21 @@ async function resolvePermission(event, openid) {
     if (session.role === 'district' && session.district) {
       return {
         type: 'district_admin',
+        id: session.adminId || '',
+        username: session.username || '',
         scope: session.district,
         query: { district: session.district },
         canQueryAll: false
       }
     }
-    return { type: 'super_admin', scope: '全部辖区', query: {}, canQueryAll: true }
+    return {
+      type: 'super_admin',
+      id: session.adminId || '',
+      username: session.username || '',
+      scope: '全部辖区',
+      query: {},
+      canQueryAll: true
+    }
   }
 
   if (!openid) throw new Error('请先登录')
@@ -1057,6 +1128,8 @@ async function resolvePermission(event, openid) {
   if (enterprise.approvalStatus === 'rejected') throw new Error('企业账号审核未通过')
   return {
     type: 'enterprise',
+    id: enterprise._id || '',
+    username: enterprise.companyName || '',
     scope: enterprise.companyName || '本企业',
     query: { enterpriseName: enterprise.companyName || '' },
     canQueryAll: false

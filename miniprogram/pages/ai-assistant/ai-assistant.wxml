@@ -1,9 +1,9 @@
-﻿<view class="page-shell ai-page">
+<view class="page-shell ai-page">
   <scroll-view
     scroll-y
     class="page-scroll"
     scroll-into-view="{{scrollToView}}"
-    scroll-with-animation="{{true}}"
+    scroll-with-animation="{{false}}"
   >
     <view class="content-wrapper ai-wrapper">
       <view class="ai-hero panel">
@@ -53,7 +53,10 @@
                     />
                     <view class="result-field-list">
                       <view class="result-field" wx:for="{{item.fields}}" wx:key="key">
-                        <text class="result-field-label">{{item.label}}</text>
+                        <view class="result-field-head">
+                          <text class="result-field-label">{{item.label}}</text>
+                          <text class="result-field-review {{item.reviewTone}}" wx:if="{{item.reviewText}}">{{item.reviewText}}</text>
+                        </view>
                         <text class="result-field-value">{{item.value}}</text>
                       </view>
                     </view>

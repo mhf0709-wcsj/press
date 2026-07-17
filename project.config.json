@@ -11,9 +11,9 @@
     "newFeature": true,
     "coverView": true,
     "nodeModules": false,
-    "autoAudits": false,
+    "autoAudits": true,
     "showShadowRootInWxmlPanel": true,
-    "scopeDataCheck": false,
+    "scopeDataCheck": true,
     "uglifyFileName": false,
     "checkInvalidKey": true,
     "checkSiteMap": true,
@@ -72,7 +72,22 @@
   "compileType": "miniprogram",
   "srcMiniprogramRoot": "miniprogram/",
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      { "type": "file", "value": "images/avatar.png" },
+      { "type": "file", "value": "images/tabbar_archive.png" },
+      { "type": "file", "value": "images/tabbar_archive_active.png" },
+      { "type": "file", "value": "images/tabbar_camera.png" },
+      { "type": "file", "value": "images/tabbar_camera_active.png" },
+      { "type": "file", "value": "images/tabbar_user.png" },
+      { "type": "file", "value": "images/tabbar_user_active.png" },
+      { "type": "file", "value": "images/icons/avatar.png" },
+      { "type": "file", "value": "images/icons/business-active.png" },
+      { "type": "file", "value": "images/icons/business.png" },
+      { "type": "file", "value": "images/icons/close.png" },
+      { "type": "file", "value": "images/icons/copy.png" },
+      { "type": "file", "value": "images/icons/home-active.png" },
+      { "type": "file", "value": "images/icons/home.png" }
+    ],
     "include": []
   },
   "editorSetting": {

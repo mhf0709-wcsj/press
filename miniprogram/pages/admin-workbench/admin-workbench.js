@@ -1,5 +1,5 @@
 const authService = require('../../services/auth-service')
-const dataAccess = require('../../services/data-access-service')
+const expiryReminderService = require('../../services/expiry-reminder-service')
 
 const TEXT = {
   heroTopline: '管理端',
@@ -34,16 +34,30 @@ Page({
     displayRole: '',
     loginTime: '',
     entries: [],
-    pendingEnterpriseCount: 0
-  },
-
-  onLoad() {
-    this.loadAdminInfo()
+    workspaceSummary: {
+      pendingEnterpriseCount: 0,
+      pendingReviewCount: 0,
+      overdueCount: 0
+    }
   },
 
   onShow() {
-    this.loadAdminInfo()
-    this.loadPendingEnterpriseCount()
+    this._pageVisible = true
+    if (!this.loadAdminInfo()) return
+
+    const refreshSummary = () => {
+      if (this._pageVisible) this.loadWorkspaceSummary()
+    }
+    if (typeof wx.nextTick === 'function') wx.nextTick(refreshSummary)
+    else setTimeout(refreshSummary, 0)
+  },
+
+  onHide() {
+    this._pageVisible = false
+  },
+
+  onUnload() {
+    this._pageVisible = false
   },
 
   loadAdminInfo() {
@@ -52,7 +66,7 @@ Page({
       wx.redirectTo({
         url: '/pages/admin-login/admin-login'
       })
-      return
+      return false
     }
 
     const isDistrictAdmin = adminInfo.role === 'district' && adminInfo.district
@@ -64,11 +78,19 @@ Page({
       displayRole: isDistrictAdmin ? TEXT.districtRole : TEXT.adminRole,
       loginTime: this.formatDateTime(new Date()),
       adminName: isDistrictAdmin ? `${adminInfo.district}辖区` : '总管理端',
-      entries: this.buildEntries(this.data.pendingEnterpriseCount, isAdmin)
+      entries: this.buildEntries(this.data.workspaceSummary, isAdmin)
     })
+    return true
   },
 
-  buildEntries(pendingEnterpriseCount = this.data.pendingEnterpriseCount, isAdmin = this.data.isAdmin) {
+  buildEntries(summary = this.data.workspaceSummary, isAdmin = this.data.isAdmin) {
+    const pendingEnterpriseCount = Number(summary.pendingEnterpriseCount || 0)
+    const pendingReviewCount = Number(summary.pendingReviewCount || 0)
+    const overdueCount = Number(summary.overdueCount || 0)
+    const noticeSummary = [
+      pendingReviewCount ? `${pendingReviewCount} 项待复核` : '',
+      overdueCount ? `${overdueCount} 项逾期` : ''
+    ].filter(Boolean).join(' · ')
     const entries = [
       {
         key: 'ledger',
@@ -92,20 +114,35 @@ Page({
       {
         key: 'notices',
         title: '企业提醒',
-        subtitle: '发送提醒并查看企业反馈',
+        subtitle: noticeSummary || '发送提醒并查看企业反馈',
         action: 'goToEnterpriseNotices'
       }
     ]
+    return entries
   },
 
-  async loadPendingEnterpriseCount() {
+  async loadWorkspaceSummary() {
+    if (this._summaryLoading) return
+    this._summaryLoading = true
     try {
-      const pendingEnterpriseCount = await dataAccess.count('enterprises', { approvalStatus: 'pending' })
+      const result = await expiryReminderService.getAdminWorkspaceSummary(30, this.data.adminDistrict || '')
+      if (!result?.success) throw new Error(result?.error || '监管待办加载失败')
+      if (!this._pageVisible) return
+      const data = result.data || {}
+      const taskSummary = data.taskSummary || {}
+      const workspaceSummary = {
+        pendingEnterpriseCount: Number(data.pendingEnterpriseCount || 0),
+        pendingReviewCount: Number(taskSummary.pendingReviewCount || 0),
+        overdueCount: Number(taskSummary.overdueCount || 0)
+      }
       this.setData({
-        pendingEnterpriseCount,
-        entries: this.buildEntries(pendingEnterpriseCount, this.data.isAdmin)
+        workspaceSummary,
+        entries: this.buildEntries(workspaceSummary, this.data.isAdmin)
       })
-    } catch (error) {}
+    } catch (error) {
+    } finally {
+      this._summaryLoading = false
+    }
   },
 
   onTapEntry(e) {

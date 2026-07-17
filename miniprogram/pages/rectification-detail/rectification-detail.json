@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "整改任务",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "privacy": "/components/privacy/privacy"
+  }
+}

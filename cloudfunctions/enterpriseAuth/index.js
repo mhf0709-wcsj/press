@@ -1,5 +1,6 @@
 const cloud = require('wx-server-sdk')
 const crypto = require('crypto')
+const { resolveExistingEnterpriseBinding } = require('./binding-policy')
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
@@ -59,7 +60,19 @@ async function updateEnterpriseProfile(event) {
 
   const updateTime = new Date()
   const updateData = { legalPerson, phone, district, updateTime }
+  await ensureCollection('operation_logs')
   await db.collection('enterprises').doc(enterprise._id).update({ data: updateData })
+  await writeAuthOperationLog({
+    operation: 'update_profile',
+    entityType: 'enterprise',
+    entityId: enterprise._id,
+    enterprise,
+    operatorType: 'enterprise',
+    operatorId: enterprise._id,
+    operatorName: enterprise.companyName,
+    before: enterprise,
+    after: { ...enterprise, ...updateData }
+  })
 
   return {
     enterprise: sanitizeEnterprise({
@@ -107,7 +120,7 @@ async function bindEnterprise(event) {
   if (!/^[A-Z0-9]{18}$/.test(creditCode)) throw new Error('请输入正确的统一社会信用代码')
   if (!legalPerson) throw new Error('请输入企业法人')
   if (!/^1[3-9]\d{9}$/.test(phone)) throw new Error('请输入正确的法人手机号')
-  if (!district) throw new Error('请选择所在辖区')
+  if (!ALLOWED_DISTRICTS.includes(district)) throw new Error('请选择正确的所在辖区')
 
   const boundRes = await db.collection('enterprises').where({ openid }).limit(1).get()
   if (boundRes.data?.length) {
@@ -131,12 +144,30 @@ async function bindEnterprise(event) {
       district,
       approvalStatus: 'pending',
       submittedAt: new Date(),
+      bindingReviewRequired: true,
+      bindingRequestType: 'resubmit_enterprise_registration',
+      bindingRequestedAt: new Date(),
+      bindingRequestOpenidHash: sha256(openid),
+      bindingPreviousApprovalStatus: approvalStatus,
       updateTime: new Date(),
       reviewReason: _.remove(),
       reviewedAt: _.remove(),
       reviewedBy: _.remove()
     }
+    await ensureCollection('operation_logs')
     await db.collection('enterprises').doc(boundEnterprise._id).update({ data: updateData })
+    await writeAuthOperationLog({
+      operation: 'binding_request',
+      entityType: 'enterprise',
+      entityId: boundEnterprise._id,
+      enterprise: { ...boundEnterprise, ...updateData },
+      operatorType: 'enterprise',
+      operatorId: boundEnterprise._id,
+      operatorName: companyName,
+      before: boundEnterprise,
+      after: { ...boundEnterprise, ...updateData },
+      metadata: { requestType: updateData.bindingRequestType }
+    })
     return { registered: false, pendingReview: true, approvalStatus: 'pending', companyName }
   }
 
@@ -145,39 +176,51 @@ async function bindEnterprise(event) {
   const now = new Date()
 
   if (existing) {
-    if (existing.openid && existing.openid !== openid) throw new Error('该企业已绑定其他微信账号，请联系管理员')
+    const bindingPolicy = resolveExistingEnterpriseBinding(existing, openid)
+    if (bindingPolicy.mode === 'blocked') throw new Error('该企业已绑定其他微信账号，请联系管理员')
     if (clean(existing.companyName) !== companyName || clean(existing.phone) !== phone) {
       throw new Error('企业名称、信用代码或法人手机号核验不一致')
     }
 
-    const approvalStatus = normalizeApprovalStatus(existing)
-    const nextStatus = approvalStatus === 'approved' ? 'approved' : 'pending'
-    await db.collection('enterprises').doc(existing._id).update({
-      data: {
+    const updateData = {
         openid,
         legalPerson,
         district,
         authType: 'wechat',
         bindTime: now,
-        approvalStatus: nextStatus,
-        submittedAt: nextStatus === 'pending' ? now : (existing.submittedAt || now),
-        lastLoginTime: nextStatus === 'approved' ? now : (existing.lastLoginTime || null),
+        approvalStatus: 'pending',
+        submittedAt: now,
+        bindingReviewRequired: true,
+        bindingRequestType: bindingPolicy.requestType,
+        bindingRequestedAt: now,
+        bindingRequestOpenidHash: sha256(openid),
+        bindingPreviousApprovalStatus: bindingPolicy.previousStatus,
         updateTime: now,
-        ...(nextStatus === 'pending' ? {
-          reviewReason: _.remove(),
-          reviewedAt: _.remove(),
-          reviewedBy: _.remove()
-        } : {})
-      }
+        reviewReason: _.remove(),
+        reviewedAt: _.remove(),
+        reviewedBy: _.remove()
+    }
+    await ensureCollection('operation_logs')
+    await db.collection('enterprises').doc(existing._id).update({ data: updateData })
+    await writeAuthOperationLog({
+      operation: 'binding_request',
+      entityType: 'enterprise',
+      entityId: existing._id,
+      enterprise: { ...existing, ...updateData },
+      operatorType: 'enterprise',
+      operatorId: existing._id,
+      operatorName: companyName,
+      before: existing,
+      after: { ...existing, ...updateData },
+      metadata: { requestType: bindingPolicy.requestType }
     })
 
-    if (nextStatus === 'pending') {
-      return { registered: false, pendingReview: true, approvalStatus: 'pending', companyName }
-    }
     return {
-      registered: true,
-      approvalStatus: 'approved',
-      enterprise: sanitizeEnterprise({ ...existing, openid, legalPerson, district, approvalStatus: 'approved' })
+      registered: false,
+      pendingReview: true,
+      approvalStatus: 'pending',
+      bindingReviewRequired: true,
+      companyName
     }
   }
 
@@ -187,8 +230,8 @@ async function bindEnterprise(event) {
   ])
   if (companyRes.data?.length || phoneRes.data?.length) throw new Error('企业名称或手机号已存在，请联系管理员核验')
 
-  const addRes = await db.collection('enterprises').add({
-    data: {
+  await ensureCollection('operation_logs')
+  const enterpriseData = {
       companyName,
       creditCode,
       legalPerson,
@@ -199,9 +242,29 @@ async function bindEnterprise(event) {
       bindTime: now,
       approvalStatus: 'pending',
       submittedAt: now,
+      bindingReviewRequired: true,
+      bindingRequestType: 'new_enterprise_registration',
+      bindingRequestedAt: now,
+      bindingRequestOpenidHash: sha256(openid),
+      bindingPreviousApprovalStatus: '',
       createTime: now,
       updateTime: now
+  }
+  const addRes = await db.collection('enterprises').add({
+    data: {
+      ...enterpriseData
     }
+  })
+  await writeAuthOperationLog({
+    operation: 'create_registration',
+    entityType: 'enterprise',
+    entityId: addRes._id,
+    enterprise: enterpriseData,
+    operatorType: 'enterprise',
+    operatorId: addRes._id,
+    operatorName: companyName,
+    before: null,
+    after: { _id: addRes._id, ...enterpriseData }
   })
   return {
     registered: false,
@@ -234,9 +297,26 @@ async function reviewEnterprise(event) {
     reviewReason: decision === 'rejected' ? reason : _.remove(),
     reviewedAt: now,
     reviewedBy: session.username || '',
+    bindingReviewRequired: false,
+    bindingReviewDecision: decision,
+    bindingReviewedAt: now,
+    bindingReviewedBy: session.username || '',
     updateTime: now
   }
+  await ensureCollection('operation_logs')
   await db.collection('enterprises').doc(enterpriseId).update({ data: updateData })
+  await writeAuthOperationLog({
+    operation: decision === 'approved' ? 'approve' : 'reject',
+    entityType: 'enterprise',
+    entityId: enterpriseId,
+    enterprise,
+    operatorType: 'admin',
+    operatorId: session.adminId || '',
+    operatorName: session.username || '',
+    before: enterprise,
+    after: { ...enterprise, ...updateData },
+    metadata: { reason: decision === 'rejected' ? reason : '' }
+  })
   return {
     approvalStatus: decision,
     enterprise: sanitizeEnterprise({
@@ -282,6 +362,7 @@ async function createDistrictAdmin(event) {
 
   const passwordData = hashPassword(password)
   const now = new Date()
+  await ensureCollection('operation_logs')
   const addRes = await db.collection('admins').add({
     data: {
       username,
@@ -295,6 +376,11 @@ async function createDistrictAdmin(event) {
       createTime: now,
       updateTime: now
     }
+  })
+  await writeAuthOperationLog({
+    operation: 'create', entityType: 'district_admin', entityId: addRes._id,
+    enterprise: { district }, operatorType: 'admin', operatorId: operator.adminId || '', operatorName: operator.username || '',
+    before: null, after: { _id: addRes._id, username, role: 'district', district, status: 'active' }
   })
   return {
     account: sanitizeManagedAdmin({
@@ -310,7 +396,7 @@ async function createDistrictAdmin(event) {
 }
 
 async function updateDistrictAdmin(event) {
-  await requireSuperAdmin(event.adminToken)
+  const operator = await requireSuperAdmin(event.adminToken)
   const accountId = clean(event.accountId)
   if (!accountId) throw new Error('缺少辖区账号ID')
 
@@ -334,13 +420,19 @@ async function updateDistrictAdmin(event) {
     updateData.passwordChangedAt = new Date()
   }
 
+  await ensureCollection('operation_logs')
   await db.collection('admins').doc(accountId).update({ data: updateData })
   await db.collection('auth_sessions').where({ adminId: accountId }).remove()
+  await writeAuthOperationLog({
+    operation: 'update', entityType: 'district_admin', entityId: accountId,
+    enterprise: current, operatorType: 'admin', operatorId: operator.adminId || '', operatorName: operator.username || '总管理员',
+    before: current, after: { ...current, ...updateData }, metadata: { passwordReset: !!password }
+  })
   return { account: sanitizeManagedAdmin({ ...current, ...updateData }) }
 }
 
 async function deleteDistrictAdmin(event) {
-  await requireSuperAdmin(event.adminToken)
+  const operator = await requireSuperAdmin(event.adminToken)
   const accountId = clean(event.accountId)
   if (!accountId) throw new Error('缺少辖区账号ID')
 
@@ -348,8 +440,14 @@ async function deleteDistrictAdmin(event) {
   const current = currentRes.data
   if (!current || current.role !== 'district') throw new Error('辖区账号不存在')
 
+  await ensureCollection('operation_logs')
   await db.collection('auth_sessions').where({ adminId: accountId }).remove()
   await db.collection('admins').doc(accountId).remove()
+  await writeAuthOperationLog({
+    operation: 'delete', entityType: 'district_admin', entityId: accountId,
+    enterprise: current, operatorType: 'admin', operatorId: operator.adminId || '', operatorName: operator.username || '总管理员',
+    before: current, after: null
+  })
   return { deleted: true, accountId }
 }
 
@@ -479,6 +577,57 @@ async function createAdminSession(data) {
       if (!/already exists|已存在/i.test(createError.message || '')) throw createError
     }
     return db.collection('auth_sessions').add({ data })
+  }
+}
+
+async function writeAuthOperationLog({ operation, entityType, entityId, enterprise, operatorType, operatorId, operatorName, before, after, metadata = {} }) {
+  const now = new Date()
+  await db.collection('operation_logs').add({
+    data: {
+      requestId: crypto.randomBytes(12).toString('hex'),
+      source: 'auth',
+      operation,
+      entityType,
+      entityId,
+      enterpriseName: clean(enterprise?.companyName),
+      district: clean(enterprise?.district),
+      operatorType,
+      operatorId: operatorId || '',
+      operatorName: operatorName || '',
+      before: sanitizeAuthAuditSnapshot(before),
+      after: sanitizeAuthAuditSnapshot(after),
+      metadata: sanitizeAuthAuditSnapshot(metadata),
+      createdAt: now,
+      timestamp: now.getTime()
+    }
+  })
+}
+
+function sanitizeAuthAuditSnapshot(input) {
+  if (!input || typeof input !== 'object') return input || null
+  const blocked = new Set(['_openid', 'openid', 'bindingRequestOpenidHash', 'password', 'passwordHash', 'passwordSalt'])
+  const output = {}
+  Object.keys(input).slice(0, 60).forEach((key) => {
+    if (blocked.has(key)) return
+    const value = input[key]
+    if (value && typeof value === 'object' && !(value instanceof Date)) output[key] = sanitizeAuthAuditSnapshot(value)
+    else if (typeof value === 'string') output[key] = value.slice(0, 300)
+    else output[key] = value
+  })
+  return output
+}
+
+async function ensureCollection(name) {
+  try {
+    await db.collection(name).limit(1).get()
+  } catch (error) {
+    const missing = /collection.*not exist|COLLECTION_NOT_EXIST|集合不存在|DATABASE_COLLECTION_NOT_EXIST/i.test(error.message || '')
+    if (!missing || typeof db.createCollection !== 'function') throw error
+    try {
+      await db.createCollection(name)
+    } catch (createError) {
+      if (!/already exist|已存在/i.test(createError.message || '')) throw createError
+    }
   }
 }
 

@@ -1,6 +1,0 @@
-<view class="legacy-page">
-  <view class="legacy-card">
-    <view class="legacy-title">{{title}}</view>
-    <view class="legacy-subtitle">{{subtitle}}</view>
-  </view>
-</view>

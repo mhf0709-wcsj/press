@@ -1,0 +1,32 @@
+<view class="page-shell rectification-page">
+  <scroll-view scroll-y class="rectification-scroll">
+    <view class="content-wrapper rectification-wrapper">
+      <view class="panel">
+        <view class="panel-section">
+          <view class="eyebrow">监管事项</view>
+          <view class="page-title">整改任务</view>
+        </view>
+      </view>
+
+      <view class="task-filters">
+        <view class="filter-item {{statusFilter === item.key ? 'active' : ''}}" wx:for="{{filters}}" wx:key="key" data-status="{{item.key}}" bindtap="changeFilter">{{item.label}}</view>
+      </view>
+
+      <view class="task-list" wx:if="{{tasks.length}}">
+        <view class="panel task-card" wx:for="{{tasks}}" wx:key="_id" data-id="{{item._id}}" bindtap="openTask">
+          <view class="panel-section">
+            <view class="task-head">
+              <text class="task-title">{{item.title}}</text>
+              <text class="task-status {{item.statusClass}}">{{item.statusText}}</text>
+            </view>
+            <text class="task-content">{{item.content}}</text>
+            <view class="task-meta"><text>期限 {{item.dueDate || '未设置'}}</text><text>{{item.createdBy || '监管人员'}}</text></view>
+          </view>
+        </view>
+      </view>
+
+      <view class="empty-state" wx:if="{{!tasks.length && !loading}}">暂无整改任务</view>
+      <view class="empty-state" wx:if="{{loading}}">加载中...</view>
+    </view>
+  </scroll-view>
+</view>

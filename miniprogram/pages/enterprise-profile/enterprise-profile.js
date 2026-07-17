@@ -65,7 +65,7 @@ Page({
       if (!result.enterprise) throw new Error('保存失败，请重试')
       storage.setEnterpriseUser(result.enterprise)
       wx.showToast({ title: '企业资料已更新', icon: 'success' })
-      setTimeout(() => wx.navigateBack(), 800)
+      wx.navigateBack()
     } catch (error) {
       wx.showToast({ title: error.message || '保存失败，请重试', icon: 'none' })
     } finally {

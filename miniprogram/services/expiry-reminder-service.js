@@ -206,6 +206,19 @@ class ExpiryReminderService {
     }
   }
 
+  async getAdminWorkspaceSummary(days = 30, district = '') {
+    try {
+      const res = await callExpiryFunction({
+        action: 'getAdminWorkspaceSummary',
+        days,
+        district
+      })
+      return res.result || { success: false, error: '获取监管工作区失败' }
+    } catch (error) {
+      return { success: false, error: error.message || '获取监管工作区失败' }
+    }
+  }
+
   async syncDeletedDeviceRecords(district = '') {
     const res = await callExpiryFunction({
       action: 'syncDeletedDeviceRecords',
@@ -272,6 +285,18 @@ class ExpiryReminderService {
     }
   }
 
+  async listEnterpriseRectificationTasks(status = '') {
+    try {
+      const res = await callExpiryFunction({
+        action: 'getEnterpriseNotices',
+        payload: { includeAll: true, status }
+      })
+      return res.result || { success: false, error: '获取整改任务失败' }
+    } catch (error) {
+      return { success: false, error: error.message || '获取整改任务失败' }
+    }
+  }
+
   async updateEnterpriseNoticeStatus(noticeId, status) {
     try {
       const res = await callExpiryFunction({
@@ -294,6 +319,30 @@ class ExpiryReminderService {
     } catch (error) {
       return { success: false, error: error.message || '获取提醒记录失败' }
     }
+  }
+
+  async getRectificationTask(noticeId) {
+    const res = await callExpiryFunction({
+      action: 'getRectificationTask',
+      payload: { noticeId }
+    })
+    return res.result || { success: false, error: '获取整改任务失败' }
+  }
+
+  async submitRectification(noticeId, response, evidenceFileIds = []) {
+    const res = await callExpiryFunction({
+      action: 'submitRectification',
+      payload: { noticeId, response, evidenceFileIds }
+    })
+    return res.result || { success: false, error: '提交整改材料失败' }
+  }
+
+  async reviewRectification(noticeId, decision, comment = '') {
+    const res = await callExpiryFunction({
+      action: 'reviewRectification',
+      payload: { noticeId, decision, comment }
+    })
+    return res.result || { success: false, error: '复核整改任务失败' }
   }
 
   async saveAlertSettings(enterpriseUser, settings = {}) {

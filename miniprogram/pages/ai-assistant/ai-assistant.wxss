@@ -299,10 +299,32 @@
   background: rgba(17, 24, 39, 0.03);
 }
 
+.result-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
 .result-field-label {
   display: block;
   font-size: var(--font-size-caption);
   color: var(--color-text-tertiary);
+}
+
+.result-field-review {
+  padding: 4rpx 10rpx;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 159, 10, 0.1);
+  color: #9a6700;
+  font-size: 20rpx;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.result-field-review.risk {
+  background: rgba(255, 59, 48, 0.1);
+  color: #b42318;
 }
 
 .result-field-value {

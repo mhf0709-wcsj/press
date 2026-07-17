@@ -23,7 +23,7 @@ Page({
     const admin = storage.getAdminUser()
     if (!admin || !['admin', 'super_admin'].includes(admin.role)) {
       wx.showToast({ title: '仅总管理员可以访问', icon: 'none' })
-      setTimeout(() => wx.navigateBack(), 500)
+      wx.navigateBack()
       return
     }
     this.loadAccounts()

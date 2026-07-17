@@ -18,6 +18,8 @@
     "pages/admin-workbench/admin-workbench",
     "pages/admin-accounts/admin-accounts",
     "pages/admin-notices/admin-notices",
+    "pages/rectification-detail/rectification-detail",
+    "pages/rectification-list/rectification-list",
     "pages/enterprise-list/enterprise-list",
     "pages/district-list/district-list"
   ],
@@ -54,6 +56,7 @@
     ]
   },
   "style": "v2",
+  "lazyCodeLoading": "requiredComponents",
   "__usePrivacyCheck__": true
 }
 

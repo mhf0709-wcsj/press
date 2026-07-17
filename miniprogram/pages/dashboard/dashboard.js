@@ -1,5 +1,4 @@
 const { runSingleFlight } = require('../../utils/request-control')
-const dataAccess = require('../../services/data-access-service')
 const expiryReminderService = require('../../services/expiry-reminder-service')
 
 const TEXT = {
@@ -12,6 +11,10 @@ const TEXT = {
   districtStatsTitle: '\u8f96\u533a\u7edf\u8ba1',
   districtStatsDesc: '\u6309\u8bbe\u5907\u6240\u5c5e\u8f96\u533a\u6c47\u603b',
   emptyDistrictStats: '\u6682\u65e0\u8f96\u533a\u6570\u636e',
+  taskTitle: '监管待办',
+  pendingEnterprise: '待审核企业',
+  pendingReview: '待复核整改',
+  overdueTask: '逾期整改',
   riskTitle: '\u98ce\u9669\u63d0\u9192',
   riskDesc: '',
   enterpriseRiskTitle: '\u91cd\u70b9\u4f01\u4e1a',
@@ -46,6 +49,11 @@ Page({
     expiryEnterprises: [],
     districtStats: [],
     totalDistrictEquipments: 0,
+    taskSummary: {
+      pendingEnterpriseCount: 0,
+      pendingReviewCount: 0,
+      overdueCount: 0
+    },
     adminName: '',
     adminDistrict: '',
     isAdmin: true,
@@ -64,7 +72,7 @@ Page({
 
   onShow() {
     if (!this.hasLoadedOnce || !this.data.adminName) return
-    this.loadAllData()
+    this.loadAllData({ silent: true })
   },
 
   onPullDownRefresh() {
@@ -93,32 +101,48 @@ Page({
   },
 
   loadAllData(options = {}) {
-    return runSingleFlight(this, 'loadAllData', () => this.performLoadAllData(), {
+    return runSingleFlight(this, 'loadAllData', () => this.performLoadAllData(options), {
       queueLatest: !!options.force
     })
   },
 
-  async performLoadAllData() {
-    this.setData({ loading: true })
-    wx.showLoading({ title: TEXT.loading })
+  async performLoadAllData(options = {}) {
+    if (!options.silent) this.setData({ loading: true })
 
     try {
-      await this.syncDeletedDeviceRecords()
-      const tasks = [
-        this.loadOverviewData(),
-        this.loadExpiryData()
-      ]
+      const result = await expiryReminderService.getAdminWorkspaceSummary(30, this.data.adminDistrict || '')
+      if (!result?.success) throw new Error(result?.error || '监管数据加载失败')
 
-      if (this.data.isAdmin) {
-        tasks.push(this.loadDistrictStats())
-      } else {
-        this.setData({
-          districtStats: [],
-          totalDistrictEquipments: 0
-        })
-      }
+      const data = result.data || {}
+      const summary = data.summary || {}
+      const taskSummary = data.taskSummary || {}
+      const totalDistrictEquipments = Number(data.totalDistrictEquipments || 0)
+      const districtStats = this.data.isAdmin
+        ? (data.districtStats || []).map((item) => ({
+          ...item,
+          percent: totalDistrictEquipments > 0
+            ? Math.round(Number(item.count || 0) / totalDistrictEquipments * 100)
+            : 0
+        })).slice(0, 6)
+        : []
 
-      await Promise.all(tasks)
+      this.setData({
+        'overviewData.totalRecords': Number(summary.totalRecords || 0),
+        expirySummary: {
+          expiredCount: Number(summary.expiredCount || 0),
+          expiringCount: Number(summary.expiringCount || 0),
+          enterpriseCount: Number(summary.enterpriseCount || 0)
+        },
+        expiryEnterprises: (data.enterpriseStats || []).slice(0, 5),
+        districtStats,
+        totalDistrictEquipments: this.data.isAdmin ? totalDistrictEquipments : 0,
+        taskSummary: {
+          pendingEnterpriseCount: Number(data.pendingEnterpriseCount || 0),
+          pendingReviewCount: Number(taskSummary.pendingReviewCount || 0),
+          overdueCount: Number(taskSummary.overdueCount || 0)
+        }
+      })
+      this.loadedServerVersion = Number(data.version || 0)
       this.maybeOpenAdminReminder()
     } catch (error) {
       console.error('Dashboard load failed:', error)
@@ -128,64 +152,7 @@ Page({
       })
     } finally {
       this.hasLoadedOnce = true
-      wx.hideLoading()
       this.setData({ loading: false })
-    }
-  },
-
-  async syncDeletedDeviceRecords() {
-    try {
-      await expiryReminderService.syncDeletedDeviceRecords(this.data.adminDistrict || '')
-    } catch (error) {}
-  },
-
-  async loadOverviewData() {
-    const total = await dataAccess.count('pressure_records', { isDeleted: { neq: true } })
-    this.setData({
-      'overviewData.totalRecords': total
-    })
-  },
-
-  async loadExpiryData() {
-    const result = await expiryReminderService.getExpiringSummary(30, this.data.adminDistrict || '')
-    if (!result || !result.success) {
-      throw new Error('Expiry summary failed.')
-    }
-
-    const summary = result.data?.summary || {}
-    const enterprises = (result.data?.enterpriseStats || []).slice(0, 5)
-
-    this.setData({
-      expirySummary: {
-        expiredCount: summary.expiredCount || 0,
-        expiringCount: summary.expiringCount || 0,
-        enterpriseCount: summary.enterpriseCount || 0
-      },
-      expiryEnterprises: enterprises
-    })
-  },
-
-  async loadDistrictStats() {
-    try {
-      const result = await dataAccess.request('getAdminDashboardStats')
-      const total = Number(result.totalEquipments || 0)
-      const districtStats = (result.districtStats || [])
-        .map((item) => ({
-          ...item,
-          percent: total > 0 ? Math.round(Number(item.count || 0) / total * 100) : 0
-        }))
-        .slice(0, 6)
-
-      this.setData({
-        districtStats,
-        totalDistrictEquipments: total
-      })
-    } catch (error) {
-      console.error('District stats load failed:', error)
-      this.setData({
-        districtStats: [],
-        totalDistrictEquipments: 0
-      })
     }
   },
 
@@ -265,6 +232,16 @@ Page({
     wx.navigateTo({
       url: `/pages/admin/admin?from=dashboard&filter=${filter}`
     })
+  },
+
+  onTapTask(e) {
+    const type = e.currentTarget.dataset.type
+    if (type === 'enterprise') {
+      wx.navigateTo({ url: '/pages/enterprise-list/enterprise-list' })
+      return
+    }
+    const status = type === 'pendingReview' ? 'pending_review' : 'overdue'
+    wx.navigateTo({ url: `/pages/admin-notices/admin-notices?status=${status}` })
   },
 
   goToLedger() {

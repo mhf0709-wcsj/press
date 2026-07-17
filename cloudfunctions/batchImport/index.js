@@ -135,6 +135,7 @@ async function commitExcel(event, actor) {
   const results = []
   const touchedDeviceIds = new Set()
   const touchedEquipmentIds = new Set()
+  await ensureCollection('operation_logs')
 
   for (const input of inputRows) {
     const rowNo = Number(input.rowNo || 0)
@@ -187,6 +188,36 @@ async function commitExcel(event, actor) {
   await runInChunks([...touchedEquipmentIds], 5, syncGaugeCount)
   await runInChunks([...touchedDeviceIds], 5, syncDeviceSnapshot)
 
+  const successful = results.filter((item) => item.status === 'success')
+  if (successful.length) {
+    const now = new Date()
+    await db.collection('operation_logs').add({
+      data: {
+        requestId: clean(event.requestId) || `excel-${now.getTime()}-${Math.random().toString(16).slice(2)}`,
+        source: 'excel',
+        operation: 'batch_create',
+        entityType: 'pressure_records',
+        entityId: '',
+        entityIds: successful.map((item) => item.id).filter(Boolean).slice(0, MAX_ROWS),
+        enterpriseName: actor.companyName,
+        district: actor.district,
+        operatorType: 'enterprise',
+        operatorId: actor.id,
+        operatorName: actor.companyName,
+        before: null,
+        after: {
+          total: results.length,
+          successCount: successful.length,
+          duplicateCount: results.filter((item) => item.status === 'duplicate').length,
+          errorCount: results.filter((item) => item.status === 'error').length
+        },
+        metadata: { importMode: 'excel' },
+        createdAt: now,
+        timestamp: now.getTime()
+      }
+    })
+  }
+
   return {
     success: true,
     data: {
@@ -195,6 +226,20 @@ async function commitExcel(event, actor) {
       duplicateCount: results.filter((item) => item.status === 'duplicate').length,
       errorCount: results.filter((item) => item.status === 'error').length,
       results
+    }
+  }
+}
+
+async function ensureCollection(name) {
+  try {
+    await db.collection(name).limit(1).get()
+  } catch (error) {
+    const missing = /collection.*not exist|COLLECTION_NOT_EXIST|集合不存在|DATABASE_COLLECTION_NOT_EXIST/i.test(error.message || '')
+    if (!missing || typeof db.createCollection !== 'function') throw error
+    try {
+      await db.createCollection(name)
+    } catch (createError) {
+      if (!/already exist|已存在/i.test(createError.message || '')) throw createError
     }
   }
 }

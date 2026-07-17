@@ -15,7 +15,6 @@
 - 压力表支持换绑所属设备
 - 压力表列表支持左滑删除，删除后管理端留痕
 - 管理端查看总览、风险企业、台账和删除记录
-- PC 网页监管端通过 `webAdmin` 云函数读取同一套云数据
 
 下线能力：
 
@@ -38,6 +37,8 @@
 - `auth_sessions`：管理端短期会话，仅云函数可读写
 - `kb_docs`、`kb_chunks`：AI 知识库
 - `enterprise_alert_settings`、`expiry_alert_logs`：提醒配置和日志
+- `enterprise_notifications`：监管整改任务、企业反馈和复核状态
+- `operation_logs`：人工、AI、Excel、审核及整改操作的统一审计日志
 
 业务关系：
 
@@ -88,6 +89,18 @@
 - `enterpriseName ASC + createTime DESC`：企业端记录列表
 - `enterpriseName ASC + _openid ASC + expiryDate ASC`：企业端到期统计
 - `enterpriseName ASC + status ASC + createTime DESC`：按状态筛选
+
+`enterprise_notifications`：
+
+- `enterpriseId ASC + status ASC + createdAt DESC`：企业待办提醒
+- `district ASC + taskStatus ASC + createdAt DESC`：管理端整改任务
+
+`operation_logs`：
+
+- `enterpriseName ASC + timestamp DESC`：企业端跨端版本检查与操作轨迹
+- `district ASC + timestamp DESC`：辖区管理端跨端版本检查与审计查询
+- `timestamp DESC`：总管理端全局数据版本检查
+- `entityType ASC + entityId ASC + createdAt DESC`：单条数据变更历史
 - `enterpriseName ASC + deviceId ASC + createTime DESC`：压力表详情历史记录
 - `district ASC + expiryDate ASC + status ASC`：管理端辖区风险查询
 - `expiryDate ASC + status ASC`：全局到期查询
@@ -97,6 +110,8 @@
 - `enterpriseName ASC + createTime DESC`：企业端压力表列表
 - `enterpriseName ASC + equipmentId ASC + status ASC`：设备详情绑定压力表
 - `enterpriseName ASC + isDeleted ASC + createTime DESC`：过滤已删除压力表
+- `enterpriseName ASC + isDeleted ASC + status ASC + updateTime DESC`：设备中心停用/报废列表
+- `enterpriseName ASC + isDeleted ASC + latestExpiryDate ASC`：设备中心逾期统计
 
 `equipments`：
 
@@ -157,12 +172,13 @@ AI 管家不能直接绕过业务规则改库，推荐链路是：
 - 小程序开发者工具重新编译，无 WXML / JS 报错。
 - 运行代码中无明显乱码。
 - 运行代码中无旧功能入口引用。
+- 启用组件按需注入、代码压缩、WXML/WXSS 压缩和 `setData` 数据校验。
+- 业务成功后立即跳转，不使用人为延时制造等待。
 - 根目录不保留无用 `node_modules`、测试包、临时文件。
 
 云函数检查：
 
-- 正式环境部署 `aiAssistant`、`baiduOcr`、`enterpriseAuth`、`dataAccess`、`expiryReminder`、`initAdmin`。
-- `webAdmin` 默认停用，不作为小程序正式版依赖。
+- 正式环境部署 `aiAssistant`、`baiduOcr`、`batchImport`、`enterpriseAuth`、`dataAccess`、`expiryReminder`、`initAdmin`、`dataMaintenance`。
 - 环境变量已在云开发控制台配置。
 - 正式环境和体验版使用同一个目标云环境。
 
@@ -173,6 +189,8 @@ AI 管家不能直接绕过业务规则改库，推荐链路是：
 - AI 管家可上传图片并识别。
 - 识别后可确认、修改并保存。
 - 压力表列表可点击详情。
+- 管理端可下发带期限的整改任务，企业可提交说明和图片，管理端可复核通过或退回。
+- 新增、修改、删除、AI、Excel、审核和整改操作均写入 `operation_logs`。
 - 左滑删除后列表立即刷新。
 - 删除后设备绑定数量同步更新。
 
@@ -228,6 +246,9 @@ AI 管家不能直接绕过业务规则改库，推荐链路是：
 - `deletion_logs`
 - `lifecycle_logs`
 - `enterprise_alert_settings`
+- `enterprise_notifications`
+- `expiry_alert_logs`
+- `operation_logs`
 - `kb_docs`
 - `kb_chunks`
 
@@ -238,8 +259,7 @@ AI 管家不能直接绕过业务规则改库，推荐链路是：
 每次上传体验版或正式版之前，在项目根目录执行：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/security-audit.ps1
-node tests/ai-extraction/run.js
+powershell -ExecutionPolicy Bypass -File scripts/pre-release-check.ps1
 ```
 
 安全脚本检查正式版云函数是否完整、前端是否绕过云函数直连数据库、是否存在常见硬编码密钥，以及隐私检查、sitemap 和 JavaScript 语法是否正常。

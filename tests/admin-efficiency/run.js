@@ -1,0 +1,37 @@
+const assert = require('assert')
+const fs = require('fs')
+const path = require('path')
+
+const root = path.resolve(__dirname, '../..')
+const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
+
+const reminderFunction = read('cloudfunctions/expiryReminder/index.js')
+const reminderService = read('miniprogram/services/expiry-reminder-service.js')
+const dashboard = read('miniprogram/pages/dashboard/dashboard.js')
+const dashboardView = read('miniprogram/pages/dashboard/dashboard.wxml')
+const workbench = read('miniprogram/pages/admin-workbench/admin-workbench.js')
+const notices = read('miniprogram/pages/admin-notices/admin-notices.js')
+const noticesView = read('miniprogram/pages/admin-notices/admin-notices.wxml')
+
+assert(reminderFunction.includes("case 'getAdminWorkspaceSummary':"))
+assert(reminderFunction.includes('async function getAdminWorkspaceSummary'))
+assert(reminderFunction.includes('pendingEnterpriseCount: Number(pendingEnterpriseResult.total || 0)'))
+assert(reminderFunction.includes('pendingReviewCount'))
+assert(reminderFunction.includes('overdueCount'))
+assert(reminderFunction.includes("payload.status === 'overdue'"))
+assert(reminderService.includes('async getAdminWorkspaceSummary'))
+
+assert(dashboard.includes('expiryReminderService.getAdminWorkspaceSummary'))
+assert(!dashboard.includes("dataAccess.request('getAdminDashboardStats')"))
+assert(!dashboard.includes("dataAccess.request('getDataVersion')"))
+assert(dashboardView.includes('data-type="enterprise"'))
+assert(dashboardView.includes('data-type="pendingReview"'))
+assert(dashboardView.includes('data-type="overdue"'))
+
+assert(workbench.includes('loadWorkspaceSummary'))
+assert(workbench.includes('pendingReviewCount'))
+assert(workbench.includes('overdueCount'))
+assert(notices.includes("{ key: 'overdue', label: '逾期整改' }"))
+assert(noticesView.includes('data-status="overdue"'))
+
+console.log('Admin efficiency regression passed: 18/18')
